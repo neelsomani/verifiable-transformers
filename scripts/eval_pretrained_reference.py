@@ -56,7 +56,7 @@ def compute_ppl_and_loss(model, tokenizer, text: str, block_size: int, stride: i
 
 def load_owt_validation_text(percent: float, max_samples: int):
     train_end = max(0.0, 100.0 - percent)
-    split = f"train[{train_end:.2f}%:]"
+    split = f"train[{train_end:g}%:]"
     dataset = load_dataset("openwebtext", split=split)
     if max_samples is not None:
         dataset = dataset.select(range(min(max_samples, len(dataset))))
