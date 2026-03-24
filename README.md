@@ -64,6 +64,13 @@ python scripts/eval_pretrained_reference.py \
   --output_json artifacts/pretrained-gpt2-reference-metrics.json
 ```
 
+Current local reference snapshot (from `artifacts/pretrained-gpt2-reference-metrics.json`):
+
+- OpenWebText validation (`eval_percent=1.0`, `max_samples=10000`): loss `3.1187`, perplexity `22.6160`
+- WikiText-103 validation (`max_samples=null`, full split): loss `3.4353`, perplexity `31.0403`
+
+These values are a local anchor for relative comparisons. Minor drift is expected across environments and dependency versions.
+
 Then train the local baseline:
 
 ```bash
@@ -88,6 +95,7 @@ Checkpoint resume behavior:
 - To continue for more iterations, rerun with a larger `--max_steps`.
 - To resume from a specific checkpoint, use `--resume_from_checkpoint <path>`.
 - To disable auto-resume, pass `--disable_auto_resume`.
+- Run progress heartbeat is written to `output_dir/run_status.json` (stages like preprocessing, training, done, failed, interrupted).
 
 Distributed launch example (8 GPUs):
 
