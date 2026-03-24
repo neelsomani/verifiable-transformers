@@ -24,6 +24,26 @@ To target benchmark-quality replication (matching OpenWebText validation loss an
 - Storage: `200GB+` fast SSD for dataset cache/checkpoints/logs
 - CPU: `16+` cores preferred for data loading/tokenization
 
+Note for RunPod:
+
+```bash
+mkdir -p /workspace/.cache /workspace/.config /workspace/.git-templates
+mkdir -p /workspace/.hf/{datasets,transformers,hub,tmp,accelerate}
+export HOME=/workspace
+export XDG_CACHE_HOME=/workspace/.cache
+export XDG_CONFIG_HOME=/workspace/.config
+export GIT_CONFIG_GLOBAL=/workspace/.gitconfig
+export GIT_CONFIG_SYSTEM=/workspace/.gitconfig_system
+export GIT_TEMPLATE_DIR=/workspace/.git-templates
+export HF_HOME=/workspace/.hf
+export HF_DATASETS_CACHE=/workspace/.hf/datasets
+export TRANSFORMERS_CACHE=/workspace/.hf/transformers
+export HUGGINGFACE_HUB_CACHE=/workspace/.hf/hub
+export HF_DATASETS_TMP=/workspace/.hf/tmp
+export ACCELERATE_CONFIG_DIR=/workspace/.hf/accelerate
+export PIP_CACHE_DIR=/workspace/.cache/pip
+```
+
 ## Step 1: Baseline GPT-2 (Open-Source)
 
 This repository includes a reproducible baseline using `gpt2` (124M) with OpenWebText training and WikiText-103 evaluation.
@@ -50,6 +70,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Or on RunPod:
+
+```bash
+python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+python -c "import torch; print(torch.__version__)"
+
+pip install --upgrade pip
+pip install transformers datasets evaluate tqdm matplotlib psutil pyyaml packaging huggingface_hub safetensors
+pip install accelerate --no-deps
+```
+
 If your environment already provides PyTorch (for example, RunPod images), install only the project dependencies above and keep the preinstalled torch build.
 
 ### Train (OWT)
@@ -71,10 +103,10 @@ Current local reference snapshot (from `artifacts/pretrained-gpt2-reference-metr
 
 These values are a local anchor for relative comparisons. Minor drift is expected across environments and dependency versions.
 
-Then train the local baseline:
+Then train the local baseline (8 GPUs):
 
 ```bash
-python scripts/train_step1.py \
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
   --config configs/step1_gpt2_small_openwebtext.json \
   --output_dir artifacts/step1-gpt2-small-openwebtext
 ```
@@ -96,14 +128,6 @@ Checkpoint resume behavior:
 - To resume from a specific checkpoint, use `--resume_from_checkpoint <path>`.
 - To disable auto-resume, pass `--disable_auto_resume`.
 - Run progress heartbeat is written to `output_dir/run_status.json` (stages like preprocessing, training, done, failed, interrupted).
-
-Distributed launch example (8 GPUs):
-
-```bash
-torchrun --nproc_per_node=8 scripts/train_step1.py \
-  --config configs/step1_gpt2_small_openwebtext.json \
-  --output_dir artifacts/step1-gpt2-small-openwebtext
-```
 
 For quick smoke tests:
 
