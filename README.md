@@ -50,6 +50,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+If your environment already provides PyTorch (for example, RunPod images), install only the project dependencies above and keep the preinstalled torch build.
+
 ### Train (OWT)
 
 Run this first to record pretrained GPT-2 reference numbers with the same evaluation protocol:
