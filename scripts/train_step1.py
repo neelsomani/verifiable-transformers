@@ -3,6 +3,7 @@ import json
 import math
 import os
 import re
+import shutil
 import time
 from datetime import datetime, timezone
 from itertools import chain
@@ -149,6 +150,26 @@ def get_distributed_context():
     return rank, world_size
 
 
+def processed_dataset_ready_marker_path(processed_dataset_dir: str) -> str:
+    return os.path.join(processed_dataset_dir, "_READY")
+
+
+def is_processed_dataset_ready(processed_dataset_dir: str) -> bool:
+    if not os.path.isdir(processed_dataset_dir):
+        return False
+    if os.path.isfile(processed_dataset_ready_marker_path(processed_dataset_dir)):
+        return True
+    dataset_dict_file = os.path.join(processed_dataset_dir, "dataset_dict.json")
+    train_dir = os.path.join(processed_dataset_dir, "train")
+    validation_dir = os.path.join(processed_dataset_dir, "validation")
+    return os.path.isfile(dataset_dict_file) and os.path.isdir(train_dir) and os.path.isdir(validation_dir)
+
+
+def mark_processed_dataset_ready(processed_dataset_dir: str) -> None:
+    with open(processed_dataset_ready_marker_path(processed_dataset_dir), "w", encoding="utf-8") as handle:
+        json.dump({"ready": True, "updated_at_utc": datetime.now(timezone.utc).isoformat()}, handle)
+
+
 def default_processed_dataset_dir(args, cfg) -> str:
     train_tag = "all" if args.max_train_samples is None else str(args.max_train_samples)
     eval_tag = "all" if args.max_eval_samples is None else str(args.max_eval_samples)
@@ -262,7 +283,7 @@ def main() -> None:
         if args.streaming:
             raise ValueError("Streaming mode is not supported with Trainer in this script.")
         else:
-            if os.path.isdir(processed_dataset_dir):
+            if is_processed_dataset_ready(processed_dataset_dir):
                 write_run_status(
                     args.output_dir,
                     status="running",
@@ -282,7 +303,7 @@ def main() -> None:
                     print(
                         f"Rank {rank} waiting for rank 0 to preprocess dataset at: {processed_dataset_dir}"
                     )
-                    while not os.path.isdir(processed_dataset_dir):
+                    while not is_processed_dataset_ready(processed_dataset_dir):
                         time.sleep(10)
                     lm_datasets = load_from_disk(processed_dataset_dir)
                 else:
@@ -292,6 +313,9 @@ def main() -> None:
                         stage="preprocessing_dataset",
                         extra={"processed_dataset_dir": processed_dataset_dir, "rank": rank},
                     )
+                    if os.path.isdir(processed_dataset_dir):
+                        print(f"Removing incomplete processed dataset dir: {processed_dataset_dir}")
+                        shutil.rmtree(processed_dataset_dir)
                     raw_train = load_dataset(dataset_name, split="train[:-1%]")
                     raw_eval = load_dataset(dataset_name, split="train[-1%:]")
                     if args.max_train_samples is not None:
@@ -308,6 +332,7 @@ def main() -> None:
                     )
                     os.makedirs(os.path.dirname(processed_dataset_dir), exist_ok=True)
                     lm_datasets.save_to_disk(processed_dataset_dir)
+                    mark_processed_dataset_ready(processed_dataset_dir)
                     print(f"Saved preprocessed dataset to: {processed_dataset_dir}")
 
         data_collator = default_data_collator
