@@ -20,6 +20,7 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
+import transformers
 
 
 class EvalLossThresholdStopCallback(TrainerCallback):
@@ -224,6 +225,11 @@ def tokenize_and_group(
 def main() -> None:
     args = parse_args()
     cfg = load_config(args.config)
+    if transformers.__version__ != "5.3.0":
+        raise RuntimeError(
+            f"Expected transformers==5.3.0, found {transformers.__version__}. "
+            "Install with: pip install transformers==5.3.0"
+        )
     set_seed(cfg["seed"])
     os.makedirs(args.output_dir, exist_ok=True)
     write_run_status(args.output_dir, status="running", stage="initializing")
@@ -339,7 +345,6 @@ def main() -> None:
 
         training_args = TrainingArguments(
             output_dir=args.output_dir,
-            overwrite_output_dir=False,
             do_train=True,
             do_eval=True,
             per_device_train_batch_size=cfg["train_batch_size_per_device"],
@@ -354,7 +359,7 @@ def main() -> None:
             max_steps=args.max_steps if args.max_steps is not None else cfg["max_steps"],
             warmup_steps=cfg["warmup_steps"],
             lr_scheduler_type=cfg["lr_scheduler_type"],
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             eval_steps=cfg["eval_steps"],
             save_steps=cfg["save_steps"],
             logging_steps=cfg["logging_steps"],
@@ -379,7 +384,7 @@ def main() -> None:
             args=training_args,
             train_dataset=lm_datasets["train"],
             eval_dataset=lm_datasets["validation"],
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             data_collator=data_collator,
             callbacks=callbacks,
         )
