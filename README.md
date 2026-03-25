@@ -42,6 +42,8 @@ export HUGGINGFACE_HUB_CACHE=/workspace/.hf/hub
 export HF_DATASETS_TMP=/workspace/.hf/tmp
 export ACCELERATE_CONFIG_DIR=/workspace/.hf/accelerate
 export PIP_CACHE_DIR=/workspace/.cache/pip
+export TMPDIR=/workspace/tmp
+mkdir -p "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE" "$TMPDIR"
 ```
 
 ## Step 1: Baseline GPT-2 (Open-Source)

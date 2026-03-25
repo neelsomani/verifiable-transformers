@@ -3,6 +3,7 @@ import json
 import math
 import os
 import re
+import time
 from datetime import datetime, timezone
 from itertools import chain
 from datasets import DatasetDict, load_dataset, load_from_disk
@@ -142,6 +143,12 @@ def write_run_status(output_dir: str, status: str, stage: str, extra: dict = Non
         json.dump(payload, handle, indent=2)
 
 
+def get_distributed_context():
+    rank = int(os.environ.get("RANK", "0"))
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    return rank, world_size
+
+
 def default_processed_dataset_dir(args, cfg) -> str:
     train_tag = "all" if args.max_train_samples is None else str(args.max_train_samples)
     eval_tag = "all" if args.max_eval_samples is None else str(args.max_eval_samples)
@@ -250,6 +257,8 @@ def main() -> None:
             model.gradient_checkpointing_enable()
 
         dataset_name = cfg["dataset_name"]
+        rank, world_size = get_distributed_context()
+        is_main_process = rank == 0
         if args.streaming:
             raise ValueError("Streaming mode is not supported with Trainer in this script.")
         else:
@@ -263,29 +272,43 @@ def main() -> None:
                 print(f"Loading preprocessed dataset from: {processed_dataset_dir}")
                 lm_datasets = load_from_disk(processed_dataset_dir)
             else:
-                write_run_status(
-                    args.output_dir,
-                    status="running",
-                    stage="preprocessing_dataset",
-                    extra={"processed_dataset_dir": processed_dataset_dir},
-                )
-                raw_train = load_dataset(dataset_name, split="train[:-1%]")
-                raw_eval = load_dataset(dataset_name, split="train[-1%:]")
-                if args.max_train_samples is not None:
-                    raw_train = raw_train.select(range(min(args.max_train_samples, len(raw_train))))
-                if args.max_eval_samples is not None:
-                    raw_eval = raw_eval.select(range(min(args.max_eval_samples, len(raw_eval))))
+                if world_size > 1 and not is_main_process:
+                    write_run_status(
+                        args.output_dir,
+                        status="running",
+                        stage="waiting_for_processed_dataset",
+                        extra={"processed_dataset_dir": processed_dataset_dir, "rank": rank},
+                    )
+                    print(
+                        f"Rank {rank} waiting for rank 0 to preprocess dataset at: {processed_dataset_dir}"
+                    )
+                    while not os.path.isdir(processed_dataset_dir):
+                        time.sleep(10)
+                    lm_datasets = load_from_disk(processed_dataset_dir)
+                else:
+                    write_run_status(
+                        args.output_dir,
+                        status="running",
+                        stage="preprocessing_dataset",
+                        extra={"processed_dataset_dir": processed_dataset_dir, "rank": rank},
+                    )
+                    raw_train = load_dataset(dataset_name, split="train[:-1%]")
+                    raw_eval = load_dataset(dataset_name, split="train[-1%:]")
+                    if args.max_train_samples is not None:
+                        raw_train = raw_train.select(range(min(args.max_train_samples, len(raw_train))))
+                    if args.max_eval_samples is not None:
+                        raw_eval = raw_eval.select(range(min(args.max_eval_samples, len(raw_eval))))
 
-                raw_datasets = DatasetDict({"train": raw_train, "validation": raw_eval})
-                lm_datasets = tokenize_and_group(
-                    raw_datasets,
-                    tokenizer,
-                    cfg["block_size"],
-                    preprocessing_num_proc,
-                )
-                os.makedirs(os.path.dirname(processed_dataset_dir), exist_ok=True)
-                lm_datasets.save_to_disk(processed_dataset_dir)
-                print(f"Saved preprocessed dataset to: {processed_dataset_dir}")
+                    raw_datasets = DatasetDict({"train": raw_train, "validation": raw_eval})
+                    lm_datasets = tokenize_and_group(
+                        raw_datasets,
+                        tokenizer,
+                        cfg["block_size"],
+                        preprocessing_num_proc,
+                    )
+                    os.makedirs(os.path.dirname(processed_dataset_dir), exist_ok=True)
+                    lm_datasets.save_to_disk(processed_dataset_dir)
+                    print(f"Saved preprocessed dataset to: {processed_dataset_dir}")
 
         data_collator = default_data_collator
 
