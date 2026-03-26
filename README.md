@@ -156,6 +156,19 @@ Checkpoint resume behavior:
 - To disable auto-resume, pass `--disable_auto_resume`.
 - Run progress heartbeat is written to `output_dir/run_status.json` (stages like preprocessing, training, done, failed, interrupted).
 
+If using `transformers==5.3.0` with `torch<2.6`, checkpoint resume is blocked by upstream `torch.load` safety checks. In that case, continue from saved model weights instead:
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
+  --config configs/step1_gpt2_small_openwebtext.json \
+  --output_dir artifacts/step1-gpt2-small-openwebtext \
+  --disable_auto_resume \
+  --init_from_model_path artifacts/step1-gpt2-small-openwebtext \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 43 \
+  --wikitext_eval_every_n_evals 1
+```
+
 For quick smoke tests:
 
 ```bash

@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 from itertools import chain
 import torch
+from packaging import version
 from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import (
     AutoTokenizer,
@@ -282,6 +283,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1024,
     )
+    parser.add_argument(
+        "--init_from_model_path",
+        type=str,
+        default=None,
+        help="Optional model path to initialize weights from (uses from_pretrained).",
+    )
     return parser.parse_args()
 
 
@@ -445,7 +452,15 @@ def main() -> None:
             model_config.n_positions = cfg["block_size"]
         if hasattr(model_config, "n_ctx"):
             model_config.n_ctx = cfg["block_size"]
-        model = GPT2LMHeadModel(model_config)
+
+        init_from_model_path = args.init_from_model_path
+        if init_from_model_path is not None:
+            print(f"Initializing model weights from: {init_from_model_path}")
+            model = GPT2LMHeadModel.from_pretrained(init_from_model_path)
+            model.config.n_positions = cfg["block_size"]
+            model.config.n_ctx = cfg["block_size"]
+        else:
+            model = GPT2LMHeadModel(model_config)
         model_num_params = count_params(model)
         print(f"Model params: {model_num_params:,}")
         with open(os.path.join(args.output_dir, "model_info.json"), "w", encoding="utf-8") as handle:
@@ -593,6 +608,13 @@ def main() -> None:
             resume_checkpoint = find_latest_checkpoint(args.output_dir)
             if resume_checkpoint is not None:
                 print(f"Auto-resuming from checkpoint: {resume_checkpoint}")
+
+        if resume_checkpoint is not None and version.parse(torch.__version__.split("+")[0]) < version.parse("2.6.0"):
+            raise RuntimeError(
+                "Checkpoint resume requires torch>=2.6.0 with transformers==5.3.0 due to torch.load safety checks. "
+                "Either upgrade torch, or run without checkpoint resume using --disable_auto_resume and optionally "
+                "--init_from_model_path <output_dir> to continue from saved model weights."
+            )
 
         write_run_status(
             args.output_dir,
