@@ -52,7 +52,6 @@ This repository includes a reproducible baseline using `gpt2` (124M) with OpenWe
 
 Model initialization behavior:
 
-- The baseline model is initialized from architecture config (`AutoConfig.from_pretrained("gpt2")`) and trained from scratch.
 - The baseline model is initialized from architecture config (`GPT2Config.from_pretrained("gpt2")`) and trained from scratch with `GPT2LMHeadModel`.
 - It does not initialize LM weights from pretrained checkpoints.
 
@@ -105,7 +104,7 @@ Current local reference snapshot (from `artifacts/pretrained-gpt2-reference-metr
 
 These values are a local anchor for relative comparisons. Minor drift is expected across environments and dependency versions.
 
-Then train the local baseline (8 GPUs):
+Then train the local baseline (8 GPUs) until OWT hits the threshold:
 
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
@@ -114,6 +113,32 @@ python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
 ```
 
 This run uses early stopping on OpenWebText validation loss by default (`early_stop_eval_loss = 3.2` in the config).
+
+Default dev behavior:
+
+- Train on OpenWebText.
+- Evaluate on OpenWebText validation during training.
+- Early stop on OpenWebText validation loss.
+
+Optional WikiText dev modes (opt-in only):
+
+- `--evaluate_wikitext_at_end`: run WikiText-103 once after training.
+- `--use_wikitext_as_dev`: run periodic WikiText eval during training (coarse cadence).
+- `--target_wikitext_ppl <value>`: enable WikiText-target early stopping (e.g. `--target_wikitext_ppl 43`).
+- `--wikitext_eval_every_n_evals <N>`: evaluate WikiText every N Trainer eval events.
+
+When `--use_wikitext_as_dev` or `--target_wikitext_ppl` is enabled, OpenWebText early stopping is disabled by default unless you explicitly pass `--early_stop_eval_loss`.
+
+Example (opt-in WikiText target stopping):
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
+  --config configs/step1_gpt2_small_openwebtext.json \
+  --output_dir artifacts/step1-gpt2-small-openwebtext \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 43 \
+  --wikitext_eval_every_n_evals 1
+```
 
 Performance defaults in the baseline config:
 
@@ -180,3 +205,12 @@ Primary comparison metrics:
 * WikiText-103 perplexity under identical tokenizer and evaluation code.
 
 Note: exact absolute numbers depend on hardware scale, effective batch size, training duration, and data preprocessing details. Relative comparisons are the primary acceptance signal.
+
+Current local baseline outcome (this repository run):
+
+* OpenWebText validation loss: 3.1918
+* OpenWebText validation perplexity: 24.3316
+* Relative to current pretrained reference (OWT loss 3.1187, perplexity 22.6160): +0.0731 loss and +1.7156 perplexity
+* WikiText-103 perplexity: TBD
+
+This run met the configured early-stop target (`eval_loss <= 3.2`).

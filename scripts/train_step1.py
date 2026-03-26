@@ -7,6 +7,7 @@ import shutil
 import time
 from datetime import datetime, timezone
 from itertools import chain
+import torch
 from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import (
     AutoTokenizer,
@@ -35,6 +36,138 @@ class EvalLossThresholdStopCallback(TrainerCallback):
             print(
                 f"Early stopping triggered: eval_loss={eval_loss:.4f} <= target={self.target_eval_loss:.4f}"
             )
+            control.should_training_stop = True
+        return control
+
+
+def evaluate_causal_lm_perplexity(model, input_ids: torch.Tensor, block_size: int, stride: int):
+    device = next(model.parameters()).device
+    input_ids = input_ids.to(device)
+
+    nlls = []
+    seq_len = input_ids.size(1)
+    prev_end = 0
+
+    for begin in range(0, seq_len, stride):
+        end = min(begin + block_size, seq_len)
+        target_len = end - prev_end
+        ids = input_ids[:, begin:end]
+        labels = ids.clone()
+        labels[:, :-target_len] = -100
+
+        with torch.no_grad():
+            outputs = model(ids, labels=labels)
+            neg_log_likelihood = outputs.loss * target_len
+        nlls.append(neg_log_likelihood)
+        prev_end = end
+
+        if end == seq_len:
+            break
+
+    total_nll = torch.stack(nlls).sum()
+    avg_nll = (total_nll / seq_len).item()
+    ppl = math.exp(avg_nll)
+    return avg_nll, ppl, int(seq_len)
+
+
+def load_wikitext_input_ids(tokenizer, split: str, max_samples: int | None):
+    dataset = load_dataset("wikitext", "wikitext-103-raw-v1", split=split)
+    if max_samples is not None:
+        dataset = dataset.select(range(min(max_samples, len(dataset))))
+    joined_text = "\n\n".join(dataset["text"])
+    return tokenizer(joined_text, return_tensors="pt").input_ids
+
+
+class WikiTextEvalCallback(TrainerCallback):
+    def __init__(
+        self,
+        tokenizer,
+        output_dir: str,
+        split: str,
+        block_size: int,
+        stride: int,
+        max_samples: int | None,
+        eval_every_n_evals: int,
+        target_ppl: float | None,
+    ):
+        self.tokenizer = tokenizer
+        self.output_dir = output_dir
+        self.split = split
+        self.block_size = block_size
+        self.stride = stride
+        self.max_samples = max_samples
+        self.eval_every_n_evals = eval_every_n_evals
+        self.target_ppl = target_ppl
+        self.eval_counter = 0
+        self.wikitext_input_ids = None
+        self.target_reached_marker = os.path.join(output_dir, "wikitext_target_reached.json")
+
+    def _evaluate_and_save(self, model, step: int):
+        if self.wikitext_input_ids is None:
+            self.wikitext_input_ids = load_wikitext_input_ids(
+                self.tokenizer,
+                split=self.split,
+                max_samples=self.max_samples,
+            )
+
+        loss, ppl, seq_len = evaluate_causal_lm_perplexity(
+            model,
+            input_ids=self.wikitext_input_ids,
+            block_size=self.block_size,
+            stride=self.stride,
+        )
+        metrics = {
+            "dataset": "wikitext-103-raw-v1",
+            "split": self.split,
+            "step": int(step),
+            "loss": loss,
+            "perplexity": ppl,
+            "seq_len": seq_len,
+            "max_samples": self.max_samples,
+        }
+        step_path = os.path.join(self.output_dir, f"wikitext_eval_step_{int(step)}.json")
+        latest_path = os.path.join(self.output_dir, "wikitext_eval_latest.json")
+        with open(step_path, "w", encoding="utf-8") as handle:
+            json.dump(metrics, handle, indent=2)
+        with open(latest_path, "w", encoding="utf-8") as handle:
+            json.dump(metrics, handle, indent=2)
+        print(
+            f"WikiText eval at step {int(step)}: loss={loss:.4f}, perplexity={ppl:.4f}"
+        )
+        return metrics
+
+    def on_evaluate(self, args, state: TrainerState, control: TrainerControl, model=None, metrics=None, **kwargs):
+        self.eval_counter += 1
+
+        if os.path.isfile(self.target_reached_marker):
+            control.should_training_stop = True
+            return control
+
+        if self.eval_every_n_evals <= 0 or self.eval_counter % self.eval_every_n_evals != 0:
+            return control
+
+        if state.is_world_process_zero:
+            wikitext_metrics = self._evaluate_and_save(model=model, step=state.global_step)
+            if metrics is not None:
+                metrics["eval_wikitext_loss"] = wikitext_metrics["loss"]
+                metrics["eval_wikitext_perplexity"] = wikitext_metrics["perplexity"]
+            if self.target_ppl is not None and wikitext_metrics["perplexity"] <= self.target_ppl:
+                with open(self.target_reached_marker, "w", encoding="utf-8") as handle:
+                    json.dump(
+                        {
+                            "target_ppl": self.target_ppl,
+                            "achieved_ppl": wikitext_metrics["perplexity"],
+                            "step": int(state.global_step),
+                        },
+                        handle,
+                        indent=2,
+                    )
+                print(
+                    f"Early stopping triggered: WikiText perplexity={wikitext_metrics['perplexity']:.4f} <= "
+                    f"target={self.target_ppl:.4f}"
+                )
+
+        if os.path.isfile(self.target_reached_marker):
             control.should_training_stop = True
         return control
 
@@ -104,6 +237,50 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Number of CPU processes for dataset.map preprocessing.",
+    )
+    parser.add_argument(
+        "--evaluate_wikitext_at_end",
+        action="store_true",
+        help="Run WikiText-103 evaluation after training completes.",
+    )
+    parser.add_argument(
+        "--use_wikitext_as_dev",
+        action="store_true",
+        help="Use periodic WikiText eval as an opt-in dev criterion mode.",
+    )
+    parser.add_argument(
+        "--target_wikitext_ppl",
+        type=float,
+        default=None,
+        help="Optional target perplexity for early stopping based on WikiText-103.",
+    )
+    parser.add_argument(
+        "--wikitext_eval_every_n_evals",
+        type=int,
+        default=0,
+        help="Run WikiText eval every N Trainer eval events (0 disables periodic WikiText eval).",
+    )
+    parser.add_argument(
+        "--wikitext_split",
+        type=str,
+        default="validation",
+        choices=["train", "validation", "test"],
+    )
+    parser.add_argument(
+        "--wikitext_max_samples",
+        type=int,
+        default=None,
+        help="Optional sample cap for WikiText evaluation.",
+    )
+    parser.add_argument(
+        "--wikitext_block_size",
+        type=int,
+        default=1024,
+    )
+    parser.add_argument(
+        "--wikitext_stride",
+        type=int,
+        default=1024,
     )
     return parser.parse_args()
 
@@ -375,9 +552,31 @@ def main() -> None:
         if early_stop_eval_loss is None:
             early_stop_eval_loss = cfg.get("early_stop_eval_loss")
 
+        wikitext_eval_every_n_evals = args.wikitext_eval_every_n_evals
+        if args.use_wikitext_as_dev and wikitext_eval_every_n_evals <= 0:
+            wikitext_eval_every_n_evals = 1
+        if args.target_wikitext_ppl is not None and wikitext_eval_every_n_evals <= 0:
+            wikitext_eval_every_n_evals = 1
+
+        if (args.use_wikitext_as_dev or args.target_wikitext_ppl is not None) and args.early_stop_eval_loss is None:
+            early_stop_eval_loss = None
+
         callbacks = []
         if early_stop_eval_loss is not None:
             callbacks.append(EvalLossThresholdStopCallback(target_eval_loss=float(early_stop_eval_loss)))
+        if wikitext_eval_every_n_evals > 0:
+            callbacks.append(
+                WikiTextEvalCallback(
+                    tokenizer=tokenizer,
+                    output_dir=args.output_dir,
+                    split=args.wikitext_split,
+                    block_size=args.wikitext_block_size,
+                    stride=args.wikitext_stride,
+                    max_samples=args.wikitext_max_samples,
+                    eval_every_n_evals=wikitext_eval_every_n_evals,
+                    target_ppl=args.target_wikitext_ppl,
+                )
+            )
 
         trainer = Trainer(
             model=model,
@@ -420,6 +619,34 @@ def main() -> None:
         trainer.log_metrics("eval", eval_metrics)
         trainer.save_metrics("eval", eval_metrics)
 
+        final_wikitext_metrics = None
+        if args.evaluate_wikitext_at_end or args.target_wikitext_ppl is not None:
+            if rank == 0:
+                wikitext_input_ids = load_wikitext_input_ids(
+                    tokenizer,
+                    split=args.wikitext_split,
+                    max_samples=args.wikitext_max_samples,
+                )
+                wt_loss, wt_ppl, wt_seq_len = evaluate_causal_lm_perplexity(
+                    trainer.model,
+                    input_ids=wikitext_input_ids,
+                    block_size=args.wikitext_block_size,
+                    stride=args.wikitext_stride,
+                )
+                final_wikitext_metrics = {
+                    "dataset": "wikitext-103-raw-v1",
+                    "split": args.wikitext_split,
+                    "loss": wt_loss,
+                    "perplexity": wt_ppl,
+                    "seq_len": wt_seq_len,
+                    "max_samples": args.wikitext_max_samples,
+                }
+                with open(os.path.join(args.output_dir, "wikitext_eval_final.json"), "w", encoding="utf-8") as handle:
+                    json.dump(final_wikitext_metrics, handle, indent=2)
+                print(
+                    f"Final WikiText eval: loss={wt_loss:.4f}, perplexity={wt_ppl:.4f}"
+                )
+
         write_run_status(
             args.output_dir,
             status="completed",
@@ -428,6 +655,7 @@ def main() -> None:
                 "final_train_loss": metrics.get("train_loss"),
                 "final_eval_loss": eval_metrics.get("eval_loss"),
                 "final_eval_perplexity": eval_metrics.get("perplexity"),
+                "final_wikitext_perplexity": None if final_wikitext_metrics is None else final_wikitext_metrics["perplexity"],
             },
         )
     except KeyboardInterrupt:
