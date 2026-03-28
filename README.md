@@ -126,19 +126,9 @@ Optional WikiText dev modes (opt-in only):
 - `--use_wikitext_as_dev`: run periodic WikiText eval during training (coarse cadence).
 - `--target_wikitext_ppl <value>`: enable WikiText-target early stopping (e.g. `--target_wikitext_ppl 43`).
 - `--wikitext_eval_every_n_evals <N>`: evaluate WikiText every N Trainer eval events.
+- `--reset_optimizer_on_resume`: resume from checkpoint weights while resetting optimizer/scheduler/scaler/rng state.
 
 When `--use_wikitext_as_dev` or `--target_wikitext_ppl` is enabled, OpenWebText early stopping is disabled by default unless you explicitly pass `--early_stop_eval_loss`.
-
-Example (opt-in WikiText target stopping):
-
-```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
-  --config configs/step1_gpt2_small_openwebtext.json \
-  --output_dir artifacts/step1-gpt2-small-openwebtext \
-  --use_wikitext_as_dev \
-  --target_wikitext_ppl 43 \
-  --wikitext_eval_every_n_evals 1
-```
 
 Performance defaults in the baseline config:
 
@@ -148,6 +138,25 @@ Performance defaults in the baseline config:
 - `torch_compile` is enabled by default.
 - `bf16=true`, `fp16=false`, and gradient checkpointing is off unless memory constraints require it.
 
+### Switching To Stable Resume Config
+
+To continue from a known-good checkpoint with a lower, safer learning rate, use `configs/step1_gpt2_small_openwebtext_resume_stable.json` plus `--reset_optimizer_on_resume`.
+
+This keeps checkpoint model weights but resets optimizer/scheduler/scaler/rng by creating a reset-resume checkpoint copy under `output_dir/resume_reset_checkpoints`.
+
+Example (opt-in WikiText target stopping):
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
+  --config configs/step1_gpt2_small_openwebtext_resume_stable.json \
+  --output_dir artifacts/step1-gpt2-small-openwebtext \
+  --resume_from_checkpoint artifacts/step1-gpt2-small-openwebtext/checkpoint-40000 \
+  --reset_optimizer_on_resume \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 43 \
+  --wikitext_eval_every_n_evals 1
+```
+
 Checkpoint resume behavior:
 
 - The training script auto-resumes from the latest checkpoint in `output_dir` when present.
@@ -155,8 +164,6 @@ Checkpoint resume behavior:
 - To resume from a specific checkpoint, use `--resume_from_checkpoint <path>`.
 - To disable auto-resume, pass `--disable_auto_resume`.
 - Run progress heartbeat is written to `output_dir/run_status.json` (stages like preprocessing, training, done, failed, interrupted).
-
-For this repository configuration (`transformers==4.49.0`), standard checkpoint auto-resume is supported.
 
 For quick smoke tests:
 

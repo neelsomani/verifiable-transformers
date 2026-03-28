@@ -1,4 +1,5 @@
 import argparse
+import glob
 import json
 import math
 import os
@@ -215,6 +216,11 @@ def parse_args() -> argparse.Namespace:
         help="Explicit checkpoint path to resume from.",
     )
     parser.add_argument(
+        "--reset_optimizer_on_resume",
+        action="store_true",
+        help="Resume from checkpoint weights while resetting optimizer/scheduler/scaler/rng states.",
+    )
+    parser.add_argument(
         "--disable_auto_resume",
         action="store_true",
         help="Disable automatic resume from latest checkpoint in output_dir.",
@@ -345,6 +351,24 @@ def is_processed_dataset_ready(processed_dataset_dir: str) -> bool:
 def mark_processed_dataset_ready(processed_dataset_dir: str) -> None:
     with open(processed_dataset_ready_marker_path(processed_dataset_dir), "w", encoding="utf-8") as handle:
         json.dump({"ready": True, "updated_at_utc": datetime.now(timezone.utc).isoformat()}, handle)
+
+
+def prepare_resume_checkpoint_without_optimizer(src_checkpoint: str, output_dir: str) -> tuple[str, list[str]]:
+    reset_root = os.path.join(output_dir, "resume_reset_checkpoints")
+    os.makedirs(reset_root, exist_ok=True)
+    dst_checkpoint = os.path.join(reset_root, os.path.basename(src_checkpoint))
+    if os.path.isdir(dst_checkpoint):
+        shutil.rmtree(dst_checkpoint)
+    shutil.copytree(src_checkpoint, dst_checkpoint)
+
+    removed_files = []
+    for pattern in ["optimizer.pt", "optimizer.bin", "scheduler.pt", "scaler.pt", "rng_state*.pth"]:
+        for path in glob.glob(os.path.join(dst_checkpoint, pattern)):
+            if os.path.isfile(path):
+                os.remove(path)
+                removed_files.append(path)
+
+    return dst_checkpoint, removed_files
 
 
 def default_processed_dataset_dir(args, cfg) -> str:
@@ -587,6 +611,41 @@ def main() -> None:
             resume_checkpoint = find_latest_checkpoint(args.output_dir)
             if resume_checkpoint is not None:
                 print(f"Auto-resuming from checkpoint: {resume_checkpoint}")
+
+        if args.reset_optimizer_on_resume and resume_checkpoint is not None:
+            reset_marker_path = os.path.join(args.output_dir, "resume_reset_checkpoint_ready.json")
+            if rank == 0:
+                if os.path.isfile(reset_marker_path):
+                    os.remove(reset_marker_path)
+                write_run_status(
+                    args.output_dir,
+                    status="running",
+                    stage="preparing_resume_reset_checkpoint",
+                    extra={"source_resume_checkpoint": resume_checkpoint},
+                )
+                reset_checkpoint, removed_files = prepare_resume_checkpoint_without_optimizer(
+                    resume_checkpoint,
+                    output_dir=args.output_dir,
+                )
+                print(f"Prepared reset-resume checkpoint: {reset_checkpoint}")
+                print(f"Removed state files: {len(removed_files)}")
+                with open(reset_marker_path, "w", encoding="utf-8") as handle:
+                    json.dump(
+                        {
+                            "resume_checkpoint": reset_checkpoint,
+                            "updated_at_utc": datetime.now(timezone.utc).isoformat(),
+                        },
+                        handle,
+                        indent=2,
+                    )
+                resume_checkpoint = reset_checkpoint
+            else:
+                while not os.path.isfile(reset_marker_path):
+                    time.sleep(2)
+                with open(reset_marker_path, "r", encoding="utf-8") as handle:
+                    payload = json.load(handle)
+                resume_checkpoint = payload["resume_checkpoint"]
+                print(f"Rank {rank} using reset-resume checkpoint: {resume_checkpoint}")
 
         write_run_status(
             args.output_dir,
