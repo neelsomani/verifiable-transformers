@@ -40,6 +40,61 @@ class EvalLossThresholdStopCallback(TrainerCallback):
         return control
 
 
+class CatastrophicDivergenceStopCallback(TrainerCallback):
+    def __init__(
+        self,
+        train_loss_threshold: float | None,
+        eval_loss_threshold: float | None,
+        stop_on_inf_grad_norm: bool,
+        min_step: int,
+    ):
+        self.train_loss_threshold = train_loss_threshold
+        self.eval_loss_threshold = eval_loss_threshold
+        self.stop_on_inf_grad_norm = stop_on_inf_grad_norm
+        self.min_step = min_step
+
+    def _trip(self, control: TrainerControl, message: str):
+        print(f"Catastrophic divergence guard triggered: {message}")
+        control.should_training_stop = True
+        control.should_save = True
+        return control
+
+    def on_log(self, args, state: TrainerState, control: TrainerControl, logs=None, **kwargs):
+        if logs is None or state.global_step < self.min_step:
+            return control
+
+        loss = logs.get("loss")
+        grad_norm = logs.get("grad_norm")
+
+        if self.train_loss_threshold is not None and loss is not None:
+            if float(loss) >= float(self.train_loss_threshold):
+                return self._trip(
+                    control,
+                    f"train_loss={float(loss):.4f} >= threshold={float(self.train_loss_threshold):.4f}",
+                )
+
+        if self.stop_on_inf_grad_norm and grad_norm is not None:
+            grad_norm_value = float(grad_norm)
+            if math.isinf(grad_norm_value) or math.isnan(grad_norm_value):
+                return self._trip(control, f"grad_norm={grad_norm_value}")
+
+        return control
+
+    def on_evaluate(self, args, state: TrainerState, control: TrainerControl, metrics=None, **kwargs):
+        if metrics is None or state.global_step < self.min_step:
+            return control
+
+        eval_loss = metrics.get("eval_loss")
+        if self.eval_loss_threshold is not None and eval_loss is not None:
+            if float(eval_loss) >= float(self.eval_loss_threshold):
+                return self._trip(
+                    control,
+                    f"eval_loss={float(eval_loss):.4f} >= threshold={float(self.eval_loss_threshold):.4f}",
+                )
+
+        return control
+
+
 def evaluate_causal_lm_perplexity(model, input_ids: torch.Tensor, block_size: int, stride: int):
     device = next(model.parameters()).device
     input_ids = input_ids.to(device)
@@ -286,6 +341,30 @@ def parse_args() -> argparse.Namespace:
         "--wikitext_stride",
         type=int,
         default=1024,
+    )
+    parser.add_argument(
+        "--catastrophic_train_loss_threshold",
+        type=float,
+        default=None,
+        help="Stop training if logged train loss is >= this threshold after min-step guard.",
+    )
+    parser.add_argument(
+        "--catastrophic_eval_loss_threshold",
+        type=float,
+        default=None,
+        help="Stop training if eval loss is >= this threshold after min-step guard.",
+    )
+    parser.add_argument(
+        "--stop_on_inf_grad_norm",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Stop training if logged grad_norm becomes inf/nan.",
+    )
+    parser.add_argument(
+        "--catastrophic_guard_min_step",
+        type=int,
+        default=None,
+        help="Minimum global step before catastrophic guards activate.",
     )
     return parser.parse_args()
 
@@ -570,6 +649,22 @@ def main() -> None:
         if early_stop_eval_loss is None:
             early_stop_eval_loss = cfg.get("early_stop_eval_loss")
 
+        catastrophic_train_loss_threshold = args.catastrophic_train_loss_threshold
+        if catastrophic_train_loss_threshold is None:
+            catastrophic_train_loss_threshold = cfg.get("catastrophic_train_loss_threshold")
+
+        catastrophic_eval_loss_threshold = args.catastrophic_eval_loss_threshold
+        if catastrophic_eval_loss_threshold is None:
+            catastrophic_eval_loss_threshold = cfg.get("catastrophic_eval_loss_threshold")
+
+        stop_on_inf_grad_norm = args.stop_on_inf_grad_norm
+        if stop_on_inf_grad_norm is None:
+            stop_on_inf_grad_norm = bool(cfg.get("stop_on_inf_grad_norm", False))
+
+        catastrophic_guard_min_step = args.catastrophic_guard_min_step
+        if catastrophic_guard_min_step is None:
+            catastrophic_guard_min_step = int(cfg.get("catastrophic_guard_min_step", 0))
+
         wikitext_eval_every_n_evals = args.wikitext_eval_every_n_evals
         if args.use_wikitext_as_dev and wikitext_eval_every_n_evals <= 0:
             wikitext_eval_every_n_evals = 1
@@ -582,6 +677,19 @@ def main() -> None:
         callbacks = []
         if early_stop_eval_loss is not None:
             callbacks.append(EvalLossThresholdStopCallback(target_eval_loss=float(early_stop_eval_loss)))
+        if (
+            catastrophic_train_loss_threshold is not None
+            or catastrophic_eval_loss_threshold is not None
+            or stop_on_inf_grad_norm
+        ):
+            callbacks.append(
+                CatastrophicDivergenceStopCallback(
+                    train_loss_threshold=(None if catastrophic_train_loss_threshold is None else float(catastrophic_train_loss_threshold)),
+                    eval_loss_threshold=(None if catastrophic_eval_loss_threshold is None else float(catastrophic_eval_loss_threshold)),
+                    stop_on_inf_grad_norm=bool(stop_on_inf_grad_norm),
+                    min_step=int(catastrophic_guard_min_step),
+                )
+            )
         if wikitext_eval_every_n_evals > 0:
             callbacks.append(
                 WikiTextEvalCallback(

@@ -164,6 +164,18 @@ Checkpoint resume behavior:
 - To resume from a specific checkpoint, use `--resume_from_checkpoint <path>`.
 - To disable auto-resume, pass `--disable_auto_resume`.
 - Run progress heartbeat is written to `output_dir/run_status.json` (stages like preprocessing, training, done, failed, interrupted).
+- Catastrophic divergence guard is supported to stop and save if loss/gradients explode.
+
+Catastrophic divergence guard flags (optional override):
+
+```bash
+--catastrophic_train_loss_threshold 6.0 \
+--catastrophic_eval_loss_threshold 6.0 \
+--stop_on_inf_grad_norm \
+--catastrophic_guard_min_step 1000
+```
+
+`configs/step1_gpt2_small_openwebtext_resume_stable.json` enables these guards by default.
 
 For quick smoke tests:
 

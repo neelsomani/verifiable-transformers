@@ -6,7 +6,7 @@
   "train_batch_size_per_device": 2,
   "eval_batch_size_per_device": 2,
   "gradient_accumulation_steps": 16,
-  "learning_rate": 0.0001,
+  "learning_rate": 0.00002,
   "weight_decay": 0.1,
   "max_grad_norm": 1.0,
   "adam_beta1": 0.9,
@@ -26,5 +26,9 @@
   "dataloader_num_workers": 4,
   "report_to": "none",
   "early_stop_eval_loss": 3.2,
-  "preprocessing_num_proc": 8
+  "preprocessing_num_proc": 8,
+  "catastrophic_train_loss_threshold": 6.0,
+  "catastrophic_eval_loss_threshold": 6.0,
+  "stop_on_inf_grad_norm": true,
+  "catastrophic_guard_min_step": 1000
 }
