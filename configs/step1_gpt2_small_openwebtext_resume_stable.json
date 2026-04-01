@@ -27,8 +27,11 @@
   "report_to": "none",
   "early_stop_eval_loss": 3.2,
   "preprocessing_num_proc": 8,
-  "catastrophic_train_loss_threshold": 6.0,
-  "catastrophic_eval_loss_threshold": 6.0,
+  "catastrophic_train_loss_threshold": null,
+  "catastrophic_eval_loss_threshold": null,
   "stop_on_inf_grad_norm": true,
-  "catastrophic_guard_min_step": 1000
+  "catastrophic_guard_min_step": 5000,
+  "catastrophic_train_increase_delta": 2.0,
+  "catastrophic_eval_increase_delta": 2.0,
+  "catastrophic_increase_patience": 2
 }

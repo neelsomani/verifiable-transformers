@@ -47,11 +47,21 @@ class CatastrophicDivergenceStopCallback(TrainerCallback):
         eval_loss_threshold: float | None,
         stop_on_inf_grad_norm: bool,
         min_step: int,
+        train_increase_delta: float | None,
+        eval_increase_delta: float | None,
+        increase_patience: int,
     ):
         self.train_loss_threshold = train_loss_threshold
         self.eval_loss_threshold = eval_loss_threshold
         self.stop_on_inf_grad_norm = stop_on_inf_grad_norm
         self.min_step = min_step
+        self.train_increase_delta = train_increase_delta
+        self.eval_increase_delta = eval_increase_delta
+        self.increase_patience = increase_patience
+        self.best_train_loss = None
+        self.best_eval_loss = None
+        self.train_increase_count = 0
+        self.eval_increase_count = 0
 
     def _trip(self, control: TrainerControl, message: str):
         print(f"Catastrophic divergence guard triggered: {message}")
@@ -73,6 +83,24 @@ class CatastrophicDivergenceStopCallback(TrainerCallback):
                     f"train_loss={float(loss):.4f} >= threshold={float(self.train_loss_threshold):.4f}",
                 )
 
+        if self.train_increase_delta is not None and loss is not None:
+            loss_value = float(loss)
+            if self.best_train_loss is None or loss_value < self.best_train_loss:
+                self.best_train_loss = loss_value
+                self.train_increase_count = 0
+            elif loss_value >= self.best_train_loss + float(self.train_increase_delta):
+                self.train_increase_count += 1
+                if self.train_increase_count >= self.increase_patience:
+                    return self._trip(
+                        control,
+                        (
+                            f"train_loss increased to {loss_value:.4f} from best {self.best_train_loss:.4f} "
+                            f"(delta>={float(self.train_increase_delta):.4f}) for {self.train_increase_count} logs"
+                        ),
+                    )
+            else:
+                self.train_increase_count = 0
+
         if self.stop_on_inf_grad_norm and grad_norm is not None:
             grad_norm_value = float(grad_norm)
             if math.isinf(grad_norm_value) or math.isnan(grad_norm_value):
@@ -91,6 +119,24 @@ class CatastrophicDivergenceStopCallback(TrainerCallback):
                     control,
                     f"eval_loss={float(eval_loss):.4f} >= threshold={float(self.eval_loss_threshold):.4f}",
                 )
+
+        if self.eval_increase_delta is not None and eval_loss is not None:
+            eval_loss_value = float(eval_loss)
+            if self.best_eval_loss is None or eval_loss_value < self.best_eval_loss:
+                self.best_eval_loss = eval_loss_value
+                self.eval_increase_count = 0
+            elif eval_loss_value >= self.best_eval_loss + float(self.eval_increase_delta):
+                self.eval_increase_count += 1
+                if self.eval_increase_count >= self.increase_patience:
+                    return self._trip(
+                        control,
+                        (
+                            f"eval_loss increased to {eval_loss_value:.4f} from best {self.best_eval_loss:.4f} "
+                            f"(delta>={float(self.eval_increase_delta):.4f}) for {self.eval_increase_count} evals"
+                        ),
+                    )
+            else:
+                self.eval_increase_count = 0
 
         return control
 
@@ -365,6 +411,24 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Minimum global step before catastrophic guards activate.",
+    )
+    parser.add_argument(
+        "--catastrophic_train_increase_delta",
+        type=float,
+        default=None,
+        help="Trigger guard if train loss increases by this delta above best, sustained for patience.",
+    )
+    parser.add_argument(
+        "--catastrophic_eval_increase_delta",
+        type=float,
+        default=None,
+        help="Trigger guard if eval loss increases by this delta above best, sustained for patience.",
+    )
+    parser.add_argument(
+        "--catastrophic_increase_patience",
+        type=int,
+        default=None,
+        help="Number of consecutive log/eval events required for increase-based guard trigger.",
     )
     return parser.parse_args()
 
@@ -665,6 +729,18 @@ def main() -> None:
         if catastrophic_guard_min_step is None:
             catastrophic_guard_min_step = int(cfg.get("catastrophic_guard_min_step", 0))
 
+        catastrophic_train_increase_delta = args.catastrophic_train_increase_delta
+        if catastrophic_train_increase_delta is None:
+            catastrophic_train_increase_delta = cfg.get("catastrophic_train_increase_delta")
+
+        catastrophic_eval_increase_delta = args.catastrophic_eval_increase_delta
+        if catastrophic_eval_increase_delta is None:
+            catastrophic_eval_increase_delta = cfg.get("catastrophic_eval_increase_delta")
+
+        catastrophic_increase_patience = args.catastrophic_increase_patience
+        if catastrophic_increase_patience is None:
+            catastrophic_increase_patience = int(cfg.get("catastrophic_increase_patience", 2))
+
         wikitext_eval_every_n_evals = args.wikitext_eval_every_n_evals
         if args.use_wikitext_as_dev and wikitext_eval_every_n_evals <= 0:
             wikitext_eval_every_n_evals = 1
@@ -681,6 +757,8 @@ def main() -> None:
             catastrophic_train_loss_threshold is not None
             or catastrophic_eval_loss_threshold is not None
             or stop_on_inf_grad_norm
+            or catastrophic_train_increase_delta is not None
+            or catastrophic_eval_increase_delta is not None
         ):
             callbacks.append(
                 CatastrophicDivergenceStopCallback(
@@ -688,6 +766,9 @@ def main() -> None:
                     eval_loss_threshold=(None if catastrophic_eval_loss_threshold is None else float(catastrophic_eval_loss_threshold)),
                     stop_on_inf_grad_norm=bool(stop_on_inf_grad_norm),
                     min_step=int(catastrophic_guard_min_step),
+                    train_increase_delta=(None if catastrophic_train_increase_delta is None else float(catastrophic_train_increase_delta)),
+                    eval_increase_delta=(None if catastrophic_eval_increase_delta is None else float(catastrophic_eval_increase_delta)),
+                    increase_patience=int(catastrophic_increase_patience),
                 )
             )
         if wikitext_eval_every_n_evals > 0:
