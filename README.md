@@ -15,7 +15,7 @@ We show, end-to-end, that a Transformer can be trained and then formally analyze
 
 ## Hardware Requirements
 
-To target benchmark-quality replication (matching OpenWebText validation loss and WikiText-103 perplexity within ~1-2%), use datacenter-class multi-GPU training.
+To target strong local baseline reproduction and stable multi-GPU training, use datacenter-class multi-GPU training.
 
 - Recommended: `8x A100 80GB` (or `8x H100 80GB`)
 - Acceptable (slower, more tuning sensitive): `4x A100 40/80GB`
@@ -46,24 +46,7 @@ export TMPDIR=/workspace/tmp
 mkdir -p "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE" "$TMPDIR"
 ```
 
-## Step 1: Baseline GPT-2 (Open-Source)
-
-This repository includes a reproducible baseline using `gpt2` (124M) with OpenWebText training and WikiText-103 evaluation.
-
-Model initialization behavior:
-
-- The baseline model is initialized from architecture config (`GPT2Config.from_pretrained("gpt2")`) and trained from scratch with `GPT2LMHeadModel`.
-- It does not initialize LM weights from pretrained checkpoints.
-
-### Files
-
-- Training script: `scripts/train_step1.py`
-- WikiText-103 perplexity script: `scripts/eval_wikitext103.py`
-- Pretrained reference eval script: `scripts/eval_pretrained_reference.py`
-- Baseline config: `configs/step1_gpt2_small_openwebtext_resume_stable.json`
-- Dependencies: `requirements.txt`
-
-### Setup
+## Setup
 
 ```bash
 python -m venv .venv
@@ -84,6 +67,31 @@ pip install accelerate --no-deps
 ```
 
 If your environment already provides PyTorch (for example, RunPod images), install only the project dependencies above and keep the preinstalled torch build.
+
+## Step 1: Baseline GPT-2 (Open-Source)
+
+This repository includes a reproducible baseline using `gpt2` (124M) with OpenWebText training and WikiText-103 evaluation.
+
+We evaluate both a pretrained GPT-2 reference run and a locally reproduced reference GPT-2-small model.
+
+### Baseline Definition and Comparison Protocol
+
+We define the baseline as our own locally reproduced reference GPT-2-small run, using the exact same tokenizer, preprocessing, context length, optimization recipe, token budget, and evaluation code as all later architecture variants.
+
+We first train a local reference GPT-2-small baseline under the same pipeline used for all experiments.
+
+Alternative attention and normalization variants are judged relative to this local baseline.
+
+### Expected Baseline Criteria
+
+The local reference baseline should be stable and reproducible under the configured training recipe, and all subsequent architecture changes should be compared against this exact run setup.
+
+Primary comparison metrics:
+
+* OpenWebText validation loss under identical preprocessing and evaluation steps.
+* WikiText-103 perplexity under identical tokenizer and evaluation code.
+
+Note: exact absolute numbers depend on hardware scale, effective batch size, training duration, and data preprocessing details. Relative comparisons are the primary acceptance signal.
 
 ### Train (OWT)
 
@@ -107,7 +115,7 @@ These values are a local anchor for relative comparisons. Minor drift is expecte
 Then train the local baseline (8 GPUs) until OWT hits the threshold:
 
 ```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step1_gpt2_small_openwebtext_resume_stable.json \
   --output_dir artifacts/step1-gpt2-small-openwebtext
 ```
@@ -147,7 +155,7 @@ This keeps checkpoint model weights but resets optimizer/scheduler/scaler/rng by
 Example (opt-in WikiText target stopping):
 
 ```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step1_gpt2_small_openwebtext_resume_stable.json \
   --output_dir artifacts/step1-gpt2-small-openwebtext \
   --resume_from_checkpoint artifacts/step1-gpt2-small-openwebtext/checkpoint-40000 \
@@ -169,7 +177,7 @@ Checkpoint resume behavior:
 For quick smoke tests:
 
 ```bash
-python scripts/train_step1.py \
+python scripts/train_experiment.py \
   --config configs/step1_gpt2_small_openwebtext_resume_stable.json \
   --output_dir artifacts/step1-smoke \
   --max_train_samples 50000 \
@@ -197,24 +205,7 @@ python scripts/plot_training_curves.py \
 
 This reads `trainer_state.json` from the run directory and plots train/eval loss versus training step.
 
-### Baseline Definition and Comparison Protocol
-
-We define the baseline as our own locally reproduced reference GPT-2-small run, using the exact same tokenizer, preprocessing, context length, optimization recipe, token budget, and evaluation code as all later architecture variants.
-
-We first train a local reference GPT-2-small baseline under the same pipeline used for all experiments.
-
-Alternative attention and normalization variants are judged relative to this local baseline.
-
-### Expected Baseline Criteria
-
-The local reference baseline should be stable and reproducible under the configured training recipe, and all subsequent architecture changes should be compared against this exact run setup.
-
-Primary comparison metrics:
-
-* OpenWebText validation loss under identical preprocessing and evaluation steps.
-* WikiText-103 perplexity under identical tokenizer and evaluation code.
-
-Note: exact absolute numbers depend on hardware scale, effective batch size, training duration, and data preprocessing details. Relative comparisons are the primary acceptance signal.
+### Baseline Results
 
 Current local baseline outcome (this repository run):
 
@@ -231,3 +222,40 @@ Interpretation:
 * We use this run as a local baseline anchor for relative architecture comparisons, not as a claim of best absolute WikiText-103 performance.
 
 This run met the configured early-stop target (`eval_loss <= 3.2`).
+
+## Individual Verifiable Replacement Evaluations
+
+We use the same training script and process, with architecture variants controlled via config (`norm_variant`, `attn_variant`) to keep training/eval pipeline constant. We first establish the pretrained GPT-2 reference and local Step 1 baseline above, then compare these variants against that local baseline.
+
+### Step 2a: LayerNorm replacement only (DyT)
+
+Config: `configs/step2a_norm_dyt_only.json`
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
+  --config configs/step2a_norm_dyt_only.json \
+  --output_dir artifacts/step2a-norm-dyt-only \
+  --disable_auto_resume \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 53 \
+  --wikitext_eval_every_n_evals 1
+```
+
+### Step 2b: Attention replacement only (PWL/alpha-entmax style)
+
+Config: `configs/step2b_attn_sparsemax_only.json`
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
+  --config configs/step2b_attn_sparsemax_only.json \
+  --output_dir artifacts/step2b-attn-sparsemax-only \
+  --disable_auto_resume \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 53 \
+  --wikitext_eval_every_n_evals 1
+```
+
+Implementation details:
+
+- `norm_variant=dyt` replaces GPT-2 LayerNorm modules with a piecewise-linear DyT-style normalization substitute.
+- `attn_variant=sparsemax` replaces softmax attention weighting with sparsemax (alpha-entmax family, alpha=2).

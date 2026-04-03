@@ -8,6 +8,7 @@ import shutil
 import time
 from datetime import datetime, timezone
 from itertools import chain
+from types import MethodType
 import torch
 from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import (
@@ -22,6 +23,83 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
+
+
+class DyTNorm(torch.nn.Module):
+    def __init__(self, hidden_size: int, clamp_value: float = 4.0):
+        super().__init__()
+        self.pre_scale = torch.nn.Parameter(torch.ones(hidden_size))
+        self.pre_bias = torch.nn.Parameter(torch.zeros(hidden_size))
+        self.post_scale = torch.nn.Parameter(torch.ones(hidden_size))
+        self.post_bias = torch.nn.Parameter(torch.zeros(hidden_size))
+        self.clamp_value = clamp_value
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        transformed = hidden_states * self.pre_scale + self.pre_bias
+        transformed = torch.clamp(transformed, min=-self.clamp_value, max=self.clamp_value)
+        return transformed * self.post_scale + self.post_bias
+
+
+def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    sorted_logits, _ = torch.sort(logits, dim=dim, descending=True)
+    cumsum = torch.cumsum(sorted_logits, dim=dim)
+
+    range_size = logits.size(dim)
+    view_shape = [1] * logits.dim()
+    view_shape[dim] = range_size
+    range_tensor = torch.arange(1, range_size + 1, device=logits.device, dtype=logits.dtype).view(view_shape)
+
+    support = 1 + range_tensor * sorted_logits > cumsum
+    k = support.to(torch.int64).sum(dim=dim, keepdim=True).clamp(min=1)
+
+    tau = (torch.gather(cumsum, dim=dim, index=k - 1) - 1) / k.to(logits.dtype)
+    return torch.clamp(logits - tau, min=0.0)
+
+
+def patch_attention_to_sparsemax(attn_module) -> None:
+    def _attn_sparsemax(self, query, key, value, attention_mask=None, head_mask=None):
+        attn_weights = torch.matmul(query, key.transpose(-1, -2))
+
+        if getattr(self, "scale_attn_weights", False):
+            attn_weights = attn_weights / (value.size(-1) ** 0.5)
+
+        if getattr(self, "scale_attn_by_inverse_layer_idx", False):
+            layer_idx = getattr(self, "layer_idx", 0)
+            attn_weights = attn_weights / float(layer_idx + 1)
+
+        if not getattr(self, "is_cross_attention", False):
+            query_length = query.size(-2)
+            key_length = key.size(-2)
+            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
+            mask_value = torch.finfo(attn_weights.dtype).min
+            attn_weights = torch.where(causal_mask, attn_weights, mask_value)
+
+        if attention_mask is not None:
+            attn_weights = attn_weights + attention_mask
+
+        attn_weights = sparsemax(attn_weights, dim=-1)
+        attn_weights = self.attn_dropout(attn_weights)
+
+        if head_mask is not None:
+            attn_weights = attn_weights * head_mask
+
+        attn_output = torch.matmul(attn_weights, value)
+        return attn_output, attn_weights
+
+    attn_module._attn = MethodType(_attn_sparsemax, attn_module)
+
+
+def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
+    if norm_variant == "dyt":
+        hidden_size = model.config.n_embd
+        for block in model.transformer.h:
+            block.ln_1 = DyTNorm(hidden_size=hidden_size)
+            block.ln_2 = DyTNorm(hidden_size=hidden_size)
+        model.transformer.ln_f = DyTNorm(hidden_size=hidden_size)
+
+    if attn_variant == "sparsemax":
+        for block in model.transformer.h:
+            patch_attention_to_sparsemax(block.attn)
 
 
 class EvalLossThresholdStopCallback(TrainerCallback):
@@ -274,7 +352,7 @@ class WikiTextEvalCallback(TrainerCallback):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Step 1 baseline: GPT-2 small on OpenWebText")
+    parser = argparse.ArgumentParser(description="Train GPT-2 experiments (baseline and architecture variants)")
     parser.add_argument(
         "--config",
         type=str,
@@ -387,6 +465,20 @@ def parse_args() -> argparse.Namespace:
         "--wikitext_stride",
         type=int,
         default=1024,
+    )
+    parser.add_argument(
+        "--norm_variant",
+        type=str,
+        default=None,
+        choices=["layernorm", "dyt"],
+        help="Normalization variant. Defaults to config value or layernorm.",
+    )
+    parser.add_argument(
+        "--attn_variant",
+        type=str,
+        default=None,
+        choices=["softmax", "sparsemax"],
+        help="Attention variant. Defaults to config value or softmax.",
     )
     parser.add_argument(
         "--catastrophic_train_loss_threshold",
@@ -607,6 +699,11 @@ def main() -> None:
         if hasattr(model_config, "n_ctx"):
             model_config.n_ctx = cfg["block_size"]
         model = GPT2LMHeadModel(model_config)
+
+        norm_variant = args.norm_variant if args.norm_variant is not None else cfg.get("norm_variant", "layernorm")
+        attn_variant = args.attn_variant if args.attn_variant is not None else cfg.get("attn_variant", "softmax")
+        apply_model_variants(model, norm_variant=norm_variant, attn_variant=attn_variant)
+
         model_num_params = count_params(model)
         print(f"Model params: {model_num_params:,}")
         with open(os.path.join(args.output_dir, "model_info.json"), "w", encoding="utf-8") as handle:
@@ -614,6 +711,8 @@ def main() -> None:
                 {
                     "model_name": model_name,
                     "num_parameters": model_num_params,
+                    "norm_variant": norm_variant,
+                    "attn_variant": attn_variant,
                 },
                 handle,
                 indent=2,
