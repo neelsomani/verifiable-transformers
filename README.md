@@ -60,7 +60,7 @@ Model initialization behavior:
 - Training script: `scripts/train_step1.py`
 - WikiText-103 perplexity script: `scripts/eval_wikitext103.py`
 - Pretrained reference eval script: `scripts/eval_pretrained_reference.py`
-- Baseline config: `configs/step1_gpt2_small_openwebtext.json`
+- Baseline config: `configs/step1_gpt2_small_openwebtext_resume_stable.json`
 - Dependencies: `requirements.txt`
 
 ### Setup
@@ -108,7 +108,7 @@ Then train the local baseline (8 GPUs) until OWT hits the threshold:
 
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_step1.py \
-  --config configs/step1_gpt2_small_openwebtext.json \
+  --config configs/step1_gpt2_small_openwebtext_resume_stable.json \
   --output_dir artifacts/step1-gpt2-small-openwebtext
 ```
 
@@ -170,7 +170,7 @@ For quick smoke tests:
 
 ```bash
 python scripts/train_step1.py \
-  --config configs/step1_gpt2_small_openwebtext.json \
+  --config configs/step1_gpt2_small_openwebtext_resume_stable.json \
   --output_dir artifacts/step1-smoke \
   --max_train_samples 50000 \
   --max_eval_samples 2000
@@ -218,9 +218,16 @@ Note: exact absolute numbers depend on hardware scale, effective batch size, tra
 
 Current local baseline outcome (this repository run):
 
-* OpenWebText validation loss: 3.1918
-* OpenWebText validation perplexity: 24.3316
-* Relative to current pretrained reference (OWT loss 3.1187, perplexity 22.6160): +0.0731 loss and +1.7156 perplexity
-* WikiText-103 perplexity: TBD
+* OpenWebText validation loss: 3.1340 (at step 260000)
+* OpenWebText validation perplexity: 22.9650 (at step 260000)
+* Relative to current pretrained reference (OWT loss 3.1187, perplexity 22.6160): +0.0153 loss and +0.3490 perplexity
+* WikiText-103 perplexity: 52.9820 (at step 260000)
+* Relative to current pretrained reference (WikiText-103 perplexity 31.0403): +21.9417 perplexity
+
+Interpretation:
+
+* WikiText-103 perplexity is substantially worse than the pretrained GPT-2 reference in this run.
+* This Step 1 setup is optimized for the OpenWebText training pipeline and uses OpenWebText-based stopping criteria by default.
+* We use this run as a local baseline anchor for relative architecture comparisons, not as a claim of best absolute WikiText-103 performance.
 
 This run met the configured early-stop target (`eval_loss <= 3.2`).
