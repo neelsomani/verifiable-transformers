@@ -227,7 +227,9 @@ This run met the configured early-stop target (`eval_loss <= 3.2`).
 
 We use the same training script and process, with architecture variants controlled via config (`norm_variant`, `attn_variant`) to keep training/eval pipeline constant. We first establish the pretrained GPT-2 reference and local Step 1 baseline above, then compare these variants against that local baseline.
 
-### Step 2a: LayerNorm replacement only (DyT)
+### Step 2a: LayerNorm replacement only
+
+#### DyT: Failed Replacement
 
 Config: `configs/step2a_norm_dyt_only.json`
 
@@ -235,6 +237,24 @@ Config: `configs/step2a_norm_dyt_only.json`
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step2a_norm_dyt_only.json \
   --output_dir artifacts/step2a-norm-dyt-only \
+  --disable_auto_resume \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 53 \
+  --wikitext_eval_every_n_evals 1
+```
+
+Early DyT-only runs were not stable under the baseline GPT-2 recipe. Although training initially progressed and WikiText-103 perplexity improved, the run later regressed and eventually diverged, indicating that the current DyT formulation is not yet a drop-in LayerNorm replacement. In particular, the current module is affine-clamp-affine rather than a true normalization layer, so it likely fails to provide the residual-scale control that GPT-2 relies on.
+
+#### Piecewise Linear Norm
+
+PiecewiseLinearNorm is an SMT-encodable normalization layer designed as a closer drop-in replacement for LayerNorm. Unlike DyT, which is purely affine-clamp-affine, PiecewiseLinearNorm includes actual centering and adaptive scaling based on input statistics, while maintaining SMT-friendly piecewise linearity.
+
+Config: `configs/step2a_norm_pwl_only.json`
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
+  --config configs/step2a_norm_pwl_only.json \
+  --output_dir artifacts/step2a-norm-pwl-only \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \

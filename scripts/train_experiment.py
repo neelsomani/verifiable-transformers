@@ -40,6 +40,64 @@ class DyTNorm(torch.nn.Module):
         return transformed * self.post_scale + self.post_bias
 
 
+class PiecewiseLinearNorm(torch.nn.Module):
+    """
+    SMT-friendly normalization surrogate using piecewise-linear operations.
+
+    Instead of dividing by a data-dependent standard deviation, this module:
+    1. Centers each token vector by subtracting the mean
+    2. Computes mean absolute deviation (MAD) as a scale proxy
+    3. Bucketizes MAD into fixed ranges and applies a constant multiplier per bucket
+    4. Clamps the scaled values elementwise
+    5. Applies learned affine parameters (gamma, beta)
+
+    The entire forward pass is piecewise linear except for comparisons, max/min,
+    abs, and mean reductions, making it suitable for SMT encoding.
+    """
+    def __init__(self, hidden_size: int, clamp_value: float = 4.0):
+        super().__init__()
+        self.gamma = torch.nn.Parameter(torch.ones(hidden_size))
+        self.beta = torch.nn.Parameter(torch.zeros(hidden_size))
+        self.clamp_value = clamp_value
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        # Step 1: Center by subtracting per-token mean
+        x_mean = hidden_states.mean(dim=-1, keepdim=True)
+        x_centered = hidden_states - x_mean
+
+        # Step 2: Compute mean absolute deviation (MAD) as scale proxy
+        mad = torch.abs(x_centered).mean(dim=-1, keepdim=True)
+
+        # Step 3: Bucketize MAD and apply constant multiplier per bucket
+        # This avoids data-dependent division while approximating normalization
+        scale = torch.where(
+            mad < 0.25,
+            torch.tensor(4.0, device=mad.device, dtype=mad.dtype),
+            torch.where(
+                mad < 0.5,
+                torch.tensor(2.0, device=mad.device, dtype=mad.dtype),
+                torch.where(
+                    mad < 1.0,
+                    torch.tensor(1.0, device=mad.device, dtype=mad.dtype),
+                    torch.where(
+                        mad < 2.0,
+                        torch.tensor(0.5, device=mad.device, dtype=mad.dtype),
+                        torch.tensor(0.25, device=mad.device, dtype=mad.dtype)
+                    )
+                )
+            )
+        )
+        x_scaled = x_centered * scale
+
+        # Step 4: Clamp elementwise to bounded range
+        x_clamped = torch.clamp(x_scaled, min=-self.clamp_value, max=self.clamp_value)
+
+        # Step 5: Apply learned affine transformation
+        output = x_clamped * self.gamma + self.beta
+
+        return output
+
+
 def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
     sorted_logits, _ = torch.sort(logits, dim=dim, descending=True)
     cumsum = torch.cumsum(sorted_logits, dim=dim)
@@ -96,6 +154,12 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
             block.ln_1 = DyTNorm(hidden_size=hidden_size)
             block.ln_2 = DyTNorm(hidden_size=hidden_size)
         model.transformer.ln_f = DyTNorm(hidden_size=hidden_size)
+    elif norm_variant == "pwl_norm":
+        hidden_size = model.config.n_embd
+        for block in model.transformer.h:
+            block.ln_1 = PiecewiseLinearNorm(hidden_size=hidden_size)
+            block.ln_2 = PiecewiseLinearNorm(hidden_size=hidden_size)
+        model.transformer.ln_f = PiecewiseLinearNorm(hidden_size=hidden_size)
 
     if attn_variant == "sparsemax":
         for block in model.transformer.h:
@@ -470,7 +534,7 @@ def parse_args() -> argparse.Namespace:
         "--norm_variant",
         type=str,
         default=None,
-        choices=["layernorm", "dyt"],
+        choices=["layernorm", "dyt", "pwl_norm"],
         help="Normalization variant. Defaults to config value or layernorm.",
     )
     parser.add_argument(
