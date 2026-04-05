@@ -245,9 +245,9 @@ python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
 
 Early DyT-only runs were not stable under the baseline GPT-2 recipe. Although training initially progressed and WikiText-103 perplexity improved, the run later regressed and eventually diverged, indicating that the current DyT formulation is not yet a drop-in LayerNorm replacement. In particular, the current module is affine-clamp-affine rather than a true normalization layer, so it likely fails to provide the residual-scale control that GPT-2 relies on.
 
-#### Piecewise Linear Norm
+#### Piecewise Linear Norm v1: Failed Replacement
 
-PiecewiseLinearNorm is an SMT-encodable normalization layer designed as a closer drop-in replacement for LayerNorm. Unlike DyT, which is purely affine-clamp-affine, PiecewiseLinearNorm includes actual centering and adaptive scaling based on input statistics, while maintaining SMT-friendly piecewise linearity.
+PiecewiseLinearNorm v1 was an SMT-encodable normalization layer designed as a closer drop-in replacement for LayerNorm than DyT. Unlike DyT, which is purely affine-clamp-affine, PiecewiseLinearNorm v1 included actual centering and adaptive scaling based on input statistics, while maintaining SMT-friendly piecewise linearity.
 
 Config: `configs/step2a_norm_pwl_only.json`
 
@@ -255,6 +255,36 @@ Config: `configs/step2a_norm_pwl_only.json`
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step2a_norm_pwl_only.json \
   --output_dir artifacts/step2a-norm-pwl-only \
+  --disable_auto_resume \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 53 \
+  --wikitext_eval_every_n_evals 1
+```
+
+This first PiecewiseLinearNorm attempt was also not stable under the baseline GPT-2 recipe. Relative to DyT, it restored two important ingredients of normalization: centering and adaptive rescaling using mean absolute deviation (MAD). However, the gain function used coarse discontinuous buckets with large jumps (4.0, 2.0, 1.0, 0.5, 0.25), and low-MAD tokens could be amplified too aggressively. This likely made optimization brittle and weakened stable residual-scale control across depth.
+
+Empirically, training progressed at first, but later showed the same overall pattern as DyT: early loss improvement followed by rising gradient norms and eventual divergence. In the observed run, OpenWebText eval loss was about 4.03 at 60k steps and about 4.02 at 80k steps, while WikiText-103 perplexity remained very high at about 182 and 171 respectively. Gradient norm rose from roughly 1 early in training to roughly 9 by around 80k steps, and then to about 93.6 when the catastrophic divergence guard fired near 98.8k steps.
+
+These results suggest that simply restoring centering plus coarse MAD bucketization is still not enough. A fully verifiable replacement appears to need smoother bounded scale control.
+
+#### Verifiable PWL Norm v2 with Residual Gating
+
+Verifiable PWL Norm v2 is the next fully verifiable normalization attempt. It keeps the entire model SMT-encodable while addressing the main failure modes of both earlier norm replacements.
+
+The design goal is to preserve true centering and adaptive rescaling, but avoid the brittle discontinuities of PiecewiseLinearNorm v1. Instead of coarse gain buckets, this variant uses a continuous piecewise-linear approximation to inverse MAD with a conservative bounded gain range. It also adds per-branch residual gating, using learned scalar gates clamped into [0, 1], to provide an additional SMT-friendly stabilizer for deep residual optimization.
+
+This variant is still fully verifiable:
+
+- normalization uses only affine maps, mean reductions, abs, comparisons, clamp, and piecewise-linear functions
+- residual gating uses only scalar multiplication and clamp
+- no LayerNorm remains anywhere in the verifiable variant
+
+Config: `configs/step2a_norm_verifiable_pwl_gated.json`
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
+  --config configs/step2a_norm_verifiable_pwl_gated.json \
+  --output_dir artifacts/step2a-norm-verifiable-pwl-gated \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \

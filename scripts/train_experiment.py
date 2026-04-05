@@ -98,6 +98,120 @@ class PiecewiseLinearNorm(torch.nn.Module):
         return output
 
 
+class VerifiablePWLNorm(torch.nn.Module):
+    """
+    Fully verifiable normalization with continuous piecewise-linear gain.
+
+    This module performs true centering and adaptive rescaling while remaining
+    exactly SMT-encodable. Unlike PiecewiseLinearNorm v1, which used coarse
+    discontinuous gain buckets, this version uses a continuous piecewise-linear
+    approximation to inverse MAD with conservative bounded gain.
+
+    The forward pass uses only:
+    - affine operations
+    - mean reductions
+    - abs
+    - comparisons
+    - clamp
+    - piecewise-linear functions
+
+    This preserves centering and bounded scale control for stable residual
+    optimization while maintaining full SMT verifiability.
+    """
+    def __init__(self, hidden_size: int, clamp_value: float = 4.0):
+        super().__init__()
+        self.beta = torch.nn.Parameter(torch.zeros(hidden_size))
+        self.clamp_value = clamp_value
+        # Diagnostics tracking (optional, enabled by callback)
+        self.track_stats = False
+        self.last_mad = None
+        self.last_gain = None
+        self.last_clamp_fraction = None
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        # a. Center by subtracting per-token mean
+        x_mean = hidden_states.mean(dim=-1, keepdim=True)
+        x_centered = hidden_states - x_mean
+
+        # b. Compute mean absolute deviation (MAD) as scale proxy
+        mad = torch.abs(x_centered).mean(dim=-1, keepdim=True)
+
+        # c. Continuous piecewise-linear gain function
+        # Segments:
+        #   mad < 0.25:           gain = 1.5
+        #   0.25 <= mad < 0.75:   gain linearly from 1.5 to 1.0
+        #   0.75 <= mad < 1.5:    gain linearly from 1.0 to 0.7
+        #   mad >= 1.5:           gain = 0.7
+        # Then clamp to [0.6, 1.3]
+
+        # Segment 1: mad in [0.25, 0.75], interpolate from 1.5 to 1.0
+        # gain = 1.5 - (mad - 0.25) / (0.75 - 0.25) * (1.5 - 1.0)
+        # gain = 1.5 - (mad - 0.25)
+        gain_seg1 = 1.5 - (mad - 0.25)
+
+        # Segment 2: mad in [0.75, 1.5], interpolate from 1.0 to 0.7
+        # gain = 1.0 - (mad - 0.75) / (1.5 - 0.75) * (1.0 - 0.7)
+        # gain = 1.0 - 0.4 * (mad - 0.75)
+        gain_seg2 = 1.0 - 0.4 * (mad - 0.75)
+
+        # Assemble piecewise function
+        gain = torch.where(
+            mad < 0.25,
+            torch.tensor(1.5, device=mad.device, dtype=mad.dtype),
+            torch.where(
+                mad < 0.75,
+                gain_seg1,
+                torch.where(
+                    mad < 1.5,
+                    gain_seg2,
+                    torch.tensor(0.7, device=mad.device, dtype=mad.dtype)
+                )
+            )
+        )
+
+        # Clamp gain to conservative range
+        gain = torch.clamp(gain, min=0.6, max=1.3)
+
+        # d. Apply gain
+        y = x_centered * gain
+
+        # e. Clamp to bounded range
+        y_before_clamp = y
+        y = torch.clamp(y, min=-self.clamp_value, max=self.clamp_value)
+
+        # f. Apply learned bias
+        output = y + self.beta
+
+        # Track statistics if enabled
+        if self.track_stats:
+            with torch.no_grad():
+                self.last_mad = mad.detach()
+                self.last_gain = gain.detach()
+                # Fraction of elements that hit clamp bounds
+                clamped = (torch.abs(y_before_clamp) > self.clamp_value).float()
+                self.last_clamp_fraction = clamped.mean().item()
+
+        return output
+
+
+class ResidualGate(torch.nn.Module):
+    """
+    SMT-friendly learned scalar gate for residual connections.
+
+    Each gate is a single scalar parameter alpha, clamped to [0, 1] during
+    the forward pass. This provides adaptive control over residual branch
+    strength while remaining exactly verifiable.
+    """
+    def __init__(self, init_value: float = 0.1):
+        super().__init__()
+        self.alpha = torch.nn.Parameter(torch.tensor(init_value))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Clamp alpha to [0, 1] range (SMT-friendly, unlike sigmoid)
+        gate = torch.clamp(self.alpha, min=0.0, max=1.0)
+        return gate * x
+
+
 def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
     sorted_logits, _ = torch.sort(logits, dim=dim, descending=True)
     cumsum = torch.cumsum(sorted_logits, dim=dim)
@@ -160,10 +274,66 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
             block.ln_1 = PiecewiseLinearNorm(hidden_size=hidden_size)
             block.ln_2 = PiecewiseLinearNorm(hidden_size=hidden_size)
         model.transformer.ln_f = PiecewiseLinearNorm(hidden_size=hidden_size)
+    elif norm_variant == "verifiable_pwl_norm":
+        hidden_size = model.config.n_embd
+        for block in model.transformer.h:
+            block.ln_1 = VerifiablePWLNorm(hidden_size=hidden_size)
+            block.ln_2 = VerifiablePWLNorm(hidden_size=hidden_size)
+            # Add residual gates
+            block.gate_attn = ResidualGate(init_value=0.1)
+            block.gate_mlp = ResidualGate(init_value=0.1)
+            # Patch forward to use gates
+            _patch_block_with_residual_gates(block)
+        model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size)
 
     if attn_variant == "sparsemax":
         for block in model.transformer.h:
             patch_attention_to_sparsemax(block.attn)
+
+
+def _patch_block_with_residual_gates(block) -> None:
+    """Monkey-patch GPT2Block forward to use residual gates."""
+    original_forward = block.forward
+
+    def forward_with_gates(
+        self,
+        hidden_states,
+        layer_past=None,
+        attention_mask=None,
+        head_mask=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        use_cache=False,
+        output_attentions=False,
+    ):
+        residual = hidden_states
+        hidden_states = self.ln_1(hidden_states)
+        attn_outputs = self.attn(
+            hidden_states,
+            layer_past=layer_past,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            encoder_hidden_states=encoder_hidden_states,
+            encoder_attention_mask=encoder_attention_mask,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+        )
+        attn_output = attn_outputs[0]
+        outputs = attn_outputs[1:]
+        # Apply residual gate
+        hidden_states = residual + self.gate_attn(attn_output)
+
+        residual = hidden_states
+        hidden_states = self.ln_2(hidden_states)
+        feed_forward_hidden_states = self.mlp(hidden_states)
+        # Apply residual gate
+        hidden_states = residual + self.gate_mlp(feed_forward_hidden_states)
+
+        outputs = (hidden_states,) + outputs
+
+        return outputs
+
+    block.forward = MethodType(forward_with_gates, block)
 
 
 class EvalLossThresholdStopCallback(TrainerCallback):
@@ -415,6 +585,84 @@ class WikiTextEvalCallback(TrainerCallback):
         return control
 
 
+class VerifiableNormDiagnosticsCallback(TrainerCallback):
+    """
+    Lightweight diagnostics logging for VerifiablePWLNorm modules.
+
+    Collects and saves summary statistics during evaluation:
+    - mean and max MAD across all norm modules
+    - mean and max gain across all norm modules
+    - fraction of post-scale activations that hit the clamp bounds
+    """
+    def __init__(self, output_dir: str, enabled: bool):
+        self.output_dir = output_dir
+        self.enabled = enabled
+
+    def on_evaluate(self, args, state: TrainerState, control: TrainerControl, model=None, eval_dataloader=None, **kwargs):
+        if not self.enabled or model is None or not state.is_world_process_zero:
+            return control
+
+        # Collect all VerifiablePWLNorm modules
+        norm_modules = []
+        for module in model.modules():
+            if isinstance(module, VerifiablePWLNorm):
+                norm_modules.append(module)
+
+        if not norm_modules:
+            return control
+
+        # Enable stats tracking
+        for module in norm_modules:
+            module.track_stats = True
+
+        # Run a forward pass on a small batch to collect stats
+        try:
+            with torch.no_grad():
+                # Get one batch from eval dataloader
+                if eval_dataloader is None:
+                    return control
+                batch = next(iter(eval_dataloader))
+                batch = {k: v.to(model.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+                model(**batch)
+
+            # Collect statistics
+            mad_values = []
+            gain_values = []
+            clamp_fractions = []
+
+            for module in norm_modules:
+                if module.last_mad is not None:
+                    mad_values.append(module.last_mad.mean().item())
+                if module.last_gain is not None:
+                    gain_values.append(module.last_gain.mean().item())
+                if module.last_clamp_fraction is not None:
+                    clamp_fractions.append(module.last_clamp_fraction)
+
+            if mad_values:
+                stats = {
+                    "step": int(state.global_step),
+                    "mean_mad": float(sum(mad_values) / len(mad_values)),
+                    "max_mad": float(max(mad_values)),
+                    "mean_gain": float(sum(gain_values) / len(gain_values)),
+                    "max_gain": float(max(gain_values)),
+                    "mean_clamp_fraction": float(sum(clamp_fractions) / len(clamp_fractions)),
+                }
+
+                stats_path = os.path.join(self.output_dir, "verifiable_norm_stats_latest.json")
+                with open(stats_path, "w", encoding="utf-8") as handle:
+                    json.dump(stats, handle, indent=2)
+
+        except Exception as e:
+            print(f"Warning: VerifiableNormDiagnosticsCallback failed: {e}")
+
+        finally:
+            # Disable stats tracking
+            for module in norm_modules:
+                module.track_stats = False
+
+        return control
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train GPT-2 experiments (baseline and architecture variants)")
     parser.add_argument(
@@ -534,7 +782,7 @@ def parse_args() -> argparse.Namespace:
         "--norm_variant",
         type=str,
         default=None,
-        choices=["layernorm", "dyt", "pwl_norm"],
+        choices=["layernorm", "dyt", "pwl_norm", "verifiable_pwl_norm"],
         help="Normalization variant. Defaults to config value or layernorm.",
     )
     parser.add_argument(
@@ -719,6 +967,58 @@ def tokenize_and_group(
         desc=f"Grouping into blocks of {block_size}",
     )
     return grouped
+
+
+def create_optimizer_with_weight_decay_exclusions(model, learning_rate: float, weight_decay: float, betas: tuple, eps: float):
+    """
+    Create optimizer with proper parameter grouping.
+
+    Excludes normalization and residual gate parameters from weight decay:
+    - beta parameters in DyTNorm, PiecewiseLinearNorm, VerifiablePWLNorm
+    - pre_scale, pre_bias, post_scale, post_bias in DyTNorm
+    - gamma, beta in PiecewiseLinearNorm
+    - alpha parameters in ResidualGate
+    """
+    decay_params = []
+    no_decay_params = []
+
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+
+        # Exclude norm and gate parameters from weight decay
+        if any(substring in name for substring in [
+            ".beta",  # beta in all norm variants
+            ".gamma",  # gamma in PiecewiseLinearNorm
+            ".pre_scale",  # DyTNorm
+            ".pre_bias",  # DyTNorm
+            ".post_scale",  # DyTNorm
+            ".post_bias",  # DyTNorm
+            ".alpha",  # ResidualGate
+            "ln_f.weight",  # LayerNorm final layer weight
+            "ln_f.bias",  # LayerNorm final layer bias
+            "ln_1.weight",  # LayerNorm block 1 weight
+            "ln_1.bias",  # LayerNorm block 1 bias
+            "ln_2.weight",  # LayerNorm block 2 weight
+            "ln_2.bias",  # LayerNorm block 2 bias
+        ]):
+            no_decay_params.append(param)
+        else:
+            decay_params.append(param)
+
+    optimizer_grouped_parameters = [
+        {"params": decay_params, "weight_decay": weight_decay},
+        {"params": no_decay_params, "weight_decay": 0.0},
+    ]
+
+    optimizer = torch.optim.AdamW(
+        optimizer_grouped_parameters,
+        lr=learning_rate,
+        betas=betas,
+        eps=eps,
+    )
+
+    return optimizer
 
 
 def main() -> None:
@@ -948,6 +1248,23 @@ def main() -> None:
                 )
             )
 
+        # Add diagnostics callback for verifiable norm variant
+        callbacks.append(
+            VerifiableNormDiagnosticsCallback(
+                output_dir=args.output_dir,
+                enabled=(norm_variant == "verifiable_pwl_norm"),
+            )
+        )
+
+        # Create optimizer with proper weight decay exclusions for norm and gate parameters
+        optimizer = create_optimizer_with_weight_decay_exclusions(
+            model=model,
+            learning_rate=training_args.learning_rate,
+            weight_decay=training_args.weight_decay,
+            betas=(training_args.adam_beta1, training_args.adam_beta2),
+            eps=training_args.adam_epsilon,
+        )
+
         trainer = Trainer(
             model=model,
             args=training_args,
@@ -956,6 +1273,7 @@ def main() -> None:
             processing_class=tokenizer,
             data_collator=data_collator,
             callbacks=callbacks,
+            optimizers=(optimizer, None),  # Use custom optimizer, let Trainer create scheduler
         )
 
         resume_checkpoint = args.resume_from_checkpoint
