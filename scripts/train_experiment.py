@@ -198,7 +198,7 @@ class ResidualGate(torch.nn.Module):
     """
     SMT-friendly learned scalar gate for residual connections.
 
-    Each gate is a single scalar parameter alpha, clamped to [0, 1] during
+    Each gate is a single scalar parameter alpha, clamped to [0, 0.5] during
     the forward pass. This provides adaptive control over residual branch
     strength while remaining exactly verifiable.
     """
@@ -207,8 +207,8 @@ class ResidualGate(torch.nn.Module):
         self.alpha = torch.nn.Parameter(torch.tensor(init_value))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Clamp alpha to [0, 1] range (SMT-friendly, unlike sigmoid)
-        gate = torch.clamp(self.alpha, min=0.0, max=1.0)
+        # Clamp alpha to [0, 0.5] range (SMT-friendly, unlike sigmoid)
+        gate = torch.clamp(self.alpha, min=0.0, max=0.5)
         return gate * x
 
 
@@ -587,12 +587,14 @@ class WikiTextEvalCallback(TrainerCallback):
 
 class VerifiableNormDiagnosticsCallback(TrainerCallback):
     """
-    Lightweight diagnostics logging for VerifiablePWLNorm modules.
+    Lightweight diagnostics logging for VerifiablePWLNorm modules and ResidualGates.
 
     Collects and saves summary statistics during evaluation:
     - mean and max MAD across all norm modules
     - mean and max gain across all norm modules
     - fraction of post-scale activations that hit the clamp bounds
+    - mean and max alpha for attention gates
+    - mean and max alpha for MLP gates
     """
     def __init__(self, output_dir: str, enabled: bool):
         self.output_dir = output_dir
@@ -625,7 +627,7 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                 batch = {k: v.to(model.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 model(**batch)
 
-            # Collect statistics
+            # Collect norm statistics
             mad_values = []
             gain_values = []
             clamp_fractions = []
@@ -638,6 +640,18 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                 if module.last_clamp_fraction is not None:
                     clamp_fractions.append(module.last_clamp_fraction)
 
+            # Collect gate statistics
+            attn_gate_alphas = []
+            mlp_gate_alphas = []
+
+            for name, module in model.named_modules():
+                if isinstance(module, ResidualGate):
+                    alpha_val = module.alpha.item()
+                    if "gate_attn" in name:
+                        attn_gate_alphas.append(alpha_val)
+                    elif "gate_mlp" in name:
+                        mlp_gate_alphas.append(alpha_val)
+
             if mad_values:
                 stats = {
                     "step": int(state.global_step),
@@ -647,6 +661,14 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                     "max_gain": float(max(gain_values)),
                     "mean_clamp_fraction": float(sum(clamp_fractions) / len(clamp_fractions)),
                 }
+
+                # Add gate stats if available
+                if attn_gate_alphas:
+                    stats["mean_attn_gate_alpha"] = float(sum(attn_gate_alphas) / len(attn_gate_alphas))
+                    stats["max_attn_gate_alpha"] = float(max(attn_gate_alphas))
+                if mlp_gate_alphas:
+                    stats["mean_mlp_gate_alpha"] = float(sum(mlp_gate_alphas) / len(mlp_gate_alphas))
+                    stats["max_mlp_gate_alpha"] = float(max(mlp_gate_alphas))
 
                 stats_path = os.path.join(self.output_dir, "verifiable_norm_stats_latest.json")
                 with open(stats_path, "w", encoding="utf-8") as handle:
