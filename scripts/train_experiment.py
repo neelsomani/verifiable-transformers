@@ -198,17 +198,18 @@ class ResidualGate(torch.nn.Module):
     """
     SMT-friendly learned scalar gate for residual connections.
 
-    Each gate is a single scalar parameter alpha, clamped to [0, 0.5] during
+    Each gate is a single scalar parameter alpha, clamped to [0, max_value] during
     the forward pass. This provides adaptive control over residual branch
     strength while remaining exactly verifiable.
     """
-    def __init__(self, init_value: float = 0.1):
+    def __init__(self, init_value: float = 0.1, max_value: float = 0.5):
         super().__init__()
         self.alpha = torch.nn.Parameter(torch.tensor(init_value))
+        self.max_value = max_value
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Clamp alpha to [0, 0.5] range (SMT-friendly, unlike sigmoid)
-        gate = torch.clamp(self.alpha, min=0.0, max=0.5)
+        # Clamp alpha to [0, max_value] range (SMT-friendly, unlike sigmoid)
+        gate = torch.clamp(self.alpha, min=0.0, max=self.max_value)
         return gate * x
 
 
@@ -279,9 +280,9 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
         for block in model.transformer.h:
             block.ln_1 = VerifiablePWLNorm(hidden_size=hidden_size)
             block.ln_2 = VerifiablePWLNorm(hidden_size=hidden_size)
-            # Add residual gates
-            block.gate_attn = ResidualGate(init_value=0.1)
-            block.gate_mlp = ResidualGate(init_value=0.1)
+            # Add residual gates with different caps
+            block.gate_attn = ResidualGate(init_value=0.1, max_value=0.4)
+            block.gate_mlp = ResidualGate(init_value=0.1, max_value=0.3)
             # Patch forward to use gates
             _patch_block_with_residual_gates(block)
         model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size)
