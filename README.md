@@ -267,16 +267,16 @@ Empirically, training progressed at first, but later showed the same overall pat
 
 These results suggest that simply restoring centering plus coarse MAD bucketization is still not enough. A fully verifiable replacement appears to need smoother bounded scale control.
 
-#### Verifiable PWL Norm v2 with Residual Gating
+#### Verifiable PWL Norm v2 with Fixed Residual Scaling
 
 Verifiable PWL Norm v2 is the next fully verifiable normalization attempt. It keeps the entire model SMT-encodable while addressing the main failure modes of both earlier norm replacements.
 
-The design goal is to preserve true centering and adaptive rescaling, but avoid the brittle discontinuities of PiecewiseLinearNorm v1. Instead of coarse gain buckets, this variant uses a continuous piecewise-linear approximation to inverse MAD with a conservative bounded gain range. It also adds per-branch residual gating, using learned scalar gates clamped into [0, 1], to provide an additional SMT-friendly stabilizer for deep residual optimization.
+The design goal is to preserve true centering and adaptive rescaling, but avoid the brittle discontinuities of PiecewiseLinearNorm v1. Instead of coarse gain buckets, this variant uses a continuous piecewise-linear approximation to inverse MAD with a conservative bounded gain range. It also adds fixed residual scaling (0.5 for attention, 0.75 for MLP) to provide architectural stabilization without learned drift.
 
 This variant is still fully verifiable:
 
 - normalization uses only affine maps, mean reductions, abs, comparisons, clamp, and piecewise-linear functions
-- residual gating uses only scalar multiplication and clamp
+- residual scaling uses only constant multiplication
 - no LayerNorm remains anywhere in the verifiable variant
 
 Config: `configs/step2a_norm_verifiable_pwl_gated.json`
@@ -284,7 +284,7 @@ Config: `configs/step2a_norm_verifiable_pwl_gated.json`
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step2a_norm_verifiable_pwl_gated.json \
-  --output_dir artifacts/step2a-norm-verifiable-pwl-gated \
+  --output_dir artifacts/step2a-norm-verifiable-pwl \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \

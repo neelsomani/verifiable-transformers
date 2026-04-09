@@ -280,11 +280,8 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
         for block in model.transformer.h:
             block.ln_1 = VerifiablePWLNorm(hidden_size=hidden_size)
             block.ln_2 = VerifiablePWLNorm(hidden_size=hidden_size)
-            # Add residual gates with different caps
-            block.gate_attn = ResidualGate(init_value=0.1, max_value=0.4)
-            block.gate_mlp = ResidualGate(init_value=0.1, max_value=0.3)
-            # Patch forward to use gates
-            _patch_block_with_residual_gates(block)
+            # Patch forward to use fixed residual scaling
+            _patch_block_with_residual_scaling(block)
         model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size)
 
     if attn_variant == "sparsemax":
@@ -292,11 +289,18 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
             patch_attention_to_sparsemax(block.attn)
 
 
-def _patch_block_with_residual_gates(block) -> None:
-    """Monkey-patch GPT2Block forward to use residual gates."""
-    original_forward = block.forward
+def _patch_block_with_residual_scaling(block) -> None:
+    """
+    Monkey-patch GPT2Block forward to use fixed residual scaling.
 
-    def forward_with_gates(
+    This is fully SMT-encodable and removes learned drift from gates.
+    Architectural stabilization via constant scaling factors.
+    """
+    # Fixed residual scaling constants (SMT-encodable)
+    ATTN_RES_SCALE = 0.5
+    MLP_RES_SCALE = 0.75
+
+    def forward_with_scaling(
         self,
         hidden_states,
         layer_past=None,
@@ -321,20 +325,20 @@ def _patch_block_with_residual_gates(block) -> None:
         )
         attn_output = attn_outputs[0]
         outputs = attn_outputs[1:]
-        # Apply residual gate
-        hidden_states = residual + self.gate_attn(attn_output)
+        # Apply fixed residual scaling
+        hidden_states = residual + ATTN_RES_SCALE * attn_output
 
         residual = hidden_states
         hidden_states = self.ln_2(hidden_states)
         feed_forward_hidden_states = self.mlp(hidden_states)
-        # Apply residual gate
-        hidden_states = residual + self.gate_mlp(feed_forward_hidden_states)
+        # Apply fixed residual scaling
+        hidden_states = residual + MLP_RES_SCALE * feed_forward_hidden_states
 
         outputs = (hidden_states,) + outputs
 
         return outputs
 
-    block.forward = MethodType(forward_with_gates, block)
+    block.forward = MethodType(forward_with_scaling, block)
 
 
 class EvalLossThresholdStopCallback(TrainerCallback):
@@ -588,14 +592,12 @@ class WikiTextEvalCallback(TrainerCallback):
 
 class VerifiableNormDiagnosticsCallback(TrainerCallback):
     """
-    Lightweight diagnostics logging for VerifiablePWLNorm modules and ResidualGates.
+    Lightweight diagnostics logging for VerifiablePWLNorm modules.
 
     Collects and saves summary statistics during evaluation:
     - mean and max MAD across all norm modules
     - mean and max gain across all norm modules
     - fraction of post-scale activations that hit the clamp bounds
-    - mean and max alpha for attention gates
-    - mean and max alpha for MLP gates
     """
     def __init__(self, output_dir: str, enabled: bool):
         self.output_dir = output_dir
@@ -641,18 +643,6 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                 if module.last_clamp_fraction is not None:
                     clamp_fractions.append(module.last_clamp_fraction)
 
-            # Collect gate statistics
-            attn_gate_alphas = []
-            mlp_gate_alphas = []
-
-            for name, module in model.named_modules():
-                if isinstance(module, ResidualGate):
-                    alpha_val = module.alpha.item()
-                    if "gate_attn" in name:
-                        attn_gate_alphas.append(alpha_val)
-                    elif "gate_mlp" in name:
-                        mlp_gate_alphas.append(alpha_val)
-
             if mad_values:
                 stats = {
                     "step": int(state.global_step),
@@ -662,14 +652,6 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                     "max_gain": float(max(gain_values)),
                     "mean_clamp_fraction": float(sum(clamp_fractions) / len(clamp_fractions)),
                 }
-
-                # Add gate stats if available
-                if attn_gate_alphas:
-                    stats["mean_attn_gate_alpha"] = float(sum(attn_gate_alphas) / len(attn_gate_alphas))
-                    stats["max_attn_gate_alpha"] = float(max(attn_gate_alphas))
-                if mlp_gate_alphas:
-                    stats["mean_mlp_gate_alpha"] = float(sum(mlp_gate_alphas) / len(mlp_gate_alphas))
-                    stats["max_mlp_gate_alpha"] = float(max(mlp_gate_alphas))
 
                 stats_path = os.path.join(self.output_dir, "verifiable_norm_stats_latest.json")
                 with open(stats_path, "w", encoding="utf-8") as handle:
@@ -996,11 +978,10 @@ def create_optimizer_with_weight_decay_exclusions(model, learning_rate: float, w
     """
     Create optimizer with proper parameter grouping.
 
-    Excludes normalization and residual gate parameters from weight decay:
+    Excludes normalization parameters from weight decay:
     - beta parameters in DyTNorm, PiecewiseLinearNorm, VerifiablePWLNorm
     - pre_scale, pre_bias, post_scale, post_bias in DyTNorm
     - gamma, beta in PiecewiseLinearNorm
-    - alpha parameters in ResidualGate
     """
     decay_params = []
     no_decay_params = []
@@ -1009,7 +990,7 @@ def create_optimizer_with_weight_decay_exclusions(model, learning_rate: float, w
         if not param.requires_grad:
             continue
 
-        # Exclude norm and gate parameters from weight decay
+        # Exclude norm parameters from weight decay
         if any(substring in name for substring in [
             ".beta",  # beta in all norm variants
             ".gamma",  # gamma in PiecewiseLinearNorm
@@ -1017,7 +998,6 @@ def create_optimizer_with_weight_decay_exclusions(model, learning_rate: float, w
             ".pre_bias",  # DyTNorm
             ".post_scale",  # DyTNorm
             ".post_bias",  # DyTNorm
-            ".alpha",  # ResidualGate
             "ln_f.weight",  # LayerNorm final layer weight
             "ln_f.bias",  # LayerNorm final layer bias
             "ln_1.weight",  # LayerNorm block 1 weight
