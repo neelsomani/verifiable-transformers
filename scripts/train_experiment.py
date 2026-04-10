@@ -100,95 +100,53 @@ class PiecewiseLinearNorm(torch.nn.Module):
 
 class VerifiablePWLNorm(torch.nn.Module):
     """
-    Fully verifiable normalization with continuous piecewise-linear gain.
+    Fully verifiable normalization with simple center-clamp-scale.
 
-    This module performs true centering and adaptive rescaling while remaining
-    exactly SMT-encodable. Unlike PiecewiseLinearNorm v1, which used coarse
-    discontinuous gain buckets, this version uses a continuous piecewise-linear
-    approximation to inverse MAD with conservative bounded gain.
+    This module performs:
+    1. Center: subtract per-token mean
+    2. Clamp: elementwise clamp to [-2.0, 2.0]
+    3. Scale: multiply by fixed constant 0.5
+    4. Bias: add learned per-dimension bias
 
     The forward pass uses only:
+    - mean reduction
     - affine operations
-    - mean reductions
-    - abs
-    - comparisons
     - clamp
-    - piecewise-linear functions
 
-    This preserves centering and bounded scale control for stable residual
-    optimization while maintaining full SMT verifiability.
+    This is fully SMT-encodable and provides bounded activation control
+    for stable residual optimization.
     """
-    def __init__(self, hidden_size: int, clamp_value: float = 4.0):
+    def __init__(self, hidden_size: int, clamp_value: float = 2.0):
         super().__init__()
         self.beta = torch.nn.Parameter(torch.zeros(hidden_size))
         self.clamp_value = clamp_value
+        self.scale = 0.5
         # Diagnostics tracking (optional, enabled by callback)
         self.track_stats = False
-        self.last_mad = None
-        self.last_gain = None
+        self.last_mean = None
         self.last_clamp_fraction = None
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        # a. Center by subtracting per-token mean
+        # 1. Center by subtracting per-token mean
         x_mean = hidden_states.mean(dim=-1, keepdim=True)
-        x_centered = hidden_states - x_mean
+        x = hidden_states - x_mean
 
-        # b. Compute mean absolute deviation (MAD) as scale proxy
-        mad = torch.abs(x_centered).mean(dim=-1, keepdim=True)
+        # 2. Clamp to bounded range
+        x_before_clamp = x
+        x = torch.clamp(x, min=-self.clamp_value, max=self.clamp_value)
 
-        # c. Continuous piecewise-linear gain function
-        # Segments:
-        #   mad < 0.25:           gain = 1.5
-        #   0.25 <= mad < 0.75:   gain linearly from 1.5 to 1.0
-        #   0.75 <= mad < 1.5:    gain linearly from 1.0 to 0.7
-        #   mad >= 1.5:           gain = 0.7
-        # Then clamp to [0.6, 1.3]
+        # 3. Apply fixed scale
+        x = x * self.scale
 
-        # Segment 1: mad in [0.25, 0.75], interpolate from 1.5 to 1.0
-        # gain = 1.5 - (mad - 0.25) / (0.75 - 0.25) * (1.5 - 1.0)
-        # gain = 1.5 - (mad - 0.25)
-        gain_seg1 = 1.5 - (mad - 0.25)
-
-        # Segment 2: mad in [0.75, 1.5], interpolate from 1.0 to 0.7
-        # gain = 1.0 - (mad - 0.75) / (1.5 - 0.75) * (1.0 - 0.7)
-        # gain = 1.0 - 0.4 * (mad - 0.75)
-        gain_seg2 = 1.0 - 0.4 * (mad - 0.75)
-
-        # Assemble piecewise function
-        gain = torch.where(
-            mad < 0.25,
-            torch.tensor(1.5, device=mad.device, dtype=mad.dtype),
-            torch.where(
-                mad < 0.75,
-                gain_seg1,
-                torch.where(
-                    mad < 1.5,
-                    gain_seg2,
-                    torch.tensor(0.7, device=mad.device, dtype=mad.dtype)
-                )
-            )
-        )
-
-        # Clamp gain to conservative range
-        gain = torch.clamp(gain, min=0.6, max=1.3)
-
-        # d. Apply gain
-        y = x_centered * gain
-
-        # e. Clamp to bounded range
-        y_before_clamp = y
-        y = torch.clamp(y, min=-self.clamp_value, max=self.clamp_value)
-
-        # f. Apply learned bias
-        output = y + self.beta
+        # 4. Add learned bias
+        output = x + self.beta
 
         # Track statistics if enabled
         if self.track_stats:
             with torch.no_grad():
-                self.last_mad = mad.detach()
-                self.last_gain = gain.detach()
+                self.last_mean = x_mean.abs().mean().item()
                 # Fraction of elements that hit clamp bounds
-                clamped = (torch.abs(y_before_clamp) > self.clamp_value).float()
+                clamped = (torch.abs(x_before_clamp) > self.clamp_value).float()
                 self.last_clamp_fraction = clamped.mean().item()
 
         return output
@@ -595,9 +553,8 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
     Lightweight diagnostics logging for VerifiablePWLNorm modules.
 
     Collects and saves summary statistics during evaluation:
-    - mean and max MAD across all norm modules
-    - mean and max gain across all norm modules
-    - fraction of post-scale activations that hit the clamp bounds
+    - mean absolute value of per-token means
+    - fraction of activations that hit the clamp bounds
     """
     def __init__(self, output_dir: str, enabled: bool):
         self.output_dir = output_dir
@@ -631,25 +588,19 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                 model(**batch)
 
             # Collect norm statistics
-            mad_values = []
-            gain_values = []
+            mean_values = []
             clamp_fractions = []
 
             for module in norm_modules:
-                if module.last_mad is not None:
-                    mad_values.append(module.last_mad.mean().item())
-                if module.last_gain is not None:
-                    gain_values.append(module.last_gain.mean().item())
+                if module.last_mean is not None:
+                    mean_values.append(module.last_mean)
                 if module.last_clamp_fraction is not None:
                     clamp_fractions.append(module.last_clamp_fraction)
 
-            if mad_values:
+            if mean_values:
                 stats = {
                     "step": int(state.global_step),
-                    "mean_mad": float(sum(mad_values) / len(mad_values)),
-                    "max_mad": float(max(mad_values)),
-                    "mean_gain": float(sum(gain_values) / len(gain_values)),
-                    "max_gain": float(max(gain_values)),
+                    "mean_abs_mean": float(sum(mean_values) / len(mean_values)),
                     "mean_clamp_fraction": float(sum(clamp_fractions) / len(clamp_fractions)),
                 }
 

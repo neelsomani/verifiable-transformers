@@ -271,11 +271,11 @@ These results suggest that simply restoring centering plus coarse MAD bucketizat
 
 Verifiable PWL Norm v2 is the next fully verifiable normalization attempt. It keeps the entire model SMT-encodable while addressing the main failure modes of both earlier norm replacements.
 
-The design goal is to preserve true centering and adaptive rescaling, but avoid the brittle discontinuities of PiecewiseLinearNorm v1. Instead of coarse gain buckets, this variant uses a continuous piecewise-linear approximation to inverse MAD with a conservative bounded gain range. It also adds fixed residual scaling (0.5 for attention, 0.75 for MLP) to provide architectural stabilization without learned drift.
+The design is intentionally minimal: center by subtracting per-token mean, clamp to [-2.0, 2.0], scale by 0.5, then add learned bias. This removes all adaptive gain logic that caused brittle optimization in v1. Fixed residual scaling (0.5 for attention, 0.75 for MLP) provides architectural stabilization without learned drift.
 
 This variant is still fully verifiable:
 
-- normalization uses only affine maps, mean reductions, abs, comparisons, clamp, and piecewise-linear functions
+- normalization uses only mean reduction, affine operations, and clamp
 - residual scaling uses only constant multiplication
 - no LayerNorm remains anywhere in the verifiable variant
 
