@@ -98,6 +98,27 @@ class PiecewiseLinearNorm(torch.nn.Module):
         return output
 
 
+def soft_clamp(x, c=2.0, leak=0.1):
+    """
+    Leaky piecewise-linear clamp.
+
+    For |x| <= c: returns x (identity)
+    For |x| > c: returns c + leak * (x - c) with appropriate sign
+
+    This is fully SMT-encodable and provides soft saturation instead of
+    hard clipping, which can improve gradient flow.
+    """
+    return torch.where(
+        x < -c,
+        -c + leak * (x + c),
+        torch.where(
+            x > c,
+            c + leak * (x - c),
+            x,
+        ),
+    )
+
+
 class VerifiablePWLNorm(torch.nn.Module):
     """
     Fully verifiable normalization with simple center-clamp-scale.
@@ -131,9 +152,9 @@ class VerifiablePWLNorm(torch.nn.Module):
         x_mean = hidden_states.mean(dim=-1, keepdim=True)
         x = hidden_states - x_mean
 
-        # 2. Clamp to bounded range
+        # 2. Soft clamp to bounded range with leak
         x_before_clamp = x
-        x = torch.clamp(x, min=-self.clamp_value, max=self.clamp_value)
+        x = soft_clamp(x, c=self.clamp_value, leak=0.1)
 
         # 3. Apply fixed scale
         x = x * self.scale
@@ -145,7 +166,7 @@ class VerifiablePWLNorm(torch.nn.Module):
         if self.track_stats:
             with torch.no_grad():
                 self.last_mean = x_mean.abs().mean().item()
-                # Fraction of elements that hit clamp bounds
+                # Fraction of elements in leak region (|x| > clamp_value before soft clamp)
                 clamped = (torch.abs(x_before_clamp) > self.clamp_value).float()
                 self.last_clamp_fraction = clamped.mean().item()
 
