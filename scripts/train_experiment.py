@@ -100,13 +100,13 @@ class PiecewiseLinearNorm(torch.nn.Module):
 
 def soft_clamp(x, c=2.0, leak=0.1):
     """
-    Leaky piecewise-linear clamp.
+    Leaky piecewise-linear clamp (unbounded).
 
     For |x| <= c: returns x (identity)
     For |x| > c: returns c + leak * (x - c) with appropriate sign
 
     This is fully SMT-encodable and provides soft saturation instead of
-    hard clipping, which can improve gradient flow.
+    hard clipping, which improves gradient flow but is unbounded.
     """
     return torch.where(
         x < -c,
@@ -119,42 +119,89 @@ def soft_clamp(x, c=2.0, leak=0.1):
     )
 
 
+def bounded_pwl_clamp(x):
+    """
+    Bounded piecewise-linear clamp with three regions (SMT-encodable).
+
+    Structure:
+    - x < -3.0: flat at -2.3 (slope 0, bounded)
+    - -3.0 <= x < -2.0: linear slope 0.3
+    - -2.0 <= x <= 2.0: identity (slope 1)
+    - 2.0 < x <= 3.0: linear slope 0.3
+    - x > 3.0: flat at 2.3 (slope 0, bounded)
+
+    This provides:
+    - Bounded activations (saturates at ±2.3)
+    - Nonzero gradients in most regions
+    - No explosion
+    - Fully SMT-encodable (pure piecewise-linear, no division)
+    """
+    return torch.where(
+        x < -3.0,
+        torch.tensor(-2.3, device=x.device, dtype=x.dtype),
+        torch.where(
+            x < -2.0,
+            -2.0 + 0.3 * (x + 2.0),
+            torch.where(
+                x <= 2.0,
+                x,
+                torch.where(
+                    x <= 3.0,
+                    2.0 + 0.3 * (x - 2.0),
+                    torch.tensor(2.3, device=x.device, dtype=x.dtype),
+                ),
+            ),
+        ),
+    )
+
+
 class VerifiablePWLNorm(torch.nn.Module):
     """
     Fully verifiable normalization with simple center-clamp-scale.
 
     This module performs:
     1. Center: subtract per-token mean
-    2. Clamp: elementwise clamp to [-2.0, 2.0]
+    2. Clamp: elementwise clamp (soft leaky or bounded PWL)
     3. Scale: multiply by fixed constant 0.5
     4. Bias: add learned per-dimension bias
 
     The forward pass uses only:
     - mean reduction
     - affine operations
-    - clamp
+    - piecewise-linear clamp
 
     This is fully SMT-encodable and provides bounded activation control
     for stable residual optimization.
     """
-    def __init__(self, hidden_size: int, clamp_value: float = 2.0):
+    def __init__(self, hidden_size: int, clamp_value: float = 2.0, clamp_type: str = "soft"):
         super().__init__()
         self.beta = torch.nn.Parameter(torch.zeros(hidden_size))
         self.clamp_value = clamp_value
+        self.clamp_type = clamp_type
         self.scale = 0.5
         # Diagnostics tracking (optional, enabled by callback)
         self.track_stats = False
         self.last_mean = None
         self.last_clamp_fraction = None
+        self.last_transition_fraction = None  # For bounded: in slope region
+        self.last_saturation_fraction = None  # For bounded: in flat region
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         # 1. Center by subtracting per-token mean
         x_mean = hidden_states.mean(dim=-1, keepdim=True)
         x = hidden_states - x_mean
 
-        # 2. Soft clamp to bounded range with leak
+        # 2. Apply clamp based on type
         x_before_clamp = x
-        x = soft_clamp(x, c=self.clamp_value, leak=0.1)
+        if self.clamp_type == "bounded":
+            # Bounded PWL clamp (bounded activations + nonzero gradients)
+            x = bounded_pwl_clamp(x)
+        elif self.clamp_type == "soft":
+            # Soft leaky clamp (unbounded, but better gradients than hard clamp)
+            x = soft_clamp(x, c=self.clamp_value, leak=0.1)
+        else:
+            # Hard clamp (bounded but zero gradients outside)
+            x = torch.clamp(x, min=-self.clamp_value, max=self.clamp_value)
 
         # 3. Apply fixed scale
         x = x * self.scale
@@ -166,9 +213,21 @@ class VerifiablePWLNorm(torch.nn.Module):
         if self.track_stats:
             with torch.no_grad():
                 self.last_mean = x_mean.abs().mean().item()
-                # Fraction of elements in leak region (|x| > clamp_value before soft clamp)
-                clamped = (torch.abs(x_before_clamp) > self.clamp_value).float()
-                self.last_clamp_fraction = clamped.mean().item()
+                abs_x = torch.abs(x_before_clamp)
+
+                if self.clamp_type == "bounded":
+                    # For bounded PWL: track transition (2-3) and saturation (>3) separately
+                    in_transition = ((abs_x > 2.0) & (abs_x <= 3.0)).float()
+                    in_saturation = (abs_x > 3.0).float()
+                    self.last_transition_fraction = in_transition.mean().item()
+                    self.last_saturation_fraction = in_saturation.mean().item()
+                    # Overall nonlinear fraction (entered slope or flat region)
+                    self.last_clamp_fraction = (abs_x > 2.0).float().mean().item()
+                else:
+                    # For soft/hard: fraction beyond clamp threshold
+                    self.last_clamp_fraction = (abs_x > self.clamp_value).float().mean().item()
+                    self.last_transition_fraction = None
+                    self.last_saturation_fraction = None
 
         return output
 
@@ -257,11 +316,19 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
     elif norm_variant == "verifiable_pwl_norm":
         hidden_size = model.config.n_embd
         for block in model.transformer.h:
-            block.ln_1 = VerifiablePWLNorm(hidden_size=hidden_size)
-            block.ln_2 = VerifiablePWLNorm(hidden_size=hidden_size)
+            block.ln_1 = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="soft")
+            block.ln_2 = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="soft")
             # Patch forward to use fixed residual scaling
             _patch_block_with_residual_scaling(block)
-        model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size)
+        model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="soft")
+    elif norm_variant == "verifiable_pwl_norm_v3":
+        hidden_size = model.config.n_embd
+        for block in model.transformer.h:
+            block.ln_1 = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="bounded")
+            block.ln_2 = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="bounded")
+            # Patch forward to use fixed residual scaling
+            _patch_block_with_residual_scaling(block)
+        model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="bounded")
 
     if attn_variant == "sparsemax":
         for block in model.transformer.h:
@@ -270,10 +337,10 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
 
 def _patch_block_with_residual_scaling(block) -> None:
     """
-    Monkey-patch GPT2Block forward to use fixed residual scaling.
+    Monkey-patch GPT2Block forward to use fixed residual scaling with post-residual clamping.
 
     This is fully SMT-encodable and removes learned drift from gates.
-    Architectural stabilization via constant scaling factors.
+    Architectural stabilization via constant scaling factors and bounded residual stream.
     """
     # Fixed residual scaling constants (SMT-encodable)
     ATTN_RES_SCALE = 0.5
@@ -306,12 +373,16 @@ def _patch_block_with_residual_scaling(block) -> None:
         outputs = attn_outputs[1:]
         # Apply fixed residual scaling
         hidden_states = residual + ATTN_RES_SCALE * attn_output
+        # Post-residual clamp (critical for bounded residual stream)
+        hidden_states = bounded_pwl_clamp(hidden_states)
 
         residual = hidden_states
         hidden_states = self.ln_2(hidden_states)
         feed_forward_hidden_states = self.mlp(hidden_states)
         # Apply fixed residual scaling
         hidden_states = residual + MLP_RES_SCALE * feed_forward_hidden_states
+        # Post-residual clamp (critical for bounded residual stream)
+        hidden_states = bounded_pwl_clamp(hidden_states)
 
         outputs = (hidden_states,) + outputs
 
@@ -575,7 +646,10 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
 
     Collects and saves summary statistics during evaluation:
     - mean absolute value of per-token means
-    - fraction of activations that hit the clamp bounds
+    - fraction of activations beyond threshold
+    - for bounded variant only:
+      - fraction in transition region (2.0 < |x| <= 3.0, slope 0.3)
+      - fraction in saturation region (|x| > 3.0, flat)
     """
     def __init__(self, output_dir: str, enabled: bool):
         self.output_dir = output_dir
@@ -611,12 +685,18 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
             # Collect norm statistics
             mean_values = []
             clamp_fractions = []
+            transition_fractions = []
+            saturation_fractions = []
 
             for module in norm_modules:
                 if module.last_mean is not None:
                     mean_values.append(module.last_mean)
                 if module.last_clamp_fraction is not None:
                     clamp_fractions.append(module.last_clamp_fraction)
+                if module.last_transition_fraction is not None:
+                    transition_fractions.append(module.last_transition_fraction)
+                if module.last_saturation_fraction is not None:
+                    saturation_fractions.append(module.last_saturation_fraction)
 
             if mean_values:
                 stats = {
@@ -624,6 +704,12 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                     "mean_abs_mean": float(sum(mean_values) / len(mean_values)),
                     "mean_clamp_fraction": float(sum(clamp_fractions) / len(clamp_fractions)),
                 }
+
+                # Add bounded-specific stats if available
+                if transition_fractions:
+                    stats["mean_transition_fraction"] = float(sum(transition_fractions) / len(transition_fractions))
+                if saturation_fractions:
+                    stats["mean_saturation_fraction"] = float(sum(saturation_fractions) / len(saturation_fractions))
 
                 stats_path = os.path.join(self.output_dir, "verifiable_norm_stats_latest.json")
                 with open(stats_path, "w", encoding="utf-8") as handle:
@@ -759,7 +845,7 @@ def parse_args() -> argparse.Namespace:
         "--norm_variant",
         type=str,
         default=None,
-        choices=["layernorm", "dyt", "pwl_norm", "verifiable_pwl_norm"],
+        choices=["layernorm", "dyt", "pwl_norm", "verifiable_pwl_norm", "verifiable_pwl_norm_v3"],
         help="Normalization variant. Defaults to config value or layernorm.",
     )
     parser.add_argument(
@@ -1223,11 +1309,11 @@ def main() -> None:
                 )
             )
 
-        # Add diagnostics callback for verifiable norm variant
+        # Add diagnostics callback for verifiable norm variants
         callbacks.append(
             VerifiableNormDiagnosticsCallback(
                 output_dir=args.output_dir,
-                enabled=(norm_variant == "verifiable_pwl_norm"),
+                enabled=(norm_variant in ["verifiable_pwl_norm", "verifiable_pwl_norm_v3"]),
             )
         )
 

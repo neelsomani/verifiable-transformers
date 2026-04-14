@@ -231,60 +231,136 @@ We use the same training script and process, with architecture variants controll
 
 #### DyT: Failed Replacement
 
-Config: `configs/step2a_norm_dyt_only.json`
+DyTNorm replaces LayerNorm with an affine → clamp → affine transformation:
 
-```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2a_norm_dyt_only.json \
-  --output_dir artifacts/step2a-norm-dyt-only \
-  --disable_auto_resume \
-  --use_wikitext_as_dev \
-  --target_wikitext_ppl 53 \
-  --wikitext_eval_every_n_evals 1
-```
+* Pre-affine: learned scale and bias
+* Clamp: elementwise clipping to a fixed range
+* Post-affine: learned scale and bias
 
-Early DyT-only runs were not stable under the baseline GPT-2 recipe. Although training initially progressed and WikiText-103 perplexity improved, the run later regressed and eventually diverged, indicating that the current DyT formulation is not yet a drop-in LayerNorm replacement. In particular, the current module is affine-clamp-affine rather than a true normalization layer, so it likely fails to provide the residual-scale control that GPT-2 relies on.
+This design is fully SMT-encodable (affine + clamp), but it is **not a true normalization layer**. It lacks any data-dependent centering or scale control, so it cannot regulate the magnitude of the residual stream.
+
+Empirically:
+
+* training initially progresses
+* gradient norms gradually increase
+* loss eventually regresses and diverges
+
+The failure mode is **uncontrolled residual accumulation** due to the absence of normalization.
 
 #### Piecewise Linear Norm v1: Failed Replacement
 
-PiecewiseLinearNorm v1 was an SMT-encodable normalization layer designed as a closer drop-in replacement for LayerNorm than DyT. Unlike DyT, which is purely affine-clamp-affine, PiecewiseLinearNorm v1 included actual centering and adaptive scaling based on input statistics, while maintaining SMT-friendly piecewise linearity.
+PiecewiseLinearNorm v1 introduces true normalization structure:
 
-Config: `configs/step2a_norm_pwl_only.json`
+* center via mean subtraction
+* scale via mean absolute deviation (MAD)
+* piecewise-constant gain buckets
+* elementwise clamp
+* learned affine (gamma, beta)
 
-```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2a_norm_pwl_only.json \
-  --output_dir artifacts/step2a-norm-pwl-only \
-  --disable_auto_resume \
-  --use_wikitext_as_dev \
-  --target_wikitext_ppl 53 \
-  --wikitext_eval_every_n_evals 1
+This restores key ingredients of normalization while remaining SMT-encodable.
+
+However, the gain function uses coarse discontinuous buckets:
+
+```
+[4.0, 2.0, 1.0, 0.5, 0.25]
 ```
 
-This first PiecewiseLinearNorm attempt was also not stable under the baseline GPT-2 recipe. Relative to DyT, it restored two important ingredients of normalization: centering and adaptive rescaling using mean absolute deviation (MAD). However, the gain function used coarse discontinuous buckets with large jumps (4.0, 2.0, 1.0, 0.5, 0.25), and low-MAD tokens could be amplified too aggressively. This likely made optimization brittle and weakened stable residual-scale control across depth.
+This causes:
 
-Empirically, training progressed at first, but later showed the same overall pattern as DyT: early loss improvement followed by rising gradient norms and eventual divergence. In the observed run, OpenWebText eval loss was about 4.03 at 60k steps and about 4.02 at 80k steps, while WikiText-103 perplexity remained very high at about 182 and 171 respectively. Gradient norm rose from roughly 1 early in training to roughly 9 by around 80k steps, and then to about 93.6 when the catastrophic divergence guard fired near 98.8k steps.
+* abrupt scaling changes
+* over-amplification for low-MAD tokens
+* brittle optimization dynamics
 
-These results suggest that simply restoring centering plus coarse MAD bucketization is still not enough. A fully verifiable replacement appears to need smoother bounded scale control.
+Empirically:
 
-#### Verifiable PWL Norm v2 with Fixed Residual Scaling
+* early training is stable
+* gradient norms steadily rise
+* eventual divergence (similar to DyT)
 
-Verifiable PWL Norm v2 is the next fully verifiable normalization attempt. It keeps the entire model SMT-encodable while addressing the main failure modes of both earlier norm replacements.
+Conclusion: **adaptive scaling via coarse buckets is unstable and insufficient for residual control**.
 
-The design is intentionally minimal: center by subtracting per-token mean, clamp to [-2.0, 2.0], scale by 0.5, then add learned bias. This removes all adaptive gain logic that caused brittle optimization in v1. Fixed residual scaling (0.5 for attention, 0.75 for MLP) provides architectural stabilization without learned drift.
+#### Verifiable PWL Norm v2: Soft Leaky Clamp (Failed)
 
-This variant is still fully verifiable:
+v2 simplifies the design:
 
-- normalization uses only mean reduction, affine operations, and clamp
-- residual scaling uses only constant multiplication
-- no LayerNorm remains anywhere in the verifiable variant
+* center via mean subtraction
+* apply leaky piecewise-linear clamp
+* fixed scaling (0.5)
+* learned bias
 
-Config: `configs/step2a_norm_verifiable_pwl_gated.json`
+The clamp:
+
+```
+|x| > c → c + 0.1 * (x - c)
+```
+
+This ensures:
+
+* nonzero gradients everywhere
+* smoother optimization vs hard clamp
+
+However, it is **not bounded**. Outside the clamp region, activations still grow linearly (slope 0.1).
+
+Empirically:
+
+* significantly improved early training
+* stable gradients initially
+* eventual catastrophic explosion
+
+Failure mode: **residual accumulation returns due to unbounded activations**.
+
+Conclusion: **gradient flow alone is not sufficient; explicit magnitude bounds are required**.
+
+#### Verifiable PWL Norm v3: Bounded PWL Clamp (Recommended)
+
+The progression v1 → v2 → v3 isolates the core requirement:
+
+1. MAD scaling (v1): insufficient control → explosion
+2. Hard clamp: bounded but kills gradients → optimization failure
+3. Soft clamp (v2): preserves gradients but unbounded → explosion
+
+The correct requirement is:
+
+> **bounded activations AND nonzero gradients**
+
+v3 implements this via a bounded piecewise-linear saturator:
+
+* x < -3.0 → constant -2.3
+* -3.0 ≤ x < -2.0 → linear slope 0.3
+* -2.0 ≤ x ≤ 2.0 → identity
+* 2.0 < x ≤ 3.0 → linear slope 0.3
+* x > 3.0 → constant 2.3
+
+Properties:
+
+* strictly bounded activations (prevents explosion)
+* nonzero gradients in transition regions
+* fully SMT-encodable (pure piecewise linear, no division)
+
+Normalization:
+
+* center by mean subtraction
+* apply bounded PWL clamp
+* scale by 0.5
+* add learned bias
+
+Architecture:
+
+* fixed residual scaling (0.5 attention, 0.75 MLP)
+* **post-residual bounded PWL clamp after each residual addition**
+
+This ensures:
+
+* bounded residual stream at every layer
+* stable forward dynamics
+* preserved gradient flow
+
+Config: `configs/step2a_norm_verifiable_pwl_v3.json`
 
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2a_norm_verifiable_pwl_gated.json \
-  --output_dir artifacts/step2a-norm-verifiable-pwl \
+  --config configs/step2a_norm_verifiable_pwl_v3.json \
+  --output_dir artifacts/step2a-norm-verifiable-pwl-v3 \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \
