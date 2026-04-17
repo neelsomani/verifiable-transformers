@@ -346,12 +346,19 @@ Normalization:
 
 Architecture:
 
-* fixed residual scaling (0.5 attention, 0.75 MLP)
-* **post-residual bounded PWL clamp after each residual addition**
+* **residual contraction** instead of additive residuals
+* uses convex combination: `(1-α) * residual + α * branch_output`
+* `α = 0.5` for both attention and MLP branches
+* **post-residual bounded PWL clamp after each update**
+
+Key insight:
+
+Previous approaches used `residual + scale * branch`, which allows unbounded accumulation even with post-clamping. The contraction form `(1-α) * residual + α * branch` prevents this by scaling down the identity path, creating true contraction-like behavior.
 
 This ensures:
 
-* bounded residual stream at every layer
+* no unbounded accumulation across layers (identity path scaled)
+* bounded residual stream at every layer (via clamp)
 * stable forward dynamics
 * preserved gradient flow
 

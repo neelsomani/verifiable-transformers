@@ -337,16 +337,16 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
 
 def _patch_block_with_residual_scaling(block) -> None:
     """
-    Monkey-patch GPT2Block forward to use fixed residual scaling with post-residual clamping.
+    Monkey-patch GPT2Block forward to use residual contraction with post-residual clamping.
 
-    This is fully SMT-encodable and removes learned drift from gates.
-    Architectural stabilization via constant scaling factors and bounded residual stream.
+    Uses convex combination instead of additive residuals to prevent unbounded accumulation.
+    This is fully SMT-encodable and provides true contraction-like behavior.
     """
-    # Fixed residual scaling constants (SMT-encodable)
-    ATTN_RES_SCALE = 0.5
-    MLP_RES_SCALE = 0.75
+    # Residual contraction weights (SMT-encodable)
+    ALPHA_ATTN = 0.5
+    ALPHA_MLP = 0.5
 
-    def forward_with_scaling(
+    def forward_with_contraction(
         self,
         hidden_states,
         layer_past=None,
@@ -371,24 +371,24 @@ def _patch_block_with_residual_scaling(block) -> None:
         )
         attn_output = attn_outputs[0]
         outputs = attn_outputs[1:]
-        # Apply fixed residual scaling
-        hidden_states = residual + ATTN_RES_SCALE * attn_output
-        # Post-residual clamp (critical for bounded residual stream)
+        # Residual contraction: convex combination prevents accumulation
+        hidden_states = (1 - ALPHA_ATTN) * residual + ALPHA_ATTN * attn_output
+        # Post-residual clamp (bounded residual stream)
         hidden_states = bounded_pwl_clamp(hidden_states)
 
         residual = hidden_states
         hidden_states = self.ln_2(hidden_states)
         feed_forward_hidden_states = self.mlp(hidden_states)
-        # Apply fixed residual scaling
-        hidden_states = residual + MLP_RES_SCALE * feed_forward_hidden_states
-        # Post-residual clamp (critical for bounded residual stream)
+        # Residual contraction: convex combination prevents accumulation
+        hidden_states = (1 - ALPHA_MLP) * residual + ALPHA_MLP * feed_forward_hidden_states
+        # Post-residual clamp (bounded residual stream)
         hidden_states = bounded_pwl_clamp(hidden_states)
 
         outputs = (hidden_states,) + outputs
 
         return outputs
 
-    block.forward = MethodType(forward_with_scaling, block)
+    block.forward = MethodType(forward_with_contraction, block)
 
 
 class EvalLossThresholdStopCallback(TrainerCallback):
