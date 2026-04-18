@@ -346,20 +346,24 @@ Normalization:
 
 Architecture:
 
-* **residual contraction** instead of additive residuals
-* uses convex combination: `(1-α) * residual + α * branch_output`
-* `α = 0.5` for both attention and MLP branches
-* **post-residual bounded PWL clamp after each update**
+* **damped additive residual updates** with state contraction
+* residual correction: `x_new = x + 0.25 * delta(x)`
+* state contraction: `x_new = 0.98 * bounded_pwl_clamp(x_new)`
+* applied to both attention and MLP branches
 
 Key insight:
 
-Previous approaches used `residual + scale * branch`, which allows unbounded accumulation even with post-clamping. The contraction form `(1-α) * residual + α * branch` prevents this by scaling down the identity path, creating true contraction-like behavior.
+The branch outputs (attention, MLP) are **deltas/corrections**, not alternative states. The correct contraction target is the updated state `x + delta(x)`, not a blend between `x` and `delta(x)`. This approach:
+
+* preserves residual-branch semantics (deltas add to state)
+* makes the state update operator contractive (via shrink + clamp)
+* is fully SMT-encodable (constant multiplications, additions, PWL clamp)
 
 This ensures:
 
-* no unbounded accumulation across layers (identity path scaled)
+* reduced accumulation across layers (mild shrink per update)
 * bounded residual stream at every layer (via clamp)
-* stable forward dynamics
+* stable forward dynamics without destroying skip connections
 * preserved gradient flow
 
 Config: `configs/step2a_norm_verifiable_pwl_v3.json`
