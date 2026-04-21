@@ -9,9 +9,11 @@ import time
 from datetime import datetime, timezone
 from itertools import chain
 from types import MethodType
+from typing import Optional
 import torch
 from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import (
+    AttentionInterface,
     AutoTokenizer,
     GPT2Config,
     GPT2LMHeadModel,
@@ -278,88 +280,63 @@ def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
 _sparsemax_call_count = 0
 
 
-def sparsemax_attention_forward(
-    module,
-    hidden_states,
-    attention_mask=None,
-    position_ids=None,
-    past_key_value=None,
-    output_attentions=False,
-    use_cache=False,
-    **kwargs
-):
+def sparsemax_attention(
+    module: torch.nn.Module,
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    attention_mask: Optional[torch.Tensor],
+    **kwargs,
+) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
     """
-    Custom attention forward using sparsemax instead of softmax.
+    Sparsemax attention function compatible with AttentionInterface.
 
-    This is designed to work with transformers attention registry.
+    Args:
+        module: The attention module
+        query: Query tensor [batch, num_heads, seq_q, head_dim]
+        key: Key tensor [batch, num_heads, seq_k, head_dim]
+        value: Value tensor [batch, num_heads, seq_k, head_dim]
+        attention_mask: Optional mask tensor
+        **kwargs: Additional arguments (e.g., scale_factor)
+
+    Returns:
+        (attn_output, attn_weights) where:
+            attn_output: [batch, num_heads, seq_q, head_dim]
+            attn_weights: [batch, num_heads, seq_q, seq_k] or None
     """
     global _sparsemax_call_count
     _sparsemax_call_count += 1
 
-    # Get Q, K, V projections
-    query, key, value = module.c_attn(hidden_states).split(module.split_size, dim=2)
-
-    # Split into heads
-    query = module._split_heads(query, module.num_heads, module.head_dim)
-    key = module._split_heads(key, module.num_heads, module.head_dim)
-    value = module._split_heads(value, module.num_heads, module.head_dim)
-
-    # Handle past key values
-    if past_key_value is not None:
-        past_key, past_value = past_key_value
-        key = torch.cat((past_key, key), dim=-2)
-        value = torch.cat((past_value, value), dim=-2)
-
-    if use_cache:
-        present = (key, value)
-    else:
-        present = None
-
-    # Compute attention scores
+    # Compute attention scores: Q @ K^T
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
-    # Scale
-    if module.scale_attn_weights:
-        attn_weights = attn_weights / torch.full(
-            [], value.size(-1) ** 0.5, dtype=attn_weights.dtype, device=attn_weights.device
-        )
-
-    # Apply causal mask
-    query_length, key_length = query.size(-2), key.size(-2)
-    causal_mask = module.bias[:, :, key_length - query_length : key_length, :key_length]
-    mask_value = torch.finfo(attn_weights.dtype).min
-    attn_weights = torch.where(causal_mask, attn_weights, mask_value)
+    # Scale by sqrt(d_k) if needed
+    scale_factor = kwargs.get("scale_factor", None)
+    if scale_factor is not None:
+        attn_weights = attn_weights * scale_factor
 
     # Apply attention mask if provided
     if attention_mask is not None:
         attn_weights = attn_weights + attention_mask
 
-    # SPARSEMAX instead of softmax
+    # SPARSEMAX instead of softmax (with fp32 stability)
     attn_weights = sparsemax(attn_weights, dim=-1)
 
-    # Dropout
-    attn_weights = module.attn_dropout(attn_weights)
+    # Cast back to value dtype (sparsemax computes in fp32)
+    attn_weights = attn_weights.to(value.dtype)
 
-    # Compute output
+    # Apply dropout if module has it
+    if hasattr(module, "attn_dropout"):
+        attn_weights = module.attn_dropout(attn_weights)
+
+    # Compute output: weights @ V
     attn_output = torch.matmul(attn_weights, value)
-    attn_output = module._merge_heads(attn_output, module.num_heads, module.head_dim)
-    attn_output = module.c_proj(attn_output)
-    attn_output = module.resid_dropout(attn_output)
 
-    outputs = (attn_output, present)
-    if output_attentions:
-        outputs += (attn_weights,)
-
-    return outputs
+    return attn_output, attn_weights
 
 
-def patch_attention_to_sparsemax(attn_module) -> None:
-    """
-    Patch attention module to use sparsemax instead of softmax.
-
-    Uses direct forward replacement to ensure compatibility across transformers versions.
-    """
-    attn_module.forward = MethodType(sparsemax_attention_forward, attn_module)
+# Register sparsemax attention with transformers
+AttentionInterface.register("sparsemax", sparsemax_attention)
 
 
 def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
@@ -392,9 +369,8 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
             _patch_block_with_residual_scaling(block)
         model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="bounded")
 
-    if attn_variant == "sparsemax":
-        for block in model.transformer.h:
-            patch_attention_to_sparsemax(block.attn)
+    # Note: attn_variant is now handled via config._attn_implementation
+    # during model creation, not via monkey-patching here
 
 
 def _patch_block_with_residual_scaling(block) -> None:
@@ -1186,10 +1162,17 @@ def main() -> None:
             model_config.n_positions = cfg["block_size"]
         if hasattr(model_config, "n_ctx"):
             model_config.n_ctx = cfg["block_size"]
-        model = GPT2LMHeadModel(model_config)
 
+        # Determine attention variant before model creation
         norm_variant = args.norm_variant if args.norm_variant is not None else cfg.get("norm_variant", "layernorm")
         attn_variant = args.attn_variant if args.attn_variant is not None else cfg.get("attn_variant", "softmax")
+
+        # Set attention implementation in config (for custom attention via AttentionInterface)
+        if attn_variant == "sparsemax":
+            model_config._attn_implementation = "sparsemax"
+
+        model = GPT2LMHeadModel(model_config)
+
         apply_model_variants(model, norm_variant=norm_variant, attn_variant=attn_variant)
 
         # Fail-fast verification for sparsemax patch

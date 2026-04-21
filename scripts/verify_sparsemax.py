@@ -23,8 +23,13 @@ def verify_sparsemax(model, tokenizer, device):
 
     print("\n=== Sparsemax Verification ===\n")
 
+    # Ensure device is a torch.device object
+    if isinstance(device, str):
+        device = torch.device(device)
+
     # Check 1: Verify patch is active
     print("1. Checking sparsemax patch is active...")
+    print("   (Note: This check verifies the AttentionInterface registration is working)")
 
     # Import global counter from train_experiment
     import train_experiment
@@ -38,6 +43,7 @@ def verify_sparsemax(model, tokenizer, device):
 
     if sparsemax_calls == 0:
         print("   ✗ FAILED: Sparsemax patch not active!")
+        print("   This likely means AttentionInterface registration isn't being invoked correctly.")
         return False
     print(f"   ✓ PASSED: {sparsemax_calls} sparsemax calls during forward")
 
@@ -58,8 +64,8 @@ def verify_sparsemax(model, tokenizer, device):
         return False
     print("   ✓ PASSED: No NaNs or infs in outputs")
 
-    # Check 3: Attention weights contain exact zeros
-    print("\n3. Checking attention weights contain exact interior zeros...")
+    # Check 3: Attention weights contain exact zeros in allowed causal region
+    print("\n3. Checking attention weights contain exact interior zeros (excluding masked positions)...")
 
     # Hook to capture attention weights
     attn_weights_captured = []
@@ -82,39 +88,77 @@ def verify_sparsemax(model, tokenizer, device):
         return False
 
     attn_weights = attn_weights_captured[0]  # Shape: [batch, heads, seq, seq]
+    batch_size, num_heads, seq_len, _ = attn_weights.shape
 
-    # Check for exact zeros (not just small values)
-    has_exact_zeros = (attn_weights == 0.0).any().item()
+    # Create causal mask: position i can only attend to positions 0...i
+    # causal_mask[i, j] = True if j <= i (allowed positions)
+    causal_mask = torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool, device=attn_weights.device))
+
+    # Extract only the allowed causal region (exclude future-masked positions)
+    allowed_weights = attn_weights[:, :, causal_mask]
+
+    # Check for exact zeros in allowed region (not just masked positions)
+    has_exact_zeros = (allowed_weights == 0.0).any().item()
 
     if not has_exact_zeros:
-        print("   ✗ FAILED: No exact zeros in attention weights")
-        print(f"      Min value: {attn_weights.min().item()}")
+        print("   ✗ FAILED: No exact zeros in allowed causal region")
+        print(f"      Min value in allowed region: {allowed_weights.min().item()}")
         print(f"      This suggests sparsemax is not producing sparse distributions")
         return False
 
-    # Count zeros
-    num_zeros = (attn_weights == 0.0).sum().item()
-    total_elements = attn_weights.numel()
-    zero_fraction = num_zeros / total_elements
+    # Count zeros in allowed region
+    num_zeros = (allowed_weights == 0.0).sum().item()
+    total_allowed = allowed_weights.numel()
+    zero_fraction = num_zeros / total_allowed
 
-    print(f"   ✓ PASSED: Found exact zeros in attention weights")
-    print(f"      Zeros: {num_zeros}/{total_elements} ({zero_fraction:.2%})")
+    print(f"   ✓ PASSED: Found exact zeros in allowed causal region")
+    print(f"      Zeros: {num_zeros}/{total_allowed} ({zero_fraction:.2%})")
 
-    # Check that not ALL weights are zero (sanity check)
+    # Check that not ALL allowed weights are zero (sanity check)
     if zero_fraction > 0.99:
-        print("   ⚠ WARNING: >99% of attention weights are zero (may indicate issue)")
+        print("   ⚠ WARNING: >99% of allowed attention weights are zero (may indicate issue)")
 
-    # Check 4: Verify attention weights sum to 1 (or close, for sparsemax)
+    # Check 4: Verify attention weights sum to ~1.0 (sparsemax is projection onto simplex)
     print("\n4. Checking attention weight normalization...")
-    attn_sums = attn_weights.sum(dim=-1)  # Sum over keys
-    min_sum = attn_sums.min().item()
-    max_sum = attn_sums.max().item()
+    attn_sums = attn_weights.sum(dim=-1)  # Sum over keys (includes masked positions as zeros)
 
-    # Sparsemax should sum to ≤ 1 (can be less due to sparsity)
-    if min_sum < 0 or max_sum > 1.01:
-        print(f"   ✗ FAILED: Attention sums out of range [0, 1]: [{min_sum:.4f}, {max_sum:.4f}]")
+    # For causal attention, only sum over allowed positions per row
+    causal_sums = []
+    for i in range(seq_len):
+        # Row i can attend to positions 0...i
+        row_sum = attn_weights[:, :, i, :i+1].sum(dim=-1)  # [batch, heads]
+        causal_sums.append(row_sum)
+    causal_sums = torch.stack(causal_sums, dim=2)  # [batch, heads, seq]
+
+    min_sum = causal_sums.min().item()
+    max_sum = causal_sums.max().item()
+    mean_sum = causal_sums.mean().item()
+
+    # Sparsemax projects onto probability simplex, so sums should be ~1.0
+    if not (0.99 <= min_sum and max_sum <= 1.01):
+        print(f"   ✗ FAILED: Attention sums not close to 1.0: [{min_sum:.4f}, {max_sum:.4f}], mean={mean_sum:.4f}")
+        print(f"      Sparsemax should produce normalized probability distributions")
         return False
-    print(f"   ✓ PASSED: Attention sums in valid range [{min_sum:.4f}, {max_sum:.4f}]")
+    print(f"   ✓ PASSED: Attention sums close to 1.0: [{min_sum:.4f}, {max_sum:.4f}], mean={mean_sum:.4f}")
+
+    # Check 5: Verify bf16 path explicitly (critical for real training)
+    print("\n5. Checking bf16 numerical stability...")
+    if device.type == "cuda":
+        model_bf16 = model.to(torch.bfloat16)
+
+        with torch.no_grad():
+            outputs_bf16 = model_bf16(**inputs)
+            logits_bf16 = outputs_bf16.logits
+
+        has_nan = torch.isnan(logits_bf16).any().item()
+        has_inf = torch.isinf(logits_bf16).any().item()
+
+        if has_nan or has_inf:
+            print(f"   ✗ FAILED: bf16 produced NaN={has_nan}, Inf={has_inf}")
+            return False
+        print("   ✓ PASSED: bf16 produces valid outputs")
+    else:
+        print("   ⊘ SKIPPED: bf16 test requires CUDA device")
 
     print("\n=== All Checks Passed ===\n")
     return True
@@ -133,9 +177,13 @@ def main():
     tokenizer.pad_token = tokenizer.eos_token
 
     config = GPT2Config.from_pretrained(args.model_name)
+
+    # Set attention implementation in config
+    config._attn_implementation = "sparsemax"
+
     model = GPT2LMHeadModel(config)
 
-    # Apply sparsemax patch
+    # Apply model variants (normalization only, attention handled by config)
     apply_model_variants(model, norm_variant="layernorm", attn_variant="sparsemax")
 
     model = model.to(args.device)
