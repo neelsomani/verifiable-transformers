@@ -229,142 +229,49 @@ We use the same training script and process, with architecture variants controll
 
 ### Step 2a: LayerNorm replacement only
 
-#### DyT: Failed Replacement
+#### DyT (Failed)
 
-DyTNorm replaces LayerNorm with an affine → clamp → affine transformation:
+Config: `configs/step2a_norm_dyt_only.json`
 
-* Pre-affine: learned scale and bias
-* Clamp: elementwise clipping to a fixed range
-* Post-affine: learned scale and bias
+DyTNorm replaces LayerNorm with an affine → clamp → affine transformation. It is fully SMT-encodable, but it is not a true normalization layer: it provides neither data-dependent centering nor scale control. In practice, training improved briefly, then gradient norms rose and the run diverged, consistent with uncontrolled residual accumulation.
 
-This design is fully SMT-encodable (affine + clamp), but it is **not a true normalization layer**. It lacks any data-dependent centering or scale control, so it cannot regulate the magnitude of the residual stream.
+#### Verifiable PWL Norm v1 (Failed)
 
-Empirically:
+Config: `configs/step2a_norm_pwl_only.json`
 
-* training initially progresses
-* gradient norms gradually increase
-* loss eventually regresses and diverges
-
-The failure mode is **uncontrolled residual accumulation** due to the absence of normalization.
-
-#### Piecewise Linear Norm v1: Failed Replacement
-
-PiecewiseLinearNorm v1 introduces true normalization structure:
-
-* center via mean subtraction
-* scale via mean absolute deviation (MAD)
-* piecewise-constant gain buckets
-* elementwise clamp
-* learned affine (gamma, beta)
-
-This restores key ingredients of normalization while remaining SMT-encodable.
-
-However, the gain function uses coarse discontinuous buckets:
-
-```
-[4.0, 2.0, 1.0, 0.5, 0.25]
-```
-
-This causes:
-
-* abrupt scaling changes
-* over-amplification for low-MAD tokens
-* brittle optimization dynamics
-
-Empirically:
-
-* early training is stable
-* gradient norms steadily rise
-* eventual divergence (similar to DyT)
-
-Conclusion: **adaptive scaling via coarse buckets is unstable and insufficient for residual control**.
+PiecewiseLinearNorm v1 restored two important normalization ingredients — mean-centering and adaptive rescaling via mean absolute deviation (MAD) — while remaining SMT-encodable. However, its gain function used coarse discontinuous buckets `[4.0, 2.0, 1.0, 0.5, 0.25]`, which caused abrupt scaling changes and could over-amplify low-MAD tokens. Empirically, it trained at first but later showed rising gradient norms and eventual divergence.
 
 #### Verifiable PWL Norm v2: Soft Leaky Clamp (Failed)
 
-v2 simplifies the design:
+Config: `configs/step2a_norm_verifiable_pwl_gated.json`
 
-* center via mean subtraction
-* apply leaky piecewise-linear clamp
-* fixed scaling (0.5)
-* learned bias
-
-The clamp:
-
-```
-|x| > c → c + 0.1 * (x - c)
-```
-
-This ensures:
-
-* nonzero gradients everywhere
-* smoother optimization vs hard clamp
-
-However, it is **not bounded**. Outside the clamp region, activations still grow linearly (slope 0.1).
-
-Empirically:
-
-* significantly improved early training
-* stable gradients initially
-* eventual catastrophic explosion
-
-Failure mode: **residual accumulation returns due to unbounded activations**.
-
-Conclusion: **gradient flow alone is not sufficient; explicit magnitude bounds are required**.
+v2 simplified the norm to mean subtraction, leaky piecewise-linear clamp, fixed scaling by 0.5, and learned bias. This results in better gradient flow relative to a hard clamp, but the clamp remained unbounded: outside the clamp region, activations still grew linearly. The result was better early optimization but eventual explosion once residual accumulation returned. The key lesson was that gradient flow alone is not enough; the norm must also enforce explicit magnitude control.
 
 #### Verifiable PWL Norm v3: Bounded PWL Clamp (Recommended)
 
-The progression v1 → v2 → v3 isolates the core requirement:
+Config: `configs/step2a_norm_verifiable_pwl_v3.json`
 
-1. MAD scaling (v1): insufficient control → explosion
-2. Hard clamp: bounded but kills gradients → optimization failure
-3. Soft clamp (v2): preserves gradients but unbounded → explosion
-
-The correct requirement is:
+The progression v1 → v2 → v3 isolates the core requirement: v1 had insufficient scale control, hard clamp bounded activations but killed gradients, and v2 preserved gradients but left activations unbounded. The resulting target is:
 
 > **bounded activations AND nonzero gradients**
 
-v3 implements this via a bounded piecewise-linear saturator:
+v3 implements this with a bounded piecewise-linear saturator:
+- `x < -3.0` → constant `-2.3`
+- `-3.0 ≤ x < -2.0` → linear slope `0.3`
+- `-2.0 ≤ x ≤ 2.0` → identity
+- `2.0 < x ≤ 3.0` → linear slope `0.3`
+- `x > 3.0` → constant `2.3`
 
-* x < -3.0 → constant -2.3
-* -3.0 ≤ x < -2.0 → linear slope 0.3
-* -2.0 ≤ x ≤ 2.0 → identity
-* 2.0 < x ≤ 3.0 → linear slope 0.3
-* x > 3.0 → constant 2.3
+The norm itself is: mean subtraction, bounded PWL clamp, fixed scale `0.5`, and learned bias.
 
-Properties:
+The key architectural insight is that attention and MLP branches produce **deltas/corrections**, not alternative states. So the correct contraction target is the updated state `x + delta(x)`, not a blend between `x` and `delta(x)`. v3 therefore uses **damped additive residual updates with state contraction**:
+- residual correction: `x_new = x + 0.25 * delta(x)`
+- state contraction: `x_new = 0.98 * bounded_pwl_clamp(x_new)`
 
-* strictly bounded activations (prevents explosion)
-* nonzero gradients in transition regions
-* fully SMT-encodable (pure piecewise linear, no division)
-
-Normalization:
-
-* center by mean subtraction
-* apply bounded PWL clamp
-* scale by 0.5
-* add learned bias
-
-Architecture:
-
-* **damped additive residual updates** with state contraction
-* residual correction: `x_new = x + 0.25 * delta(x)`
-* state contraction: `x_new = 0.98 * bounded_pwl_clamp(x_new)`
-* applied to both attention and MLP branches
-
-Key insight:
-
-The branch outputs (attention, MLP) are **deltas/corrections**, not alternative states. The correct contraction target is the updated state `x + delta(x)`, not a blend between `x` and `delta(x)`. This approach:
-
-* preserves residual-branch semantics (deltas add to state)
-* makes the state update operator contractive (via shrink + clamp)
-* is fully SMT-encodable (constant multiplications, additions, PWL clamp)
-
-This ensures:
-
-* reduced accumulation across layers (mild shrink per update)
-* bounded residual stream at every layer (via clamp)
-* stable forward dynamics without destroying skip connections
-* preserved gradient flow
+applied to both attention and MLP branches. Interpretation:
+- v3 is the first **stable and trainable** norm-only replacement
+- it solves the main late-stage instability problem
+- but it is still **substantially worse than the local GPT-2 baseline** on both OWT and WikiText, so the main result here is stability rather than parity with standard LayerNorm
 
 Config: `configs/step2a_norm_verifiable_pwl_v3.json`
 
@@ -378,10 +285,44 @@ python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --wikitext_eval_every_n_evals 1
 ```
 
-### Step 2b: Attention replacement only (PWL/alpha-entmax style)
+Final stable run:
+
+**OpenWebText (validation):**
+
+* Best eval loss: **4.1350 @ ~300k steps** 
+* Later eval loss: **4.1364 @ 400k**, **4.1412 @ 420k** (plateau / slight regression) 
+
+**WikiText-103 (validation):**
+
+* Perplexity: **194.3 @ 300k** 
+* Improved to: **189.3 @ 400k**, **187.6 @ 420k** 
+
+### Step 2b: Attention replacement only (sparsemax)
 
 Config: `configs/step2b_attn_sparsemax_only.json`
 
+Sparsemax replaces softmax attention weighting with a piecewise-linear alternative (alpha-entmax family, alpha=2) that can produce exact zeros in the attention distribution. This is fully SMT-encodable.
+
+Implementation:
+- Uses standard LayerNorm (not verifiable norm variants)
+- Replaces softmax with sparsemax via monkey-patching GPT2Attention._attn
+- Runs sparsemax computation in fp32 for numerical stability (upcasts from bf16)
+- Includes fail-fast verification on startup to ensure patch is active
+
+Verification (run before full training):
+```bash
+python scripts/verify_sparsemax.py
+```
+
+This automatically checks:
+- Sparsemax patch is active
+- No NaNs/infs in model outputs
+- Attention weights contain exact interior zeros
+- Attention weights sum to valid range [0, 1]
+
+All checks must pass before proceeding to full training.
+
+Full run:
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step2b_attn_sparsemax_only.json \
@@ -391,8 +332,3 @@ python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --target_wikitext_ppl 53 \
   --wikitext_eval_every_n_evals 1
 ```
-
-Implementation details:
-
-- `norm_variant=dyt` replaces GPT-2 LayerNorm modules with a piecewise-linear DyT-style normalization substitute.
-- `attn_variant=sparsemax` replaces softmax attention weighting with sparsemax (alpha-entmax family, alpha=2).

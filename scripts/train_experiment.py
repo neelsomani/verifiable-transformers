@@ -252,23 +252,39 @@ class ResidualGate(torch.nn.Module):
 
 
 def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
-    sorted_logits, _ = torch.sort(logits, dim=dim, descending=True)
+    """
+    Sparsemax activation with fp32 numerical stability.
+
+    Upcasts to fp32 for sort/cumsum/support computation to avoid
+    bf16 rounding issues around exact thresholds.
+    """
+    z = logits.float()
+    sorted_logits, _ = torch.sort(z, dim=dim, descending=True)
     cumsum = torch.cumsum(sorted_logits, dim=dim)
 
-    range_size = logits.size(dim)
-    view_shape = [1] * logits.dim()
+    range_size = z.size(dim)
+    view_shape = [1] * z.dim()
     view_shape[dim] = range_size
-    range_tensor = torch.arange(1, range_size + 1, device=logits.device, dtype=logits.dtype).view(view_shape)
+    range_tensor = torch.arange(1, range_size + 1, device=z.device, dtype=z.dtype).view(view_shape)
 
     support = 1 + range_tensor * sorted_logits > cumsum
     k = support.to(torch.int64).sum(dim=dim, keepdim=True).clamp(min=1)
 
-    tau = (torch.gather(cumsum, dim=dim, index=k - 1) - 1) / k.to(logits.dtype)
-    return torch.clamp(logits - tau, min=0.0)
+    tau = (torch.gather(cumsum, dim=dim, index=k - 1) - 1) / k.to(z.dtype)
+    return torch.clamp(z - tau, min=0.0)
 
 
 def patch_attention_to_sparsemax(attn_module) -> None:
+    """
+    Patch attention module to use sparsemax instead of softmax.
+
+    Adds a call counter for verification that the patch is active.
+    """
+    attn_module._sparsemax_calls = 0
+
     def _attn_sparsemax(self, query, key, value, attention_mask=None, head_mask=None):
+        self._sparsemax_calls += 1
+
         attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
         if getattr(self, "scale_attn_weights", False):
@@ -1129,6 +1145,24 @@ def main() -> None:
         norm_variant = args.norm_variant if args.norm_variant is not None else cfg.get("norm_variant", "layernorm")
         attn_variant = args.attn_variant if args.attn_variant is not None else cfg.get("attn_variant", "softmax")
         apply_model_variants(model, norm_variant=norm_variant, attn_variant=attn_variant)
+
+        # Fail-fast verification for sparsemax patch
+        if attn_variant == "sparsemax":
+            print("Verifying sparsemax patch is active...")
+            device = next(model.parameters()).device
+            dummy = torch.randint(0, model.config.vocab_size, (1, 16), device=device)
+            with torch.no_grad():
+                model(dummy)
+
+            sparsemax_calls = sum(
+                getattr(block.attn, "_sparsemax_calls", 0)
+                for block in model.transformer.h
+            )
+            assert sparsemax_calls > 0, (
+                f"Sparsemax patch is not being used! Expected >0 calls, got {sparsemax_calls}. "
+                "The _attn monkey-patch may not be invoked by the GPT2Attention forward."
+            )
+            print(f"✓ Sparsemax patch verified: {sparsemax_calls} calls during dummy forward")
 
         model_num_params = count_params(model)
         print(f"Model params: {model_num_params:,}")
