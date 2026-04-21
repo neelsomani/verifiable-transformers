@@ -274,46 +274,92 @@ def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
     return torch.clamp(z - tau, min=0.0)
 
 
+# Global counter for sparsemax verification
+_sparsemax_call_count = 0
+
+
+def sparsemax_attention_forward(
+    module,
+    hidden_states,
+    attention_mask=None,
+    position_ids=None,
+    past_key_value=None,
+    output_attentions=False,
+    use_cache=False,
+    **kwargs
+):
+    """
+    Custom attention forward using sparsemax instead of softmax.
+
+    This is designed to work with transformers attention registry.
+    """
+    global _sparsemax_call_count
+    _sparsemax_call_count += 1
+
+    # Get Q, K, V projections
+    query, key, value = module.c_attn(hidden_states).split(module.split_size, dim=2)
+
+    # Split into heads
+    query = module._split_heads(query, module.num_heads, module.head_dim)
+    key = module._split_heads(key, module.num_heads, module.head_dim)
+    value = module._split_heads(value, module.num_heads, module.head_dim)
+
+    # Handle past key values
+    if past_key_value is not None:
+        past_key, past_value = past_key_value
+        key = torch.cat((past_key, key), dim=-2)
+        value = torch.cat((past_value, value), dim=-2)
+
+    if use_cache:
+        present = (key, value)
+    else:
+        present = None
+
+    # Compute attention scores
+    attn_weights = torch.matmul(query, key.transpose(-1, -2))
+
+    # Scale
+    if module.scale_attn_weights:
+        attn_weights = attn_weights / torch.full(
+            [], value.size(-1) ** 0.5, dtype=attn_weights.dtype, device=attn_weights.device
+        )
+
+    # Apply causal mask
+    query_length, key_length = query.size(-2), key.size(-2)
+    causal_mask = module.bias[:, :, key_length - query_length : key_length, :key_length]
+    mask_value = torch.finfo(attn_weights.dtype).min
+    attn_weights = torch.where(causal_mask, attn_weights, mask_value)
+
+    # Apply attention mask if provided
+    if attention_mask is not None:
+        attn_weights = attn_weights + attention_mask
+
+    # SPARSEMAX instead of softmax
+    attn_weights = sparsemax(attn_weights, dim=-1)
+
+    # Dropout
+    attn_weights = module.attn_dropout(attn_weights)
+
+    # Compute output
+    attn_output = torch.matmul(attn_weights, value)
+    attn_output = module._merge_heads(attn_output, module.num_heads, module.head_dim)
+    attn_output = module.c_proj(attn_output)
+    attn_output = module.resid_dropout(attn_output)
+
+    outputs = (attn_output, present)
+    if output_attentions:
+        outputs += (attn_weights,)
+
+    return outputs
+
+
 def patch_attention_to_sparsemax(attn_module) -> None:
     """
     Patch attention module to use sparsemax instead of softmax.
 
-    Adds a call counter for verification that the patch is active.
+    Uses direct forward replacement to ensure compatibility across transformers versions.
     """
-    attn_module._sparsemax_calls = 0
-
-    def _attn_sparsemax(self, query, key, value, attention_mask=None, head_mask=None):
-        self._sparsemax_calls += 1
-
-        attn_weights = torch.matmul(query, key.transpose(-1, -2))
-
-        if getattr(self, "scale_attn_weights", False):
-            attn_weights = attn_weights / (value.size(-1) ** 0.5)
-
-        if getattr(self, "scale_attn_by_inverse_layer_idx", False):
-            layer_idx = getattr(self, "layer_idx", 0)
-            attn_weights = attn_weights / float(layer_idx + 1)
-
-        if not getattr(self, "is_cross_attention", False):
-            query_length = query.size(-2)
-            key_length = key.size(-2)
-            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
-            mask_value = torch.finfo(attn_weights.dtype).min
-            attn_weights = torch.where(causal_mask, attn_weights, mask_value)
-
-        if attention_mask is not None:
-            attn_weights = attn_weights + attention_mask
-
-        attn_weights = sparsemax(attn_weights, dim=-1)
-        attn_weights = self.attn_dropout(attn_weights)
-
-        if head_mask is not None:
-            attn_weights = attn_weights * head_mask
-
-        attn_output = torch.matmul(attn_weights, value)
-        return attn_output, attn_weights
-
-    attn_module._attn = MethodType(_attn_sparsemax, attn_module)
+    attn_module.forward = MethodType(sparsemax_attention_forward, attn_module)
 
 
 def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
@@ -1149,20 +1195,19 @@ def main() -> None:
         # Fail-fast verification for sparsemax patch
         if attn_variant == "sparsemax":
             print("Verifying sparsemax patch is active...")
+            global _sparsemax_call_count
+            _sparsemax_call_count = 0
+
             device = next(model.parameters()).device
             dummy = torch.randint(0, model.config.vocab_size, (1, 16), device=device)
             with torch.no_grad():
                 model(dummy)
 
-            sparsemax_calls = sum(
-                getattr(block.attn, "_sparsemax_calls", 0)
-                for block in model.transformer.h
+            assert _sparsemax_call_count > 0, (
+                f"Sparsemax patch is not being used! Expected >0 calls, got {_sparsemax_call_count}. "
+                "The forward method patch may not be invoked correctly."
             )
-            assert sparsemax_calls > 0, (
-                f"Sparsemax patch is not being used! Expected >0 calls, got {sparsemax_calls}. "
-                "The _attn monkey-patch may not be invoked by the GPT2Attention forward."
-            )
-            print(f"✓ Sparsemax patch verified: {sparsemax_calls} calls during dummy forward")
+            print(f"✓ Sparsemax patch verified: {_sparsemax_call_count} calls during dummy forward")
 
         model_num_params = count_params(model)
         print(f"Model params: {model_num_params:,}")

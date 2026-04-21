@@ -25,14 +25,16 @@ def verify_sparsemax(model, tokenizer, device):
 
     # Check 1: Verify patch is active
     print("1. Checking sparsemax patch is active...")
+
+    # Import global counter from train_experiment
+    import train_experiment
+    train_experiment._sparsemax_call_count = 0
+
     dummy = torch.randint(0, model.config.vocab_size, (1, 16), device=device)
     with torch.no_grad():
         model(dummy)
 
-    sparsemax_calls = sum(
-        getattr(block.attn, "_sparsemax_calls", 0)
-        for block in model.transformer.h
-    )
+    sparsemax_calls = train_experiment._sparsemax_call_count
 
     if sparsemax_calls == 0:
         print("   ✗ FAILED: Sparsemax patch not active!")
