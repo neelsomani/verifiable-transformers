@@ -14,6 +14,7 @@ import torch
 from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import (
     AttentionInterface,
+    AttentionMaskInterface,
     AutoTokenizer,
     GPT2Config,
     GPT2LMHeadModel,
@@ -25,6 +26,7 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
+from transformers.masking_utils import eager_mask
 
 
 class DyTNorm(torch.nn.Module):
@@ -301,19 +303,24 @@ def sparsemax_attention(
 
     Returns:
         (attn_output, attn_weights) where:
-            attn_output: [batch, num_heads, seq_q, head_dim]
+            attn_output: [batch, seq_q, num_heads, head_dim]
             attn_weights: [batch, num_heads, seq_q, seq_k] or None
     """
     global _sparsemax_call_count
     _sparsemax_call_count += 1
 
+    # Debug: log kwargs on first call to verify parameter names
+    if _sparsemax_call_count == 1:
+        import sys
+        print(f"[DEBUG] sparsemax_attention kwargs: {list(kwargs.keys())}", file=sys.stderr)
+
     # Compute attention scores: Q @ K^T
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
-    # Scale by sqrt(d_k) if needed
-    scale_factor = kwargs.get("scale_factor", None)
-    if scale_factor is not None:
-        attn_weights = attn_weights * scale_factor
+    # Scale by sqrt(d_k) if provided
+    scaling = kwargs.get("scaling", None)
+    if scaling is not None:
+        attn_weights = attn_weights * scaling
 
     # Apply attention mask if provided
     if attention_mask is not None:
@@ -332,11 +339,19 @@ def sparsemax_attention(
     # Compute output: weights @ V
     attn_output = torch.matmul(attn_weights, value)
 
+    # Transpose to match expected layout: [batch, seq, heads, head_dim]
+    # (eager backend returns transposed, and GPT2Attention expects this layout)
+    attn_output = attn_output.transpose(1, 2)
+
     return attn_output, attn_weights
 
 
 # Register sparsemax attention with transformers
 AttentionInterface.register("sparsemax", sparsemax_attention)
+
+# Register mask interface for sparsemax (use eager_mask for 4D float mask)
+# eager_mask creates a 4D float mask: 0 for allowed positions, -inf for blocked
+AttentionMaskInterface.register("sparsemax", eager_mask)
 
 
 def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
@@ -388,26 +403,25 @@ def _patch_block_with_residual_scaling(block) -> None:
 
     def forward_with_damped_additive_residual(
         self,
-        hidden_states,
-        layer_past=None,
-        attention_mask=None,
-        head_mask=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
-        use_cache=False,
-        output_attentions=False,
+        hidden_states: torch.Tensor,
+        past_key_values: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        output_attentions: Optional[bool] = False,
+        output_hidden_states: Optional[bool] = False,
+        **kwargs,
     ):
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
         attn_outputs = self.attn(
             hidden_states,
-            layer_past=layer_past,
+            past_key_values=past_key_values,
             attention_mask=attention_mask,
-            head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_attention_mask,
-            use_cache=use_cache,
             output_attentions=output_attentions,
+            **kwargs,
         )
         attn_output = attn_outputs[0]
         outputs = attn_outputs[1:]
@@ -1167,11 +1181,11 @@ def main() -> None:
         norm_variant = args.norm_variant if args.norm_variant is not None else cfg.get("norm_variant", "layernorm")
         attn_variant = args.attn_variant if args.attn_variant is not None else cfg.get("attn_variant", "softmax")
 
-        # Set attention implementation in config (for custom attention via AttentionInterface)
-        if attn_variant == "sparsemax":
-            model_config._attn_implementation = "sparsemax"
-
         model = GPT2LMHeadModel(model_config)
+
+        # Set attention implementation using public API (for custom attention via AttentionInterface)
+        if attn_variant == "sparsemax":
+            model.set_attn_implementation("sparsemax")
 
         apply_model_variants(model, norm_variant=norm_variant, attn_variant=attn_variant)
 

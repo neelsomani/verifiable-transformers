@@ -118,6 +118,21 @@ def verify_sparsemax(model, tokenizer, device):
     if zero_fraction > 0.99:
         print("   ⚠ WARNING: >99% of allowed attention weights are zero (may indicate issue)")
 
+    # Check 3b: Verify future positions are exactly zero (causal masking)
+    print("\n3b. Checking future positions are exactly zero (causal masking)...")
+    future_mask = torch.triu(
+        torch.ones(seq_len, seq_len, dtype=torch.bool, device=attn_weights.device),
+        diagonal=1,
+    )
+    future_weights = attn_weights[:, :, future_mask]
+
+    if (future_weights != 0).any().item():
+        print("   ✗ FAILED: nonzero attention on future positions")
+        print(f"      Max future weight: {future_weights.max().item()}")
+        print(f"      This suggests causal masking is not working correctly")
+        return False
+    print("   ✓ PASSED: future positions are exactly zero")
+
     # Check 4: Verify attention weights sum to ~1.0 (sparsemax is projection onto simplex)
     print("\n4. Checking attention weight normalization...")
     attn_sums = attn_weights.sum(dim=-1)  # Sum over keys (includes masked positions as zeros)
@@ -178,12 +193,12 @@ def main():
 
     config = GPT2Config.from_pretrained(args.model_name)
 
-    # Set attention implementation in config
-    config._attn_implementation = "sparsemax"
-
     model = GPT2LMHeadModel(config)
 
-    # Apply model variants (normalization only, attention handled by config)
+    # Set attention implementation using public API
+    model.set_attn_implementation("sparsemax")
+
+    # Apply model variants (normalization only, attention handled by set_attn_implementation)
     apply_model_variants(model, norm_variant="layernorm", attn_variant="sparsemax")
 
     model = model.to(args.device)
