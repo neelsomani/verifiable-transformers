@@ -13,8 +13,6 @@ from typing import Optional
 import torch
 from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import (
-    AttentionInterface,
-    AttentionMaskInterface,
     AutoTokenizer,
     GPT2Config,
     GPT2LMHeadModel,
@@ -26,7 +24,6 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
-from transformers.masking_utils import eager_mask
 
 
 class DyTNorm(torch.nn.Module):
@@ -282,76 +279,70 @@ def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
 _sparsemax_call_count = 0
 
 
-def sparsemax_attention(
-    module: torch.nn.Module,
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    attention_mask: Optional[torch.Tensor],
-    **kwargs,
-) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+def sparsemax_attn_monkeypatch(self, query, key, value, attention_mask=None, head_mask=None):
     """
-    Sparsemax attention function compatible with AttentionInterface.
+    Sparsemax attention replacement for GPT2Attention._attn (transformers 4.49).
+
+    This is a monkey-patch for the _attn method that uses sparsemax instead of softmax.
 
     Args:
-        module: The attention module
-        query: Query tensor [batch, num_heads, seq_q, head_dim]
-        key: Key tensor [batch, num_heads, seq_k, head_dim]
-        value: Value tensor [batch, num_heads, seq_k, head_dim]
-        attention_mask: Optional mask tensor
-        **kwargs: Additional arguments (e.g., scale_factor)
+        query: [batch, num_heads, seq, head_dim]
+        key: [batch, num_heads, seq, head_dim]
+        value: [batch, num_heads, seq, head_dim]
+        attention_mask: Optional 4D mask [batch, 1, 1, seq] or None
+        head_mask: Optional head mask
 
     Returns:
         (attn_output, attn_weights) where:
-            attn_output: [batch, seq_q, num_heads, head_dim]
-            attn_weights: [batch, num_heads, seq_q, seq_k] or None
+            attn_output: [batch, num_heads, seq, head_dim]
+            attn_weights: [batch, num_heads, seq, seq]
     """
     global _sparsemax_call_count
     _sparsemax_call_count += 1
 
-    # Debug: log kwargs on first call to verify parameter names
-    if _sparsemax_call_count == 1:
-        import sys
-        print(f"[DEBUG] sparsemax_attention kwargs: {list(kwargs.keys())}", file=sys.stderr)
-
     # Compute attention scores: Q @ K^T
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
-    # Scale by sqrt(d_k) if provided
-    scaling = kwargs.get("scaling", None)
-    if scaling is not None:
-        attn_weights = attn_weights * scaling
+    # Scale by sqrt(d_k)
+    if self.scale_attn_weights:
+        attn_weights = attn_weights / torch.full(
+            [], value.size(-1) ** 0.5, dtype=attn_weights.dtype, device=attn_weights.device
+        )
 
-    # Apply attention mask if provided
+    # Apply causal mask (GPT2 stores this in self.bias)
+    if not self.is_cross_attention:
+        # q_len, k_len = query.size(-2), key.size(-2)
+        # causal_mask = self.bias[:, :, k_len - q_len : k_len, :k_len]
+        # attn_weights = torch.where(causal_mask, attn_weights, self.masked_bias.to(attn_weights.dtype))
+        query_length, key_length = query.size(-2), key.size(-2)
+        causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
+        mask_value = torch.finfo(attn_weights.dtype).min
+        # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
+        # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
+        mask_value = torch.full([], mask_value, dtype=attn_weights.dtype, device=attn_weights.device)
+        attn_weights = torch.where(causal_mask, attn_weights.to(attn_weights.dtype), mask_value)
+
+    # Apply attention_mask if provided
     if attention_mask is not None:
         attn_weights = attn_weights + attention_mask
 
     # SPARSEMAX instead of softmax (with fp32 stability)
     attn_weights = sparsemax(attn_weights, dim=-1)
 
-    # Cast back to value dtype (sparsemax computes in fp32)
+    # Cast back to value dtype
     attn_weights = attn_weights.to(value.dtype)
 
-    # Apply dropout if module has it
-    if hasattr(module, "attn_dropout"):
-        attn_weights = module.attn_dropout(attn_weights)
+    # Apply dropout
+    attn_weights = self.attn_dropout(attn_weights)
+
+    # Apply head_mask if provided
+    if head_mask is not None:
+        attn_weights = attn_weights * head_mask
 
     # Compute output: weights @ V
     attn_output = torch.matmul(attn_weights, value)
 
-    # Transpose to match expected layout: [batch, seq, heads, head_dim]
-    # (eager backend returns transposed, and GPT2Attention expects this layout)
-    attn_output = attn_output.transpose(1, 2)
-
     return attn_output, attn_weights
-
-
-# Register sparsemax attention with transformers
-AttentionInterface.register("sparsemax", sparsemax_attention)
-
-# Register mask interface for sparsemax (use eager_mask for 4D float mask)
-# eager_mask creates a 4D float mask: 0 for allowed positions, -inf for blocked
-AttentionMaskInterface.register("sparsemax", eager_mask)
 
 
 def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
@@ -384,8 +375,10 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
             _patch_block_with_residual_scaling(block)
         model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="bounded")
 
-    # Note: attn_variant is now handled via config._attn_implementation
-    # during model creation, not via monkey-patching here
+    # Monkey-patch attention for sparsemax (transformers 4.49 approach)
+    if attn_variant == "sparsemax":
+        for block in model.transformer.h:
+            block.attn._attn = MethodType(sparsemax_attn_monkeypatch, block.attn)
 
 
 def _patch_block_with_residual_scaling(block) -> None:
@@ -1182,10 +1175,6 @@ def main() -> None:
         attn_variant = args.attn_variant if args.attn_variant is not None else cfg.get("attn_variant", "softmax")
 
         model = GPT2LMHeadModel(model_config)
-
-        # Set attention implementation using public API (for custom attention via AttentionInterface)
-        if attn_variant == "sparsemax":
-            model.set_attn_implementation("sparsemax")
 
         apply_model_variants(model, norm_variant=norm_variant, attn_variant=attn_variant)
 

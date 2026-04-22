@@ -195,10 +195,7 @@ def main():
 
     model = GPT2LMHeadModel(config)
 
-    # Set attention implementation using public API
-    model.set_attn_implementation("sparsemax")
-
-    # Apply model variants (normalization only, attention handled by set_attn_implementation)
+    # Apply model variants (normalization + sparsemax monkey-patch)
     apply_model_variants(model, norm_variant="layernorm", attn_variant="sparsemax")
 
     model = model.to(args.device)
