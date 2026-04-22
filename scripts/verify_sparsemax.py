@@ -71,9 +71,12 @@ def verify_sparsemax(model, tokenizer, device):
     attn_weights_captured = []
 
     def capture_hook(module, input, output):
-        # output is (attn_output, attn_weights)
-        if len(output) >= 2:
-            attn_weights_captured.append(output[1])
+        # In transformers 4.49, GPT2Attention output is (attn_output, present, attn_weights)
+        # when output_attentions=True, where present is a tuple (key, value)
+        if len(output) >= 3:
+            attn_weights_captured.append(output[2])  # attn_weights is third element
+        elif len(output) >= 2 and isinstance(output[1], torch.Tensor):
+            attn_weights_captured.append(output[1])  # fallback for other formats
 
     # Register hook on first block
     hook = model.transformer.h[0].attn.register_forward_hook(capture_hook)
