@@ -279,13 +279,14 @@ def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
 _sparsemax_call_count = 0
 
 
-def sparsemax_attn_monkeypatch(self, query, key, value, attention_mask=None, head_mask=None):
+def sparsemax_attention_forward(module, query, key, value, attention_mask, head_mask=None, **kwargs):
     """
-    Sparsemax attention replacement for GPT2Attention._attn (transformers 4.49).
+    Sparsemax attention function for transformers 4.49 GPT2.
 
-    This is a monkey-patch for the _attn method that uses sparsemax instead of softmax.
+    This replaces eager_attention_forward with sparsemax instead of softmax.
 
     Args:
+        module: The attention module
         query: [batch, num_heads, seq, head_dim]
         key: [batch, num_heads, seq, head_dim]
         value: [batch, num_heads, seq, head_dim]
@@ -304,21 +305,16 @@ def sparsemax_attn_monkeypatch(self, query, key, value, attention_mask=None, hea
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
     # Scale by sqrt(d_k)
-    if self.scale_attn_weights:
+    if module.scale_attn_weights:
         attn_weights = attn_weights / torch.full(
             [], value.size(-1) ** 0.5, dtype=attn_weights.dtype, device=attn_weights.device
         )
 
-    # Apply causal mask (GPT2 stores this in self.bias)
-    if not self.is_cross_attention:
-        # q_len, k_len = query.size(-2), key.size(-2)
-        # causal_mask = self.bias[:, :, k_len - q_len : k_len, :k_len]
-        # attn_weights = torch.where(causal_mask, attn_weights, self.masked_bias.to(attn_weights.dtype))
+    # Apply causal mask for self-attention (GPT2 stores this in module.bias)
+    if not module.is_cross_attention:
         query_length, key_length = query.size(-2), key.size(-2)
-        causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
+        causal_mask = module.bias[:, :, key_length - query_length : key_length, :key_length]
         mask_value = torch.finfo(attn_weights.dtype).min
-        # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
-        # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
         mask_value = torch.full([], mask_value, dtype=attn_weights.dtype, device=attn_weights.device)
         attn_weights = torch.where(causal_mask, attn_weights.to(attn_weights.dtype), mask_value)
 
@@ -333,7 +329,7 @@ def sparsemax_attn_monkeypatch(self, query, key, value, attention_mask=None, hea
     attn_weights = attn_weights.to(value.dtype)
 
     # Apply dropout
-    attn_weights = self.attn_dropout(attn_weights)
+    attn_weights = module.attn_dropout(attn_weights)
 
     # Apply head_mask if provided
     if head_mask is not None:
@@ -343,6 +339,66 @@ def sparsemax_attn_monkeypatch(self, query, key, value, attention_mask=None, hea
     attn_output = torch.matmul(attn_weights, value)
 
     return attn_output, attn_weights
+
+
+def gpt2_forward_with_sparsemax(
+    self,
+    hidden_states: Optional[tuple[torch.FloatTensor]],
+    layer_past: Optional[tuple[torch.Tensor]] = None,
+    attention_mask: Optional[torch.FloatTensor] = None,
+    head_mask: Optional[torch.FloatTensor] = None,
+    encoder_hidden_states: Optional[torch.Tensor] = None,
+    encoder_attention_mask: Optional[torch.FloatTensor] = None,
+    use_cache: Optional[bool] = False,
+    output_attentions: Optional[bool] = False,
+):
+    """
+    GPT2Attention.forward replacement that uses sparsemax_attention_forward.
+
+    This is based on the transformers 4.49 GPT2Attention.forward but replaces
+    the attention function with sparsemax.
+    """
+    if encoder_hidden_states is not None:
+        if not hasattr(self, "q_attn"):
+            raise ValueError(
+                "If class is used as cross attention, the weights `q_attn` have to be defined. "
+                "Please make sure to instantiate class with `GPT2Attention(..., is_cross_attention=True)`."
+            )
+
+        query = self.q_attn(hidden_states)
+        key, value = self.c_attn(encoder_hidden_states).split(self.split_size, dim=2)
+        attention_mask = encoder_attention_mask
+    else:
+        query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
+
+    query = self._split_heads(query, self.num_heads, self.head_dim)
+    key = self._split_heads(key, self.num_heads, self.head_dim)
+    value = self._split_heads(value, self.num_heads, self.head_dim)
+
+    if layer_past is not None:
+        past_key, past_value = layer_past
+        key = torch.cat((past_key, key), dim=-2)
+        value = torch.cat((past_value, value), dim=-2)
+
+    if use_cache is True:
+        present = (key, value)
+    else:
+        present = None
+
+    # Use sparsemax attention instead of eager/sdpa
+    attn_output, attn_weights = sparsemax_attention_forward(
+        self, query, key, value, attention_mask, head_mask
+    )
+
+    attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
+    attn_output = self.c_proj(attn_output)
+    attn_output = self.resid_dropout(attn_output)
+
+    outputs = (attn_output, present)
+    if output_attentions:
+        outputs += (attn_weights,)
+
+    return outputs
 
 
 def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
@@ -378,7 +434,7 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
     # Monkey-patch attention for sparsemax (transformers 4.49 approach)
     if attn_variant == "sparsemax":
         for block in model.transformer.h:
-            block.attn._attn = MethodType(sparsemax_attn_monkeypatch, block.attn)
+            block.attn.forward = MethodType(gpt2_forward_with_sparsemax, block.attn)
 
 
 def _patch_block_with_residual_scaling(block) -> None:
@@ -397,24 +453,26 @@ def _patch_block_with_residual_scaling(block) -> None:
     def forward_with_damped_additive_residual(
         self,
         hidden_states: torch.Tensor,
-        past_key_values: Optional[torch.Tensor] = None,
+        layer_past: Optional[torch.Tensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
-        output_hidden_states: Optional[bool] = False,
         **kwargs,
     ):
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
         attn_outputs = self.attn(
             hidden_states,
-            past_key_values=past_key_values,
+            layer_past=layer_past,
             attention_mask=attention_mask,
+            head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_attention_mask,
+            use_cache=use_cache,
             output_attentions=output_attentions,
-            **kwargs,
         )
         attn_output = attn_outputs[0]
         outputs = attn_outputs[1:]
