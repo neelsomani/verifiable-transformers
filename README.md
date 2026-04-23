@@ -223,7 +223,7 @@ Interpretation:
 
 This run met the configured early-stop target (`eval_loss <= 3.2`).
 
-## Individual Verifiable Replacement Evaluations
+## Step 2: Individual Verifiable Replacement Evaluations
 
 We use the same training script and process, with architecture variants controlled via config (`norm_variant`, `attn_variant`) to keep training/eval pipeline constant. We first establish the pretrained GPT-2 reference and local Step 1 baseline above, then compare these variants against that local baseline.
 
