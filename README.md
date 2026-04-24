@@ -223,7 +223,7 @@ Interpretation:
 
 This run met the configured early-stop target (`eval_loss <= 3.2`).
 
-## Step 2: Individual Verifiable Replacement Evaluations
+## Step 2: Verifiable Replacement Evaluations
 
 We use the same training script and process, with architecture variants controlled via config (`norm_variant`, `attn_variant`) to keep training/eval pipeline constant. We first establish the pretrained GPT-2 reference and local Step 1 baseline above, then compare these variants against that local baseline.
 
@@ -248,8 +248,6 @@ Config: `configs/step2a_norm_verifiable_pwl_gated.json`
 v2 simplified the norm to mean subtraction, leaky piecewise-linear clamp, fixed scaling by 0.5, and learned bias. This results in better gradient flow relative to a hard clamp, but the clamp remained unbounded: outside the clamp region, activations still grew linearly. The result was better early optimization but eventual explosion once residual accumulation returned. The key lesson was that gradient flow alone is not enough; the norm must also enforce explicit magnitude control.
 
 #### Verifiable PWL Norm v3: Bounded PWL Clamp (Recommended)
-
-Config: `configs/step2a_norm_verifiable_pwl_v3.json`
 
 The progression v1 → v2 → v3 isolates the core requirement: v1 had insufficient scale control, hard clamp bounded activations but killed gradients, and v2 preserved gradients but left activations unbounded. The resulting target is:
 
@@ -299,8 +297,6 @@ Final stable run:
 
 ### Step 2b: Attention replacement only (sparsemax)
 
-Config: `configs/step2b_attn_sparsemax_only.json`
-
 Sparsemax replaces softmax attention weighting with a piecewise-linear alternative (alpha-entmax family, alpha=2) that can produce exact zeros in the attention distribution. This is fully SMT-encodable.
 
 Implementation:
@@ -346,3 +342,18 @@ Interpretation:
 * **Modestly worse on WikiText-103** (+5.2% relative perplexity increase)
 * **Dramatically better than verifiable norm replacements** (Step 2a variants)
 * This demonstrates that a fully SMT-encodable attention mechanism can achieve near-baseline performance while maintaining exact zeros in attention distributions
+
+### Step 2c: Combined verifiable replacements (norm + attention)
+
+This combines the two verifiable components from steps 2a and 2b.
+
+This represents the **end-to-end verifiable Transformer**: both normalization and attention are fully SMT-encodable.
+
+Config: `configs/step2c_verifiable_pwl_norm_v3_sparsemax.json`
+
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
+  --config configs/step2c_verifiable_pwl_norm_v3_sparsemax.json \
+  --output_dir artifacts/step2c-verifiable-pwl-v3-sparsemax \
+  --disable_auto_resume
+```
