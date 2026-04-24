@@ -305,24 +305,18 @@ Sparsemax replaces softmax attention weighting with a piecewise-linear alternati
 
 Implementation:
 - Uses standard LayerNorm (not verifiable norm variants)
-- Replaces softmax with sparsemax via monkey-patching GPT2Attention._attn
+- Replaces softmax with sparsemax via monkey-patching GPT2Attention.forward
 - Runs sparsemax computation in fp32 for numerical stability (upcasts from bf16)
 - Includes fail-fast verification on startup to ensure patch is active
+- Compatible with transformers 4.49.0
 
-Verification (run before full training):
+Verification (run before full training to make sure patch is working):
 ```bash
 python scripts/verify_sparsemax.py
 ```
 
-This automatically checks:
-- Sparsemax patch is active
-- No NaNs/infs in model outputs
-- Attention weights contain exact interior zeros
-- Attention weights sum to valid range [0, 1]
+Config: `configs/step2b_attn_sparsemax_only.json`
 
-All checks must pass before proceeding to full training.
-
-Full run:
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step2b_attn_sparsemax_only.json \
@@ -332,3 +326,23 @@ python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --target_wikitext_ppl 53 \
   --wikitext_eval_every_n_evals 1
 ```
+
+Results:
+
+**OpenWebText (validation):**
+
+* Best eval loss: **3.1973 @ 180k steps**
+* Relative to baseline (3.1340): **+0.0633** loss
+
+**WikiText-103 (validation):**
+
+* Perplexity: **55.7227 @ 160k**
+* Relative to baseline (52.9820): **+2.7407** perplexity
+
+Interpretation:
+
+* Sparsemax is **not equal to baseline** but achieves strong performance
+* **Very close on OpenWebText** (+2.0% relative loss increase)
+* **Modestly worse on WikiText-103** (+5.2% relative perplexity increase)
+* **Dramatically better than verifiable norm replacements** (Step 2a variants)
+* This demonstrates that a fully SMT-encodable attention mechanism can achieve near-baseline performance while maintaining exact zeros in attention distributions
