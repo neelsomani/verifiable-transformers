@@ -35,5 +35,6 @@
   "catastrophic_eval_increase_delta": 2.0,
   "catastrophic_increase_patience": 2,
   "norm_variant": "verifiable_pwl_norm_v3",
-  "attn_variant": "sparsemax"
+  "attn_variant": "sparsemax",
+  "activation_variant": "leaky_relu"
 }

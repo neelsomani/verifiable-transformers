@@ -9,7 +9,7 @@ We design a Transformer variant whose entire forward pass can be encoded exactly
 
 The core idea is to make the whole Transformer verifiable so these properties can be proven or refuted over the entire input domain, not just tested on examples.
 
-There are two parts of the Transformer architecture that are traditionally difficult to SMT encode. First, the attention mechanism. Starting from the Deep Sets characterization of permutation-invariant functions, we re-derive the structural form of attention and show that it naturally decomposes into three learnable components: an aggregator ρ, a relevance scoring function u, and a content map v. We then characterize the verifiable subset of this space: all attention mechanisms whose computation can be expressed using only affine maps, piecewise-linear transformations, thresholding, and Top-k style selection - primitives that admit exact SMT encodings. Second, we apply a similar approach to the LayerNorm.
+There are two parts of the Transformer architecture that are traditionally difficult to SMT encode. First, the attention mechanism. Starting from the Deep Sets characterization of permutation-invariant functions, we re-derive the structural form of attention and show that it naturally decomposes into three learnable components: an aggregator ρ, a relevance scoring function u, and a content map v. We then characterize the verifiable subset of this space: all attention mechanisms whose computation can be expressed using only affine maps, piecewise-linear transformations, thresholding, and Top-k style selection - primitives that admit exact SMT encodings. Second, we apply a similar approach to the LayerNorm. (A third non-verifiable component, the GELU activation function, is easier to address.)
 
 We show, end-to-end, that a Transformer can be trained and then formally analyzed at the circuit level: we extract the learned addition mechanism, prove bounded correctness, prove structural properties of the circuit, and prove impossibility/generalization limits. This work suggests a new direction for interpretable and certifiable sequence modeling.
 
@@ -343,11 +343,11 @@ Interpretation:
 * **Dramatically better than verifiable norm replacements** (Step 2a variants)
 * This demonstrates that a fully SMT-encodable attention mechanism can achieve near-baseline performance while maintaining exact zeros in attention distributions
 
-### Step 2c: Combined verifiable replacements (norm + attention)
+### Step 2c: Combined verifiable replacements (norm + attention + LeakyReLU)
 
-This combines the two verifiable components from steps 2a and 2b.
+This combines the two verifiable components from steps 2a and 2b, in addition to replacing the GELU activation function.
 
-This represents the **end-to-end verifiable Transformer**: both normalization and attention are fully SMT-encodable.
+This represents the **end-to-end verifiable Transformer**: normalization, attention, and activations are fully SMT-encodable.
 
 Config: `configs/step2c_verifiable_pwl_norm_v3_sparsemax.json`
 
@@ -355,5 +355,8 @@ Config: `configs/step2c_verifiable_pwl_norm_v3_sparsemax.json`
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --config configs/step2c_verifiable_pwl_norm_v3_sparsemax.json \
   --output_dir artifacts/step2c-verifiable-pwl-v3-sparsemax \
-  --disable_auto_resume
+  --disable_auto_resume \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 53 \
+  --wikitext_eval_every_n_evals 1
 ```

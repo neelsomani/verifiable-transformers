@@ -24,6 +24,14 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
+from transformers.activations import ACT2FN
+
+# Register piecewise-linear activations for verifiable transformers
+# These are stateless so sharing a single instance is fine
+if "leaky_relu" not in ACT2FN:
+    ACT2FN["leaky_relu"] = torch.nn.LeakyReLU(negative_slope=0.01)
+if "relu" not in ACT2FN:
+    ACT2FN["relu"] = torch.nn.ReLU()
 
 
 class DyTNorm(torch.nn.Module):
@@ -407,7 +415,7 @@ def gpt2_forward_with_sparsemax(
     return outputs
 
 
-def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
+def apply_model_variants(model, norm_variant: str, attn_variant: str, activation_variant: str = "gelu") -> None:
     if norm_variant == "dyt":
         hidden_size = model.config.n_embd
         for block in model.transformer.h:
@@ -441,6 +449,9 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str) -> None:
     if attn_variant == "sparsemax":
         for block in model.transformer.h:
             block.attn.forward = MethodType(gpt2_forward_with_sparsemax, block.attn)
+
+    # Note: activation_variant is handled via config.activation_function before model creation
+    # The model is already initialized with the correct activation from ACT2FN
 
 
 def _patch_block_with_residual_scaling(block) -> None:
@@ -966,6 +977,13 @@ def parse_args() -> argparse.Namespace:
         help="Attention variant. Defaults to config value or softmax.",
     )
     parser.add_argument(
+        "--activation_variant",
+        type=str,
+        default=None,
+        choices=["gelu", "relu", "leaky_relu"],
+        help="MLP activation variant. Defaults to config value or gelu.",
+    )
+    parser.add_argument(
         "--catastrophic_train_loss_threshold",
         type=float,
         default=None,
@@ -1234,13 +1252,21 @@ def main() -> None:
         if hasattr(model_config, "n_ctx"):
             model_config.n_ctx = cfg["block_size"]
 
-        # Determine attention variant before model creation
+        # Determine variants before model creation
         norm_variant = args.norm_variant if args.norm_variant is not None else cfg.get("norm_variant", "layernorm")
         attn_variant = args.attn_variant if args.attn_variant is not None else cfg.get("attn_variant", "softmax")
+        activation_variant = args.activation_variant if args.activation_variant is not None else cfg.get("activation_variant", "gelu")
+
+        # Update config activation before model creation so it's saved correctly
+        if activation_variant == "leaky_relu":
+            model_config.activation_function = "leaky_relu"
+        elif activation_variant == "relu":
+            model_config.activation_function = "relu"
+        # else: keep default (gelu_new or whatever config.activation_function was)
 
         model = GPT2LMHeadModel(model_config)
 
-        apply_model_variants(model, norm_variant=norm_variant, attn_variant=attn_variant)
+        apply_model_variants(model, norm_variant=norm_variant, attn_variant=attn_variant, activation_variant=activation_variant)
 
         # Fail-fast verification for sparsemax patch
         if attn_variant == "sparsemax":
@@ -1268,6 +1294,7 @@ def main() -> None:
                     "num_parameters": model_num_params,
                     "norm_variant": norm_variant,
                     "attn_variant": attn_variant,
+                    "activation_variant": activation_variant,
                 },
                 handle,
                 indent=2,

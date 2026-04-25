@@ -199,7 +199,7 @@ def main():
     model = GPT2LMHeadModel(config)
 
     # Apply model variants (normalization + sparsemax monkey-patch)
-    apply_model_variants(model, norm_variant="layernorm", attn_variant="sparsemax")
+    apply_model_variants(model, norm_variant="layernorm", attn_variant="sparsemax", activation_variant="gelu")
 
     model = model.to(args.device)
     model.eval()
