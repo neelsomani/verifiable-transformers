@@ -24,16 +24,6 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
-from transformers.activations import ACT2FN
-
-# Register piecewise-linear activations for verifiable transformers
-# These are stateless so sharing a single instance is fine
-if "leaky_relu" not in ACT2FN:
-    ACT2FN["leaky_relu"] = torch.nn.LeakyReLU(negative_slope=0.01)
-if "relu" not in ACT2FN:
-    ACT2FN["relu"] = torch.nn.ReLU()
-
-
 class DyTNorm(torch.nn.Module):
     def __init__(self, hidden_size: int, clamp_value: float = 4.0):
         super().__init__()
@@ -241,6 +231,153 @@ class VerifiablePWLNorm(torch.nn.Module):
         return output
 
 
+class SignedL1BandNorm(torch.nn.Module):
+    """
+    SMT-friendly normalization by signed L1 mass projection.
+
+    Properties:
+    - centers each token vector
+    - preserves zero-mean structure by separately controlling positive/negative mass
+    - avoids data-dependent multiplication
+    - uses only affine ops, ReLU/max, abs/sign-like decomposition, sort/top-k, thresholding
+    - no elementwise saturation of all large coordinates
+    """
+
+    def __init__(
+        self,
+        hidden_size: int,
+        l1_low_per_dim: float = 0.55,
+        l1_high_per_dim: float = 1.05,
+        affine: bool = True,
+    ):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.l1_low = float(l1_low_per_dim) * hidden_size
+        self.l1_high = float(l1_high_per_dim) * hidden_size
+        self.half_low = self.l1_low / 2.0
+        self.half_high = self.l1_high / 2.0
+
+        if affine:
+            self.gamma = torch.nn.Parameter(torch.ones(hidden_size))
+            self.beta = torch.nn.Parameter(torch.zeros(hidden_size))
+        else:
+            self.register_parameter("gamma", None)
+            self.register_parameter("beta", None)
+
+        # Used only for the pathological all-zero centered vector case.
+        pos_fallback = torch.zeros(hidden_size)
+        pos_fallback[0::2] = 1.0
+        neg_fallback = 1.0 - pos_fallback
+        self.register_buffer("pos_fallback", pos_fallback)
+        self.register_buffer("neg_fallback", neg_fallback)
+
+        # Optional diagnostics
+        self.track_stats = False
+        self.last_low_fraction = None
+        self.last_high_fraction = None
+        self.last_mean_abs = None
+        self.last_mass_mean = None
+
+    def _project_nonnegative_l1_ball(self, y: torch.Tensor, radius: float) -> torch.Tensor:
+        """
+        Euclidean projection of nonnegative y onto {z >= 0, sum(z) <= radius}.
+
+        If sum(y) <= radius, returns y.
+        Else returns max(y - tau, 0), with tau selected by sorting.
+        """
+        mass = y.sum(dim=-1, keepdim=True)
+        needs_projection = mass > radius
+
+        sorted_y, _ = torch.sort(y, dim=-1, descending=True)
+        cumsum = torch.cumsum(sorted_y, dim=-1)
+
+        d = y.size(-1)
+        arange = torch.arange(1, d + 1, device=y.device, dtype=y.dtype)
+        view_shape = [1] * y.dim()
+        view_shape[-1] = d
+        arange = arange.view(view_shape)
+
+        # Support condition for projection threshold.
+        support = sorted_y - (cumsum - radius) / arange > 0
+        k = support.to(torch.int64).sum(dim=-1, keepdim=True).clamp(min=1)
+
+        tau = (torch.gather(cumsum, dim=-1, index=k - 1) - radius) / k.to(y.dtype)
+        projected = torch.clamp(y - tau, min=0.0)
+
+        return torch.where(needs_projection, projected, y)
+
+    def _lift_nonnegative_l1_mass(
+        self,
+        y: torch.Tensor,
+        radius: float,
+        fallback_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        If sum(y) < radius, add equal mass to active coordinates.
+
+        This is additive, not multiplicative:
+            y_i <- y_i + delta for active i
+
+        That keeps the map piecewise-affine.
+        """
+        mass = y.sum(dim=-1, keepdim=True)
+        needs_lift = mass < radius
+
+        active = y > 0
+        active_count = active.to(torch.int64).sum(dim=-1, keepdim=True)
+
+        fallback = fallback_mask.view(*([1] * (y.dim() - 1)), y.size(-1)).to(dtype=torch.bool)
+        fallback = fallback.expand_as(active)
+
+        active = torch.where(active_count > 0, active, fallback)
+        active_f = active.to(y.dtype)
+        active_count = active_f.sum(dim=-1, keepdim=True).clamp(min=1.0)
+
+        delta = torch.clamp(radius - mass, min=0.0) / active_count
+        lifted = y + active_f * delta
+
+        return torch.where(needs_lift, lifted, y)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        # 1. Center.
+        mean = hidden_states.mean(dim=-1, keepdim=True)
+        c = hidden_states - mean
+
+        # 2. Split into positive and negative masses.
+        p = torch.clamp(c, min=0.0)
+        n = torch.clamp(-c, min=0.0)
+
+        p_mass = p.sum(dim=-1, keepdim=True)
+        n_mass = n.sum(dim=-1, keepdim=True)
+
+        # 3. Low-mass additive lift.
+        p = self._lift_nonnegative_l1_mass(p, self.half_low, self.pos_fallback)
+        n = self._lift_nonnegative_l1_mass(n, self.half_low, self.neg_fallback)
+
+        # 4. High-mass projection.
+        p = self._project_nonnegative_l1_ball(p, self.half_high)
+        n = self._project_nonnegative_l1_ball(n, self.half_high)
+
+        # 5. Recombine. Sum is approximately zero because masses are controlled symmetrically.
+        z = p - n
+
+        # Optional exact recentering. This is affine and SMT-safe.
+        z = z - z.mean(dim=-1, keepdim=True)
+
+        if self.gamma is not None:
+            z = z * self.gamma + self.beta
+
+        if self.track_stats:
+            with torch.no_grad():
+                mass = torch.abs(c).sum(dim=-1)
+                self.last_mass_mean = mass.mean().item()
+                self.last_mean_abs = mean.abs().mean().item()
+                self.last_low_fraction = (mass < self.l1_low).float().mean().item()
+                self.last_high_fraction = (mass > self.l1_high).float().mean().item()
+
+        return z
+
+
 class ResidualGate(torch.nn.Module):
     """
     SMT-friendly learned scalar gate for residual connections.
@@ -444,6 +581,25 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str, activation
             # Patch forward to use fixed residual scaling
             _patch_block_with_residual_scaling(block)
         model.transformer.ln_f = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="bounded")
+    elif norm_variant == "signed_l1_band_norm":
+        hidden_size = model.config.n_embd
+        for block in model.transformer.h:
+            block.ln_1 = SignedL1BandNorm(
+                hidden_size=hidden_size,
+                l1_low_per_dim=0.55,
+                l1_high_per_dim=1.05,
+            )
+            block.ln_2 = SignedL1BandNorm(
+                hidden_size=hidden_size,
+                l1_low_per_dim=0.55,
+                l1_high_per_dim=1.05,
+            )
+            # DO NOT patch block with residual scaling for this variant
+        model.transformer.ln_f = SignedL1BandNorm(
+            hidden_size=hidden_size,
+            l1_low_per_dim=0.55,
+            l1_high_per_dim=1.05,
+        )
 
     # Monkey-patch attention for sparsemax (transformers 4.49 approach)
     if attn_variant == "sparsemax":
@@ -763,14 +919,19 @@ class WikiTextEvalCallback(TrainerCallback):
 
 class VerifiableNormDiagnosticsCallback(TrainerCallback):
     """
-    Lightweight diagnostics logging for VerifiablePWLNorm modules.
+    Lightweight diagnostics logging for VerifiablePWLNorm and SignedL1BandNorm modules.
 
     Collects and saves summary statistics during evaluation:
-    - mean absolute value of per-token means
-    - fraction of activations beyond threshold
-    - for bounded variant only:
-      - fraction in transition region (2.0 < |x| <= 3.0, slope 0.3)
-      - fraction in saturation region (|x| > 3.0, flat)
+    - VerifiablePWLNorm:
+      - mean absolute value of per-token means
+      - fraction of activations beyond threshold
+      - for bounded variant only:
+        - fraction in transition region (2.0 < |x| <= 3.0, slope 0.3)
+        - fraction in saturation region (|x| > 3.0, flat)
+    - SignedL1BandNorm:
+      - mean L1 mass
+      - fraction of tokens with mass below lower band
+      - fraction of tokens with mass above upper band
     """
     def __init__(self, output_dir: str, enabled: bool):
         self.output_dir = output_dir
@@ -780,17 +941,22 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
         if not self.enabled or model is None or not state.is_world_process_zero:
             return control
 
-        # Collect all VerifiablePWLNorm modules
-        norm_modules = []
+        # Collect all VerifiablePWLNorm and SignedL1BandNorm modules
+        pwl_norm_modules = []
+        l1_band_norm_modules = []
         for module in model.modules():
             if isinstance(module, VerifiablePWLNorm):
-                norm_modules.append(module)
+                pwl_norm_modules.append(module)
+            elif isinstance(module, SignedL1BandNorm):
+                l1_band_norm_modules.append(module)
 
-        if not norm_modules:
+        if not pwl_norm_modules and not l1_band_norm_modules:
             return control
 
         # Enable stats tracking
-        for module in norm_modules:
+        for module in pwl_norm_modules:
+            module.track_stats = True
+        for module in l1_band_norm_modules:
             module.track_stats = True
 
         # Run a forward pass on a small batch to collect stats
@@ -803,35 +969,62 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
                 batch = {k: v.to(model.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 model(**batch)
 
-            # Collect norm statistics
-            mean_values = []
-            clamp_fractions = []
-            transition_fractions = []
-            saturation_fractions = []
+            stats = {"step": int(state.global_step)}
 
-            for module in norm_modules:
-                if module.last_mean is not None:
-                    mean_values.append(module.last_mean)
-                if module.last_clamp_fraction is not None:
-                    clamp_fractions.append(module.last_clamp_fraction)
-                if module.last_transition_fraction is not None:
-                    transition_fractions.append(module.last_transition_fraction)
-                if module.last_saturation_fraction is not None:
-                    saturation_fractions.append(module.last_saturation_fraction)
+            # Collect VerifiablePWLNorm statistics
+            if pwl_norm_modules:
+                mean_values = []
+                clamp_fractions = []
+                transition_fractions = []
+                saturation_fractions = []
 
-            if mean_values:
-                stats = {
-                    "step": int(state.global_step),
-                    "mean_abs_mean": float(sum(mean_values) / len(mean_values)),
-                    "mean_clamp_fraction": float(sum(clamp_fractions) / len(clamp_fractions)),
-                }
+                for module in pwl_norm_modules:
+                    if module.last_mean is not None:
+                        mean_values.append(module.last_mean)
+                    if module.last_clamp_fraction is not None:
+                        clamp_fractions.append(module.last_clamp_fraction)
+                    if module.last_transition_fraction is not None:
+                        transition_fractions.append(module.last_transition_fraction)
+                    if module.last_saturation_fraction is not None:
+                        saturation_fractions.append(module.last_saturation_fraction)
 
-                # Add bounded-specific stats if available
-                if transition_fractions:
-                    stats["mean_transition_fraction"] = float(sum(transition_fractions) / len(transition_fractions))
-                if saturation_fractions:
-                    stats["mean_saturation_fraction"] = float(sum(saturation_fractions) / len(saturation_fractions))
+                if mean_values:
+                    stats["mean_abs_mean"] = float(sum(mean_values) / len(mean_values))
+                    stats["mean_clamp_fraction"] = float(sum(clamp_fractions) / len(clamp_fractions))
 
+                    # Add bounded-specific stats if available
+                    if transition_fractions:
+                        stats["mean_transition_fraction"] = float(sum(transition_fractions) / len(transition_fractions))
+                    if saturation_fractions:
+                        stats["mean_saturation_fraction"] = float(sum(saturation_fractions) / len(saturation_fractions))
+
+            # Collect SignedL1BandNorm statistics
+            if l1_band_norm_modules:
+                low_fractions = []
+                high_fractions = []
+                mass_means = []
+                mean_abs_values = []
+
+                for module in l1_band_norm_modules:
+                    if module.last_low_fraction is not None:
+                        low_fractions.append(module.last_low_fraction)
+                    if module.last_high_fraction is not None:
+                        high_fractions.append(module.last_high_fraction)
+                    if module.last_mass_mean is not None:
+                        mass_means.append(module.last_mass_mean)
+                    if module.last_mean_abs is not None:
+                        mean_abs_values.append(module.last_mean_abs)
+
+                if low_fractions:
+                    stats["mean_low_fraction"] = float(sum(low_fractions) / len(low_fractions))
+                if high_fractions:
+                    stats["mean_high_fraction"] = float(sum(high_fractions) / len(high_fractions))
+                if mass_means:
+                    stats["mean_l1_mass"] = float(sum(mass_means) / len(mass_means))
+                if mean_abs_values:
+                    stats["mean_abs_mean_l1"] = float(sum(mean_abs_values) / len(mean_abs_values))
+
+            if len(stats) > 1:  # More than just "step"
                 stats_path = os.path.join(self.output_dir, "verifiable_norm_stats_latest.json")
                 with open(stats_path, "w", encoding="utf-8") as handle:
                     json.dump(stats, handle, indent=2)
@@ -841,7 +1034,9 @@ class VerifiableNormDiagnosticsCallback(TrainerCallback):
 
         finally:
             # Disable stats tracking
-            for module in norm_modules:
+            for module in pwl_norm_modules:
+                module.track_stats = False
+            for module in l1_band_norm_modules:
                 module.track_stats = False
 
         return control
@@ -966,7 +1161,7 @@ def parse_args() -> argparse.Namespace:
         "--norm_variant",
         type=str,
         default=None,
-        choices=["layernorm", "dyt", "pwl_norm", "verifiable_pwl_norm", "verifiable_pwl_norm_v3"],
+        choices=["layernorm", "dyt", "pwl_norm", "verifiable_pwl_norm", "verifiable_pwl_norm_v3", "signed_l1_band_norm"],
         help="Normalization variant. Defaults to config value or layernorm.",
     )
     parser.add_argument(
@@ -1470,7 +1665,7 @@ def main() -> None:
         callbacks.append(
             VerifiableNormDiagnosticsCallback(
                 output_dir=args.output_dir,
-                enabled=(norm_variant in ["verifiable_pwl_norm", "verifiable_pwl_norm_v3"]),
+                enabled=(norm_variant in ["verifiable_pwl_norm", "verifiable_pwl_norm_v3", "signed_l1_band_norm"]),
             )
         )
 

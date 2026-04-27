@@ -247,11 +247,11 @@ Config: `configs/step2a_norm_verifiable_pwl_gated.json`
 
 v2 simplified the norm to mean subtraction, leaky piecewise-linear clamp, fixed scaling by 0.5, and learned bias. This results in better gradient flow relative to a hard clamp, but the clamp remained unbounded: outside the clamp region, activations still grew linearly. The result was better early optimization but eventual explosion once residual accumulation returned. The key lesson was that gradient flow alone is not enough; the norm must also enforce explicit magnitude control.
 
-#### Verifiable PWL Norm v3: Bounded PWL Clamp (Recommended)
+#### Verifiable PWL Norm v3: Bounded PWL Clamp (Stable but High Error)
 
-The progression v1 → v2 → v3 isolates the core requirement: v1 had insufficient scale control, hard clamp bounded activations but killed gradients, and v2 preserved gradients but left activations unbounded. The resulting target is:
+Config: `configs/step2a_norm_verifiable_pwl_v3.json`
 
-> **bounded activations AND nonzero gradients**
+The progression v1 → v2 → v3 isolates the core requirement: v1 had insufficient scale control, hard clamp bounded activations but killed gradients, and v2 preserved gradients but left activations unbounded. The resulting target is bounded activations and nonzero gradients.
 
 v3 implements this with a bounded piecewise-linear saturator:
 - `x < -3.0` → constant `-2.3`
@@ -260,40 +260,33 @@ v3 implements this with a bounded piecewise-linear saturator:
 - `2.0 < x ≤ 3.0` → linear slope `0.3`
 - `x > 3.0` → constant `2.3`
 
-The norm itself is: mean subtraction, bounded PWL clamp, fixed scale `0.5`, and learned bias.
-
-The key architectural insight is that attention and MLP branches produce **deltas/corrections**, not alternative states. So the correct contraction target is the updated state `x + delta(x)`, not a blend between `x` and `delta(x)`. v3 therefore uses **damped additive residual updates with state contraction**:
-- residual correction: `x_new = x + 0.25 * delta(x)`
-- state contraction: `x_new = 0.98 * bounded_pwl_clamp(x_new)`
-
-applied to both attention and MLP branches. Interpretation:
+The norm itself is: mean subtraction, bounded PWL clamp, fixed scale `0.5`, and learned bias. Interpretation:
 - v3 is the first **stable and trainable** norm-only replacement
 - it solves the main late-stage instability problem
-- but it is still **substantially worse than the local GPT-2 baseline** on both OWT and WikiText, so the main result here is stability rather than parity with standard LayerNorm
+- but it is still **substantially worse than the local GPT-2 baseline** on both OWT (4.1350 @ ~300k step) and WikiText (189.3 @ 400k), so the main result here is stability rather than parity with standard LayerNorm
 
-Config: `configs/step2a_norm_verifiable_pwl_v3.json`
+#### Signed L1 Band Norm (v4): Projection-Based Normalization (In Progress)
 
-```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2a_norm_verifiable_pwl_v3.json \
-  --output_dir artifacts/step2a-norm-verifiable-pwl-v3 \
-  --disable_auto_resume \
-  --use_wikitext_as_dev \
-  --target_wikitext_ppl 53 \
-  --wikitext_eval_every_n_evals 1
-```
+Config: `configs/step2a_norm_signed_l1_band_norm.json`
 
-Final stable run:
+v3's failure mode was elementwise saturation: every coordinate was independently clamped, which destroyed dynamic range and prevented the model from learning useful representations. The v1-v3 progression tried to approximate LayerNorm by multiplying centered inputs by a scale factor (whether data-dependent buckets, soft clamps, or bounded PWL). This approach fundamentally conflicts with SMT-friendliness because proper normalization requires dividing by a data-dependent variance estimate.
 
-**OpenWebText (validation):**
+v4 takes a completely different approach: **projection-based normalization** instead of elementwise clamping. This is the same kind of operation that made sparsemax workable: sparsemax is a projection onto the probability simplex, and it trains despite support changes. Projection onto an L1 ball is a known exact threshold/sort operation, naturally piecewise-linear and SMT-encodable
 
-* Best eval loss: **4.1350 @ ~300k steps** 
-* Later eval loss: **4.1364 @ 400k**, **4.1412 @ 420k** (plateau / slight regression) 
+The operator:
+1. Center: `c = x - mean(x)`
+2. Split into positive and negative masses: `p = max(c, 0)`, `n = max(-c, 0)`
+3. Control each mass separately to preserve zero-mean structure:
+   - If mass too small: additive lift over active coordinates (piecewise affine)
+   - If mass too large: project onto L1 ball using top-k thresholding (like sparsemax)
+4. Recombine: `z = p' - n'`
+5. Apply learned affine: `output = gamma * z + beta`
 
-**WikiText-103 (validation):**
+This differs fundamentally from v3:
+- v3: elementwise bounded clamp + residual scaling (0.25 branch scale + 0.98 state contraction)
+- v4: projection normalization + **standard GPT-2 residual path** (no modification)
 
-* Perplexity: **194.3 @ 300k** 
-* Improved to: **189.3 @ 400k**, **187.6 @ 420k** 
+v3 made the model bounded but destroyed dynamic range. v4 enforces a scale invariant without clamping every coordinate independently, much closer to what normalization actually needs to do.
 
 ### Step 2b: Attention replacement only (sparsemax)
 
