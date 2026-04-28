@@ -288,6 +288,17 @@ This differs fundamentally from v3:
 
 v3 made the model bounded but destroyed dynamic range. v4 enforces a scale invariant without clamping every coordinate independently, much closer to what normalization actually needs to do.
 
+```bash
+python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
+  --config configs/step2a_norm_signed_l1_band_norm.json \
+  --output_dir artifacts/step2a-signed-l1-band-norm-only \
+  --disable_auto_resume \
+  --use_wikitext_as_dev \
+  --target_wikitext_ppl 53 \
+  --wikitext_eval_every_n_evals 1
+```
+
+
 ### Step 2b: Attention replacement only (sparsemax)
 
 Sparsemax replaces softmax attention weighting with a piecewise-linear alternative (alpha-entmax family, alpha=2) that can produce exact zeros in the attention distribution. This is fully SMT-encodable.
