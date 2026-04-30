@@ -265,13 +265,11 @@ The norm itself is: mean subtraction, bounded PWL clamp, fixed scale `0.5`, and 
 - it solves the main late-stage instability problem
 - but it is still **substantially worse than the local GPT-2 baseline** on both OWT (4.1350 @ ~300k step) and WikiText (189.3 @ 400k), so the main result here is stability rather than parity with standard LayerNorm
 
-#### Signed L1 Band Norm (v4): Projection-Based Normalization (In Progress)
-
-Config: `configs/step2a_norm_signed_l1_band_norm.json`
+#### Signed L1 Band Norm: Projection-Based Normalization (Recommended)
 
 v3's failure mode was elementwise saturation: every coordinate was independently clamped, which destroyed dynamic range and prevented the model from learning useful representations. The v1-v3 progression tried to approximate LayerNorm by multiplying centered inputs by a scale factor (whether data-dependent buckets, soft clamps, or bounded PWL). This approach fundamentally conflicts with SMT-friendliness because proper normalization requires dividing by a data-dependent variance estimate.
 
-v4 takes a completely different approach: **projection-based normalization** instead of elementwise clamping. This is the same kind of operation that made sparsemax workable: sparsemax is a projection onto the probability simplex, and it trains despite support changes. Projection onto an L1 ball is a known exact threshold/sort operation, naturally piecewise-linear and SMT-encodable
+Signed L1 BandNorm takes a completely different approach: **projection-based normalization** instead of elementwise clamping. This is the same kind of operation that made sparsemax workable: sparsemax is a projection onto the probability simplex, and it trains despite support changes. Projection onto an L1 ball is a known exact threshold/sort operation, naturally piecewise-linear and SMT-encodable
 
 The operator:
 1. Center: `c = x - mean(x)`
@@ -284,9 +282,11 @@ The operator:
 
 This differs fundamentally from v3:
 - v3: elementwise bounded clamp + residual scaling (0.25 branch scale + 0.98 state contraction)
-- v4: projection normalization + **standard GPT-2 residual path** (no modification)
+- BandNorm: projection normalization + **standard GPT-2 residual path** (no modification)
 
-v3 made the model bounded but destroyed dynamic range. v4 enforces a scale invariant without clamping every coordinate independently, much closer to what normalization actually needs to do.
+v3 made the model bounded but destroyed dynamic range. BandNorm enforces a scale invariant without clamping every coordinate independently, much closer to what normalization actually needs to do.
+
+Config: `configs/step2a_norm_signed_l1_band_norm.json`
 
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
@@ -298,6 +298,25 @@ python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --wikitext_eval_every_n_evals 1
 ```
 
+Results:
+
+**OpenWebText (validation):**
+
+* Best eval loss: **3.3180 @ 220k steps** (tapers off around 180K)
+* Relative to baseline (3.1340): **+0.1840** perplexity
+
+**WikiText-103 (validation):**
+
+* Perplexity: **61.89 @ 220k** (tapers off around 180-200K)
+* Relative to baseline (52.98): **+8.91** perplexity
+
+Interpretation:
+
+* Signed L1 BandNorm is the strongest verifiable normalization candidate so far.
+* It is stable and trainable under the GPT-2-small OpenWebText recipe.
+* It substantially closes the gap introduced by earlier clamp-based verifiable normalizers.
+* It remains worse than standard LayerNorm and sparsemax-only, so normalization is still the main performance bottleneck.
+* Projection-based normalization appears much more viable than elementwise clamp-based normalization.
 
 ### Step 2b: Attention replacement only (sparsemax)
 
