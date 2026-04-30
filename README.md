@@ -269,7 +269,7 @@ The norm itself is: mean subtraction, bounded PWL clamp, fixed scale `0.5`, and 
 
 v3's failure mode was elementwise saturation: every coordinate was independently clamped, which destroyed dynamic range and prevented the model from learning useful representations. The v1-v3 progression tried to approximate LayerNorm by multiplying centered inputs by a scale factor (whether data-dependent buckets, soft clamps, or bounded PWL). This approach fundamentally conflicts with SMT-friendliness because proper normalization requires dividing by a data-dependent variance estimate.
 
-Signed L1 BandNorm takes a completely different approach: **projection-based normalization** instead of elementwise clamping. This is the same kind of operation that made sparsemax workable: sparsemax is a projection onto the probability simplex, and it trains despite support changes. Projection onto an L1 ball is a known exact threshold/sort operation, naturally piecewise-linear and SMT-encodable
+Signed L1 BandNorm takes a completely different approach: **projection-based normalization** instead of elementwise clamping. This is the same kind of operation that made sparsemax workable: sparsemax is a projection onto the probability simplex, and it trains despite support changes. Projection onto an L1 ball is a known exact threshold/sort operation, naturally piecewise-linear and SMT-encodable.
 
 The operator:
 1. Center: `c = x - mean(x)`
@@ -303,7 +303,7 @@ Results:
 **OpenWebText (validation):**
 
 * Best eval loss: **3.3180 @ 220k steps** (tapers off around 180K)
-* Relative to baseline (3.1340): **+0.1840** perplexity
+* Relative to baseline (3.1340): **+0.1840** loss
 
 **WikiText-103 (validation):**
 
@@ -372,12 +372,12 @@ This combines the two verifiable components from steps 2a and 2b, in addition to
 
 This represents the **end-to-end verifiable Transformer**: normalization, attention, and activations are fully SMT-encodable.
 
-Config: `configs/step2c_verifiable_pwl_norm_v3_sparsemax.json`
+Config: `configs/step2c_band_norm_sparsemax.json`
 
 ```bash
 python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2c_verifiable_pwl_norm_v3_sparsemax.json \
-  --output_dir artifacts/step2c-verifiable-pwl-v3-sparsemax \
+  --config configs/step2c_band_norm_sparsemax.json \
+  --output_dir artifacts/step2c-band-norm-sparsemax \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \
