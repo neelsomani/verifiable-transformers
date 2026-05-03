@@ -559,13 +559,13 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str, activation
             block.ln_1 = DyTNorm(hidden_size=hidden_size)
             block.ln_2 = DyTNorm(hidden_size=hidden_size)
         model.transformer.ln_f = DyTNorm(hidden_size=hidden_size)
-    elif norm_variant == "pwl_norm":
+    elif norm_variant == "verifiable_pwl_norm_v1":
         hidden_size = model.config.n_embd
         for block in model.transformer.h:
             block.ln_1 = PiecewiseLinearNorm(hidden_size=hidden_size)
             block.ln_2 = PiecewiseLinearNorm(hidden_size=hidden_size)
         model.transformer.ln_f = PiecewiseLinearNorm(hidden_size=hidden_size)
-    elif norm_variant == "verifiable_pwl_norm":
+    elif norm_variant == "verifiable_pwl_norm_v2":
         hidden_size = model.config.n_embd
         for block in model.transformer.h:
             block.ln_1 = VerifiablePWLNorm(hidden_size=hidden_size, clamp_type="soft")
@@ -1161,7 +1161,7 @@ def parse_args() -> argparse.Namespace:
         "--norm_variant",
         type=str,
         default=None,
-        choices=["layernorm", "dyt", "pwl_norm", "verifiable_pwl_norm", "verifiable_pwl_norm_v3", "signed_l1_band_norm"],
+        choices=["layernorm", "dyt", "verifiable_pwl_norm_v1", "verifiable_pwl_norm_v2", "verifiable_pwl_norm_v3", "signed_l1_band_norm"],
         help="Normalization variant. Defaults to config value or layernorm.",
     )
     parser.add_argument(
@@ -1665,7 +1665,7 @@ def main() -> None:
         callbacks.append(
             VerifiableNormDiagnosticsCallback(
                 output_dir=args.output_dir,
-                enabled=(norm_variant in ["verifiable_pwl_norm", "verifiable_pwl_norm_v3", "signed_l1_band_norm"]),
+                enabled=(norm_variant in ["verifiable_pwl_norm_v1", "verifiable_pwl_norm_v2", "verifiable_pwl_norm_v3", "signed_l1_band_norm"]),
             )
         )
 

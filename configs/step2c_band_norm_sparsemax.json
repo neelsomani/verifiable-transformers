@@ -34,7 +34,7 @@
   "catastrophic_train_increase_delta": 2.0,
   "catastrophic_eval_increase_delta": 2.0,
   "catastrophic_increase_patience": 2,
-  "norm_variant": "verifiable_pwl_norm_v3",
+  "norm_variant": "signed_l1_band_norm",
   "attn_variant": "sparsemax",
   "activation_variant": "leaky_relu"
 }

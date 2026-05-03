@@ -34,6 +34,6 @@
   "catastrophic_train_increase_delta": 2.0,
   "catastrophic_eval_increase_delta": 2.0,
   "catastrophic_increase_patience": 2,
-  "norm_variant": "verifiable_pwl_norm",
+  "norm_variant": "verifiable_pwl_norm_v2",
   "attn_variant": "softmax"
 }

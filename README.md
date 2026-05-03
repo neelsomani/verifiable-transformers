@@ -237,13 +237,13 @@ DyTNorm replaces LayerNorm with an affine → clamp → affine transformation. I
 
 #### Verifiable PWL Norm v1 (Failed)
 
-Config: `configs/step2a_norm_pwl_only.json`
+Config: `configs/step2a_norm_verifiable_pwl_v1.json`
 
 PiecewiseLinearNorm v1 restored two important normalization ingredients — mean-centering and adaptive rescaling via mean absolute deviation (MAD) — while remaining SMT-encodable. However, its gain function used coarse discontinuous buckets `[4.0, 2.0, 1.0, 0.5, 0.25]`, which caused abrupt scaling changes and could over-amplify low-MAD tokens. Empirically, it trained at first but later showed rising gradient norms and eventual divergence.
 
 #### Verifiable PWL Norm v2: Soft Leaky Clamp (Failed)
 
-Config: `configs/step2a_norm_verifiable_pwl_gated.json`
+Config: `configs/step2a_norm_verifiable_pwl_v2.json`
 
 v2 simplified the norm to mean subtraction, leaky piecewise-linear clamp, fixed scaling by 0.5, and learned bias. This results in better gradient flow relative to a hard clamp, but the clamp remained unbounded: outside the clamp region, activations still grew linearly. The result was better early optimization but eventual explosion once residual accumulation returned. The key lesson was that gradient flow alone is not enough; the norm must also enforce explicit magnitude control.
 
