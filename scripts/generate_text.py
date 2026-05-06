@@ -127,7 +127,12 @@ def main():
                 raise ImportError("safetensors not installed. Install with: pip install safetensors")
             state_dict = load_safetensors(weights_path)
 
-        model.load_state_dict(state_dict, strict=True)
+        # Handle tied weights (GPT-2 ties wte and lm_head)
+        if "lm_head.weight" not in state_dict and "transformer.wte.weight" in state_dict:
+            print("Note: lm_head.weight not in checkpoint, using tied weights from transformer.wte.weight")
+            # Don't add it to state_dict, let model handle weight tying
+
+        model.load_state_dict(state_dict, strict=False)
         print(f"Loaded weights from {weights_path}")
     else:
         raise FileNotFoundError(f"Could not find model weights in {args.model_path}")
