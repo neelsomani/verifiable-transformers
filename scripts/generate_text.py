@@ -111,7 +111,9 @@ def main():
     def generate(prompt_text):
         """Generate text from a prompt."""
         # Encode prompt
-        input_ids = tokenizer.encode(prompt_text, return_tensors="pt").to(device)
+        encoded = tokenizer(prompt_text, return_tensors="pt")
+        input_ids = encoded["input_ids"].to(device)
+        attention_mask = encoded["attention_mask"].to(device)
 
         print(f"Prompt: {prompt_text}")
         print("-" * 80)
@@ -120,6 +122,7 @@ def main():
         with torch.no_grad():
             output_sequences = model.generate(
                 input_ids,
+                attention_mask=attention_mask,
                 max_length=args.max_length,
                 temperature=args.temperature,
                 top_k=args.top_k,
@@ -127,6 +130,7 @@ def main():
                 num_return_sequences=args.num_return_sequences,
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id,
             )
 
         # Decode and print results
