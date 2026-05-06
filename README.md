@@ -383,3 +383,24 @@ python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
   --target_wikitext_ppl 53 \
   --wikitext_eval_every_n_evals 1
 ```
+
+Results:
+
+**OpenWebText (validation):**
+
+* Best eval loss: **3.3300 @ 240k steps**
+* Relative to baseline (3.1340): **+0.1960** loss
+* Relative to Signed L1 BandNorm-only (3.3180): **+0.0120** loss
+
+**WikiText-103 (validation):**
+
+* Perplexity: **62.11 @ 240k**
+* Relative to baseline (52.98): **+9.12** perplexity
+* Relative to Signed L1 BandNorm-only (61.89): **+0.22** perplexity
+
+Interpretation:
+
+* The full SMT-encodable stack (BandNorm + sparsemax + LeakyReLU) trains stably
+* Combining sparsemax attention and LeakyReLU with Signed L1 BandNorm introduces only a small degradation relative to Signed L1 BandNorm alone (+0.36% OWT loss, +0.35% WikiText perplexity)
+* The main remaining performance gap is due to normalization, not attention or activation
+* This represents a viable end-to-end verifiable Transformer architecture
