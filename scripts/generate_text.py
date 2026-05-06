@@ -11,7 +11,13 @@ import json
 import os
 import sys
 import torch
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
+
+try:
+    from safetensors.torch import load_file as load_safetensors
+    HAS_SAFETENSORS = True
+except ImportError:
+    HAS_SAFETENSORS = False
 
 
 # Import custom norm/attention implementations from train_experiment
@@ -66,14 +72,19 @@ def main():
     args = parser.parse_args()
 
     # Load model info to get variant configurations
+    # Try checkpoint dir first, then parent dir
     model_info_path = os.path.join(args.model_path, "model_info.json")
+    if not os.path.exists(model_info_path):
+        parent_dir = os.path.dirname(args.model_path)
+        model_info_path = os.path.join(parent_dir, "model_info.json")
+
     if os.path.exists(model_info_path):
         with open(model_info_path, "r", encoding="utf-8") as f:
             model_info = json.load(f)
         norm_variant = model_info.get("norm_variant", "layernorm")
         attn_variant = model_info.get("attn_variant", "softmax")
         activation_variant = model_info.get("activation_variant", "gelu")
-        print(f"Model configuration:")
+        print(f"Model configuration (from {model_info_path}):")
         print(f"  Norm: {norm_variant}")
         print(f"  Attention: {attn_variant}")
         print(f"  Activation: {activation_variant}")
@@ -89,16 +100,37 @@ def main():
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
 
-    # Load model
-    model = GPT2LMHeadModel.from_pretrained(args.model_path)
+    # Load config
+    config = GPT2Config.from_pretrained(args.model_path)
 
-    # Apply custom variants
+    # Create model with correct architecture
+    model = GPT2LMHeadModel(config)
+
+    # Apply custom variants BEFORE loading weights
     apply_model_variants(
         model,
         norm_variant=norm_variant,
         attn_variant=attn_variant,
         activation_variant=activation_variant
     )
+
+    # Now load the trained weights
+    weights_path = os.path.join(args.model_path, "pytorch_model.bin")
+    if not os.path.exists(weights_path):
+        weights_path = os.path.join(args.model_path, "model.safetensors")
+
+    if os.path.exists(weights_path):
+        if weights_path.endswith(".bin"):
+            state_dict = torch.load(weights_path, map_location="cpu")
+        else:
+            if not HAS_SAFETENSORS:
+                raise ImportError("safetensors not installed. Install with: pip install safetensors")
+            state_dict = load_safetensors(weights_path)
+
+        model.load_state_dict(state_dict, strict=True)
+        print(f"Loaded weights from {weights_path}")
+    else:
+        raise FileNotFoundError(f"Could not find model weights in {args.model_path}")
 
     # Move to GPU if available
     device = "cuda" if torch.cuda.is_available() else "cpu"
