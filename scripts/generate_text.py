@@ -42,8 +42,14 @@ def main():
     parser.add_argument(
         "--max_length",
         type=int,
-        default=100,
-        help="Maximum length of generated sequence",
+        default=None,
+        help="Maximum length of generated sequence (includes prompt)",
+    )
+    parser.add_argument(
+        "--max_new_tokens",
+        type=int,
+        default=None,
+        help="Maximum number of new tokens to generate (excluding prompt). Overrides max_length if specified.",
     )
     parser.add_argument(
         "--temperature",
@@ -156,19 +162,27 @@ def main():
         print("-" * 80)
 
         # Generate
+        # Determine length constraint
+        gen_kwargs = {
+            "attention_mask": attention_mask,
+            "temperature": args.temperature,
+            "top_k": args.top_k,
+            "top_p": args.top_p,
+            "num_return_sequences": args.num_return_sequences,
+            "do_sample": True,
+            "pad_token_id": tokenizer.eos_token_id,
+            "eos_token_id": tokenizer.eos_token_id,
+        }
+
+        if args.max_new_tokens is not None:
+            gen_kwargs["max_new_tokens"] = args.max_new_tokens
+        elif args.max_length is not None:
+            gen_kwargs["max_length"] = args.max_length
+        else:
+            gen_kwargs["max_new_tokens"] = 50  # default
+
         with torch.no_grad():
-            output_sequences = model.generate(
-                input_ids,
-                attention_mask=attention_mask,
-                max_length=args.max_length,
-                temperature=args.temperature,
-                top_k=args.top_k,
-                top_p=args.top_p,
-                num_return_sequences=args.num_return_sequences,
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-            )
+            output_sequences = model.generate(input_ids, **gen_kwargs)
 
         # Decode and print results
         for i, sequence in enumerate(output_sequences):
