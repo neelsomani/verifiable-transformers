@@ -52,10 +52,15 @@ def main():
         help="Maximum number of new tokens to generate (excluding prompt). Overrides max_length if specified.",
     )
     parser.add_argument(
+        "--greedy",
+        action="store_true",
+        help="Use greedy decoding (deterministic, picks most likely token). Disables sampling.",
+    )
+    parser.add_argument(
         "--temperature",
         type=float,
         default=1.0,
-        help="Sampling temperature (higher = more random)",
+        help="Sampling temperature (higher = more random). Only used if --greedy is not set.",
     )
     parser.add_argument(
         "--top_k",
@@ -165,14 +170,19 @@ def main():
         # Determine length constraint
         gen_kwargs = {
             "attention_mask": attention_mask,
-            "temperature": args.temperature,
-            "top_k": args.top_k,
-            "top_p": args.top_p,
             "num_return_sequences": args.num_return_sequences,
-            "do_sample": True,
             "pad_token_id": tokenizer.eos_token_id,
             "eos_token_id": tokenizer.eos_token_id,
         }
+
+        # Sampling vs greedy
+        if args.greedy:
+            gen_kwargs["do_sample"] = False
+        else:
+            gen_kwargs["do_sample"] = True
+            gen_kwargs["temperature"] = args.temperature
+            gen_kwargs["top_k"] = args.top_k
+            gen_kwargs["top_p"] = args.top_p
 
         if args.max_new_tokens is not None:
             gen_kwargs["max_new_tokens"] = args.max_new_tokens
