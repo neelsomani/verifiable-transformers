@@ -74,6 +74,42 @@ pip install accelerate --no-deps
 
 If your environment already provides PyTorch (for example, RunPod images), install only the project dependencies above and keep the preinstalled torch build.
 
+## Formal Definitions
+
+Let:
+- $M$ be a verifiable Transformer
+- $P$ be a symbolic reference program (e.g. Python)
+- $\Sigma$ be the token alphabet
+- $\Sigma^{\leq n} := \bigcup_{\ell=1}^{n} \Sigma^{\ell}$ be the set of all sequences of length at most $n$
+- $h_i(x)$ denote the internal hidden state at location $i$ for input $x$
+- $y_M(x)$ denote the output for model $M$
+- $C$ be an algorithmic circuit of $M$
+- $C \setminus e$ be the same circuit with connection $e$ removed
+- $\text{Attn}_{\ell,i}(x)$ denote the attention output at layer $\ell$ and position $i$
+- $\varphi_M(x)$ denote an output projection of $M$
+
+For a bounded domain $\Sigma^{\leq n}$, we verify properties of the following form:
+
+**1. Functional equivalence**
+
+$$\forall x \in \Sigma^{\leq n}, \quad y_M(x) = P(x)$$
+
+**2. Circuit minimality**
+
+$$\forall e \in E(C), \quad \exists x \in \Sigma^{\leq n} \text{ such that } C(x) \neq (C \setminus e)(x)$$
+
+**3. Structural invariants**
+
+$$\forall x \in \Sigma^{\leq n}, \quad S(M, x)$$
+
+where $S$ may encode locality, sparsity, monotonicity, causality, etc.
+
+**4. Impossibility results**
+
+$$\forall x, x' \in \Sigma^{\leq n}, \quad R(x, x') \Rightarrow \varphi_M(x) = \varphi_M(x')$$
+
+where $R$ identifies input pairs the model cannot distinguish
+
 ## Step 1: Baseline GPT-2 (Open-Source)
 
 This repository includes a reproducible baseline using `gpt2` (124M) with OpenWebText training and WikiText-103 evaluation.
@@ -446,6 +482,14 @@ python scripts/extract_circuit.py \
   --output_dir artifacts/circuits/behavior_scan
 ```
 
+#### Results (Step 2c model @ checkpoint-240000):
+
+| Task | Binary Accuracy | Mean Logit Diff | Viability |
+|------|----------------|-----------------|-----------|
+| `quote_close` | 1.000 | 6.22 | **strong** |
+| `bracket_type` | 1.000 | 4.62 | **strong** |
+| `induction_ABCAB` | 0.887 | 3.67 | **strong** |
+
 This generates:
 - `artifacts/circuits/behavior_scan/behavior_scan.json` - Detailed metrics
 - `artifacts/circuits/behavior_scan/behavior_scan.txt` - Human-readable report
@@ -484,10 +528,43 @@ This generates:
 Key parameters:
 - `--threshold`: Maximum KL divergence increase allowed when removing an edge (default: 0.01)
 - `--n_examples`: Number of test examples (default: 128)
-- `--trim_rounds`: Additional trimming passes after ACDC (default: 2)
+- `--trim_rounds`: Additional trimming passes after ACDC (default: 0)
 
 The output includes four metric sets:
 - **Full model**: All edges active (baseline)
 - **Circuit**: Only extracted circuit edges active
 - **Ablated**: Minimal baseline (emb→logits only)
-- **Inverse ablation**: All edges EXCEPT circuit (tests necessity)
+- **Inverse ablation**: All edges EXCEPT circuit (coarse necessity check)
+
+#### Results (Step 2c model @ checkpoint-240000):
+
+**Quote Closing**:
+
+| Metric | Full Model | Circuit | Circuit KL |
+|--------|-----------|---------|-----------|
+| Binary Accuracy | 1.000 | 1.000 | 0.062 |
+| Edges | 325 (all) | 101 | - |
+
+The circuit faithfully preserves the model behavior on the sampled quote-closing task. This is the cleanest circuit. It exhibits:
+- Sample-perfect binary behavior (100% accuracy maintained)
+- Low KL divergence from full model (0.062)
+- Moderate edge count (101 edges, ~31% of full graph)
+- Clear symbolic reference program (quote matching)
+
+**Bracket Type**:
+
+| Metric | Full Model | Circuit | Circuit KL |
+|--------|-----------|---------|-----------|
+| Binary Accuracy | 1.000 | 0.500 | 0.327 |
+| Edges | 325 (all) | 82 | - |
+
+The extracted circuit failed to preserve bracket-type behavior. The 50% accuracy indicates random performance, and the high KL divergence (0.327) confirms the circuit does not capture the bracket-vs-brace distinction.
+
+**Induction (ABCAB)**:
+
+| Metric | Full Model | Circuit | Circuit KL |
+|--------|-----------|---------|-----------|
+| Binary Accuracy | 0.887 | 0.945 | 0.114 |
+| Edges | 325 (all) | 151 | - |
+
+The extracted circuit improves the binary induction metric relative to the full model, suggesting that the pruned subgraph isolates a task-relevant induction mechanism rather than exactly preserving the full model distribution. The circuit may remove components that contributed noise or competing behaviors.

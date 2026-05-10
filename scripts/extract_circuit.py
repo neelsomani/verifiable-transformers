@@ -1262,7 +1262,7 @@ def main():
     # Circuit extraction args
     parser.add_argument("--threshold", type=float, default=0.01,
                         help="Threshold for edge removal (KL divergence)")
-    parser.add_argument("--trim_rounds", type=int, default=2,
+    parser.add_argument("--trim_rounds", type=int, default=0,
                         help="Number of trimming rounds after ACDC")
 
     args = parser.parse_args()
