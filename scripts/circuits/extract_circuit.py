@@ -19,8 +19,8 @@ from typing import List, Tuple, Dict, Any, Set, Optional
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
 
-# Import model variant loading from generate_text
-sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+# Import model variant loading from parent scripts directory
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from train_experiment import apply_model_variants
 
 
