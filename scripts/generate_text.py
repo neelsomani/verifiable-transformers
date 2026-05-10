@@ -114,10 +114,18 @@ def main():
     # Load config
     config = GPT2Config.from_pretrained(args.model_path)
 
+    # Ensure activation variant is applied before model creation.
+    # This matters because GPT2MLP reads config.activation_function in __init__.
+    if activation_variant == "leaky_relu":
+        config.activation_function = "leaky_relu"
+    elif activation_variant == "relu":
+        config.activation_function = "relu"
+    # else keep whatever the checkpoint config says, usually gelu_new/gelu
+
     # Create model with correct architecture
     model = GPT2LMHeadModel(config)
 
-    # Apply custom variants BEFORE loading weights
+    # Apply custom variants (norm, attention) BEFORE loading weights
     apply_model_variants(
         model,
         norm_variant=norm_variant,

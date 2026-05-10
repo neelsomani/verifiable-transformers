@@ -404,3 +404,45 @@ Interpretation:
 * Combining sparsemax attention and LeakyReLU with Signed L1 BandNorm introduces only a small degradation relative to Signed L1 BandNorm alone (+0.36% OWT loss, +0.35% WikiText perplexity)
 * The main remaining performance gap is due to normalization, not attention or activation
 * This represents a viable end-to-end verifiable Transformer architecture
+
+## Step 3: Circuit Extraction and Formal Verification
+
+Once the verifiable model is trained, we extract minimal circuits responsible for specific behaviors and formally verify their properties using SMT solvers.
+
+### Step 3a: Verify behaviors are reliably evoked before circuit extraction
+
+Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
+
+The behavior scanner tests 4 categories:
+- `quote_close`: Single vs double quote closing (varied templates)
+- `bracket_type`: `]` vs `}` distinction (varied templates)
+- `list_depth`: Nested `]]` vs flat `]` - bracket counting (varied templates)
+- `induction_ABCAB`: Pattern completion (A B C ... A B → predict C)
+
+Metrics computed:
+- Binary accuracy (correct token logit > incorrect token logit)
+- Mean logit difference (correct - incorrect)
+- Log probabilities for both tokens
+- Rank of correct token in vocabulary
+
+Viability thresholds:
+- **Strong**: accuracy ≥ 0.85 AND logit_diff ≥ 1.0
+- **Viable**: accuracy ≥ 0.70 AND logit_diff > 0.0
+- **None**: below viable threshold
+
+Run the behavior viability scan:
+
+```bash
+python scripts/extract_circuit.py \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --scan_behaviors \
+  --n_examples 256 \
+  --batch_size 8 \
+  --output_dir artifacts/circuits/behavior_scan
+```
+
+This generates:
+- `artifacts/circuits/behavior_scan/behavior_scan.json` - Detailed metrics
+- `artifacts/circuits/behavior_scan/behavior_scan.txt` - Human-readable report
+
+Only proceed to circuit extraction for behaviors marked "viable" or "strong". Use `--force_extract` to override this check if needed.
