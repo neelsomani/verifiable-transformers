@@ -872,6 +872,84 @@ def compute_target_kl(
     return kl.mean().item()
 
 
+def get_candidate_token_ids(task: str, tokenizer: GPT2Tokenizer) -> List[int]:
+    """Get candidate token IDs for a task.
+
+    Args:
+        task: Task name
+        tokenizer: Tokenizer
+
+    Returns:
+        List of candidate token IDs
+    """
+    if task == "quote_close":
+        ids = [
+            get_single_token_id(tokenizer, "'"),
+            get_single_token_id(tokenizer, '"'),
+        ]
+    elif task == "bracket_type":
+        ids = [
+            get_single_token_id(tokenizer, ']'),
+            get_single_token_id(tokenizer, '}'),
+        ]
+    elif task == "induction_ABCAB":
+        # Use the same token pool as generate_induction_examples
+        token_pool = [
+            " red", " blue", " green", " cat", " dog", " tree",
+            " car", " book", " city", " river", " sun", " moon",
+            " star", " bird", " fish", " lake", " hill", " road",
+        ]
+        ids = [get_single_token_id(tokenizer, t) for t in token_pool]
+    else:
+        raise ValueError(f"Unknown task: {task}")
+
+    # Filter out None values (tokens that don't encode to single tokens)
+    valid_ids = [tid for tid in ids if tid is not None]
+    if len(valid_ids) == 0:
+        raise ValueError(f"No valid candidate tokens found for task: {task}")
+    return valid_ids
+
+
+def compute_candidate_kl(
+    full_logits: torch.Tensor,
+    candidate_logits: torch.Tensor,
+    attention_mask: torch.Tensor,
+    candidate_token_ids: List[int],
+) -> float:
+    """Compute KL(full || candidate) restricted to candidate tokens.
+
+    This implements the projection-based KL divergence:
+    KL(softmax(M_T(x)) || softmax(C_{E,T}(x)))
+    where M_T and C_{E,T} are logits restricted to candidate token set T.
+
+    Args:
+        full_logits: [B, T, vocab] - reference distribution (full model)
+        candidate_logits: [B, T, vocab] - candidate distribution (ablated model)
+        attention_mask: [B, T]
+        candidate_token_ids: List of candidate token IDs
+
+    Returns:
+        Mean KL(full || candidate) over candidate tokens at last real position
+    """
+    # Select logits at target position
+    p_logits_full = select_last_real_logits(full_logits, attention_mask)  # [B, vocab]
+    q_logits_full = select_last_real_logits(candidate_logits, attention_mask)  # [B, vocab]
+
+    # Extract candidate token logits
+    candidate_ids = torch.tensor(candidate_token_ids, device=p_logits_full.device)
+    p_logits = p_logits_full[:, candidate_ids]  # [B, |T|]
+    q_logits = q_logits_full[:, candidate_ids]  # [B, |T|]
+
+    # Compute KL(full || candidate) on restricted distribution
+    log_p = torch.log_softmax(p_logits, dim=-1)
+    log_q = torch.log_softmax(q_logits, dim=-1)
+    p = log_p.exp()
+
+    # KL(P || Q) = sum(P * (log P - log Q))
+    kl = (p * (log_p - log_q)).sum(dim=-1)  # [B]
+    return kl.mean().item()
+
+
 def find_circuit(
     model: GPT2LMHeadModel,
     tokenizer: GPT2Tokenizer,
@@ -879,6 +957,7 @@ def find_circuit(
     graph: CircuitGraph,
     threshold: float,
     metric: str,
+    task: str,
     ablation_mode: str,
     ablation_cache: Optional[Dict[str, torch.Tensor]],
     device: str,
@@ -892,7 +971,8 @@ def find_circuit(
         examples: Behavior examples
         graph: Circuit graph
         threshold: Threshold for edge removal
-        metric: Metric to use ("kl" or "logit_diff")
+        metric: Metric to use ("kl", "candidate_kl", or "logit_diff")
+        task: Task name (for candidate token extraction)
         ablation_mode: "zero", "mean", or "corrupt"
         ablation_cache: Cache for mean or corrupt activations
         device: Device
@@ -927,6 +1007,13 @@ def find_circuit(
     current_score = 0.0  # KL from full model (always 0 for full model)
     edge_log = []
 
+    # Get candidate token IDs if using candidate_kl metric
+    candidate_token_ids = None
+    if metric == "candidate_kl":
+        candidate_token_ids = get_candidate_token_ids(task, tokenizer)
+        if verbose:
+            print(f"Using candidate_kl metric with {len(candidate_token_ids)} candidate tokens")
+
     # ACDC: iterate in reverse topological order
     nodes_reversed = list(reversed(graph.nodes))
 
@@ -960,6 +1047,8 @@ def find_circuit(
             # Compute metric change (KL from full model)
             if metric == "kl":
                 candidate_score = compute_target_kl(full_logits, candidate_logits, attention_mask)
+            elif metric == "candidate_kl":
+                candidate_score = compute_candidate_kl(full_logits, candidate_logits, attention_mask, candidate_token_ids)
             else:  # logit_diff
                 metrics = compute_task_metrics(candidate_logits, examples, tokenizer, attention_mask)
                 candidate_score = -metrics["mean_logit_diff"]  # Negative because we want to minimize
@@ -1093,6 +1182,7 @@ def write_circuit_outputs(
     ablated_metrics: Dict,
     inverse_metrics: Dict,
     threshold: float,
+    metric: str,
     ablation_mode: str,
     mean_cache_path: Optional[str],
     trim_rounds: int,
@@ -1105,7 +1195,7 @@ def write_circuit_outputs(
     circuit_data = {
         "model_path": model_path,
         "task": task,
-        "metric": "kl",
+        "metric": metric,
         "threshold": threshold,
         "ablation": ablation_mode,
         "trim_rounds": trim_rounds,
@@ -1178,6 +1268,7 @@ def extract_circuit_for_task(
     task: str,
     n_examples: int,
     threshold: float,
+    metric: str,
     ablation_mode: str,
     trim_rounds: int,
     output_dir: str,
@@ -1254,9 +1345,9 @@ def extract_circuit_for_task(
     print("Controlled forward matches native model.\n")
 
     # Run ACDC
-    print(f"Running ACDC with {ablation_mode} ablation (threshold={threshold})...")
+    print(f"Running ACDC with {ablation_mode} ablation (threshold={threshold}, metric={metric})...")
     edges_to_keep, edge_log = find_circuit(
-        model, tokenizer, examples, graph, threshold, "kl",
+        model, tokenizer, examples, graph, threshold, metric, task,
         ablation_mode, ablation_cache, device, verbose=True
     )
 
@@ -1327,7 +1418,7 @@ def extract_circuit_for_task(
     write_circuit_outputs(
         output_dir, model_path, task, edges_to_keep, edge_log, graph,
         full_metrics, circuit_metrics, ablated_metrics, inverse_metrics,
-        threshold, ablation_mode, mean_cache_path, trim_rounds, n_examples
+        threshold, metric, ablation_mode, mean_cache_path, trim_rounds, n_examples
     )
 
     print(f"\nCircuit extraction complete!")
@@ -1354,6 +1445,9 @@ def main():
     # Circuit extraction args
     parser.add_argument("--threshold", type=float, default=0.01,
                         help="Threshold for edge removal (KL divergence)")
+    parser.add_argument("--metric", type=str, default="candidate_kl",
+                        choices=["kl", "candidate_kl"],
+                        help="Metric for edge removal (default: candidate_kl)")
     parser.add_argument("--ablation", type=str, default="zero",
                         choices=["zero", "mean"],
                         help="Ablation mode for removed edges (default: zero)")
@@ -1374,7 +1468,7 @@ def main():
         task_output_dir = os.path.join(args.output_dir, task)
         extract_circuit_for_task(
             args.model_path, task, args.n_examples, args.threshold,
-            args.ablation, args.trim_rounds, task_output_dir, device
+            args.metric, args.ablation, args.trim_rounds, task_output_dir, device
         )
 
     else:
