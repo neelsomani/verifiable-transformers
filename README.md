@@ -9,7 +9,7 @@ We design a Transformer variant whose entire forward pass can be encoded exactly
 
 The core idea is to make the whole Transformer verifiable so these properties can be proven or refuted over the entire input domain, not just tested on examples.
 
-There are two parts of the Transformer architecture that are traditionally difficult to SMT encode. First, the attention mechanism. Starting from the Deep Sets characterization of permutation-invariant functions, we re-derive the structural form of attention and show that it naturally decomposes into three learnable components: an aggregator ρ, a relevance scoring function u, and a content map v. We then characterize the verifiable subset of this space: all attention mechanisms whose computation can be expressed using only affine maps, piecewise-linear transformations, thresholding, and Top-k style selection - primitives that admit exact SMT encodings. Second, we apply a similar approach to the LayerNorm. (A third non-verifiable component, the GELU activation function, is easier to address.)
+There are two parts of the Transformer architecture that are traditionally difficult to SMT encode. First, the attention mechanism. Starting from the Deep Sets characterization of permutation-invariant functions, we re-derive the [structural form of attention](https://www.neelsomaniblog.com/p/a-minimal-route-to-transformer-attention) and show that it naturally decomposes into three learnable components: an aggregator ρ, a relevance scoring function u, and a content map v. We then characterize the verifiable subset of this space: all attention mechanisms whose computation can be expressed using only affine maps, piecewise-linear transformations, thresholding, and Top-k style selection - primitives that admit exact SMT encodings. Second, we apply a similar approach to the LayerNorm. (A third non-verifiable component, the GELU activation function, is easier to address.)
 
 We show, end-to-end, that a Transformer can be trained and then formally analyzed at the circuit level. In this work, we focus on extracting circuits for Python syntax tasks:
 
@@ -458,7 +458,7 @@ Viability thresholds:
 Run the behavior viability scan:
 
 ```bash
-python scripts/extract_circuit.py \
+python scripts/circuits/extract_circuit.py \
   --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
   --scan_behaviors \
   --n_examples 256 \
@@ -494,7 +494,7 @@ The extractor:
 Run circuit extraction for a specific task:
 
 ```bash
-python scripts/extract_circuit.py \
+python scripts/circuits/extract_circuit.py \
   --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
   --extract_circuit quote_close \
   --n_examples 128 \

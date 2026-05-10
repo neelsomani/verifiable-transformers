@@ -547,7 +547,8 @@ def controlled_forward(
     attention_mask: torch.Tensor,
     edges_to_keep: Set[Tuple[str, str]],
     graph: CircuitGraph,
-    corrupt_cache: Optional[Dict[str, torch.Tensor]] = None,
+    ablation_cache: Optional[Dict[str, torch.Tensor]] = None,
+    ablation_mode: str = "zero",
     return_node_outputs: bool = False,
 ):
     """Controlled forward pass with edge ablation.
@@ -558,7 +559,8 @@ def controlled_forward(
         attention_mask: [B, T], 1 for real tokens, 0 for padding
         edges_to_keep: Set of (parent, child) edges to use clean activations
         graph: Circuit graph
-        corrupt_cache: If provided, use corrupted activations for removed edges
+        ablation_cache: Cache for ablated edges (corrupt or mean activations)
+        ablation_mode: "zero", "mean", or "corrupt"
         return_node_outputs: If True, return node activations
 
     Returns:
@@ -596,9 +598,12 @@ def controlled_forward(
         for parent in attn_parents:
             if (parent, attn_node) in edges_to_keep:
                 resid_for_attn = resid_for_attn + node_outputs[parent]
-            elif corrupt_cache is not None:
-                resid_for_attn = resid_for_attn + corrupt_cache[parent]
-            # else: ablate to zero (no contribution)
+            elif ablation_mode == "mean" and ablation_cache is not None:
+                # Expand mean to match batch and sequence dimensions
+                resid_for_attn = resid_for_attn + ablation_cache[parent].expand_as(emb)
+            elif ablation_mode == "corrupt" and ablation_cache is not None:
+                resid_for_attn = resid_for_attn + ablation_cache[parent]
+            # else: zero ablation (no contribution)
 
         # Compute attention output
         x_norm = block.ln_1(resid_for_attn)
@@ -618,8 +623,10 @@ def controlled_forward(
         for parent in mlp_parents:
             if (parent, mlp_node) in edges_to_keep:
                 resid_for_mlp = resid_for_mlp + node_outputs[parent]
-            elif corrupt_cache is not None:
-                resid_for_mlp = resid_for_mlp + corrupt_cache[parent]
+            elif ablation_mode == "mean" and ablation_cache is not None:
+                resid_for_mlp = resid_for_mlp + ablation_cache[parent].expand_as(emb)
+            elif ablation_mode == "corrupt" and ablation_cache is not None:
+                resid_for_mlp = resid_for_mlp + ablation_cache[parent]
 
         # Compute MLP output
         x_norm = block.ln_2(resid_for_mlp)
@@ -632,8 +639,10 @@ def controlled_forward(
     for parent in logit_parents:
         if (parent, "logits") in edges_to_keep:
             final_resid = final_resid + node_outputs[parent]
-        elif corrupt_cache is not None:
-            final_resid = final_resid + corrupt_cache[parent]
+        elif ablation_mode == "mean" and ablation_cache is not None:
+            final_resid = final_resid + ablation_cache[parent].expand_as(emb)
+        elif ablation_mode == "corrupt" and ablation_cache is not None:
+            final_resid = final_resid + ablation_cache[parent]
 
     # Final layer norm and logits
     hidden = model.transformer.ln_f(final_resid)
@@ -680,7 +689,8 @@ def verify_controlled_forward_matches_native(
             attention_mask=attention_mask,
             edges_to_keep=graph.all_edges,
             graph=graph,
-            corrupt_cache=None,
+            ablation_cache=None,
+            ablation_mode="zero",
             return_node_outputs=False,
         )
 
@@ -754,6 +764,85 @@ def compute_task_metrics(
     }
 
 
+def compute_mean_cache(
+    model: GPT2LMHeadModel,
+    tokenizer: GPT2Tokenizer,
+    prompts: List[str],
+    graph: CircuitGraph,
+    device: str,
+    max_length: int = 1024,
+    batch_size: int = 8,
+) -> Dict[str, torch.Tensor]:
+    """Compute mean activations for each node using background dataset.
+
+    Args:
+        model: GPT2 model
+        tokenizer: Tokenizer
+        prompts: Background dataset prompts
+        graph: Circuit graph
+        device: Device
+        max_length: Maximum sequence length
+        batch_size: Batch size for processing
+
+    Returns:
+        Dict mapping node names to mean activation tensors [1, 1, D]
+    """
+    sums = {}
+    counts = {}
+
+    print(f"Computing mean cache from {len(prompts)} prompts...")
+
+    for i in range(0, len(prompts), batch_size):
+        batch = prompts[i:i + batch_size]
+
+        encoded = tokenizer(
+            batch,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=max_length,
+        )
+        input_ids = encoded["input_ids"].to(device)
+        attention_mask = encoded["attention_mask"].to(device)
+
+        with torch.no_grad():
+            _, node_outputs = controlled_forward(
+                model,
+                input_ids,
+                attention_mask,
+                edges_to_keep=graph.all_edges,
+                graph=graph,
+                ablation_cache=None,
+                ablation_mode="zero",
+                return_node_outputs=True,
+            )
+
+        # Accumulate masked sums
+        for node, acts in node_outputs.items():
+            # acts shape: [B, T, D]
+            mask = attention_mask.unsqueeze(-1)  # [B, T, 1]
+            masked = acts * mask
+
+            if node not in sums:
+                sums[node] = masked.sum(dim=(0, 1))
+                counts[node] = mask.sum()
+            else:
+                sums[node] += masked.sum(dim=(0, 1))
+                counts[node] += mask.sum()
+
+        if (i // batch_size) % 10 == 0:
+            print(f"  Processed {i + len(batch)} / {len(prompts)} prompts")
+
+    # Compute means and reshape to [1, 1, D] for broadcasting
+    means = {
+        node: (sums[node] / counts[node]).view(1, 1, -1)
+        for node in sums
+    }
+
+    print(f"Mean cache computed for {len(means)} nodes\n")
+    return means
+
+
 def compute_target_kl(
     full_logits: torch.Tensor,
     candidate_logits: torch.Tensor,
@@ -790,10 +879,12 @@ def find_circuit(
     graph: CircuitGraph,
     threshold: float,
     metric: str,
+    ablation_mode: str,
+    ablation_cache: Optional[Dict[str, torch.Tensor]],
     device: str,
     verbose: bool = True,
 ) -> Tuple[Set[Tuple[str, str]], List[Dict]]:
-    """Find minimal circuit using ACDC algorithm with zero ablation.
+    """Find minimal circuit using ACDC algorithm.
 
     Args:
         model: GPT2 model
@@ -802,6 +893,8 @@ def find_circuit(
         graph: Circuit graph
         threshold: Threshold for edge removal
         metric: Metric to use ("kl" or "logit_diff")
+        ablation_mode: "zero", "mean", or "corrupt"
+        ablation_cache: Cache for mean or corrupt activations
         device: Device
         verbose: Print progress
 
@@ -815,7 +908,7 @@ def find_circuit(
     input_ids = encoded["input_ids"].to(device)
     attention_mask = encoded["attention_mask"].to(device)
 
-    # Compute full model baseline (with zero ablation for removed edges)
+    # Compute full model baseline
     if verbose:
         print("Computing full model baseline...")
     edges_to_keep = set(graph.all_edges)
@@ -826,7 +919,8 @@ def find_circuit(
             attention_mask,
             edges_to_keep=edges_to_keep,
             graph=graph,
-            corrupt_cache=None,  # Zero ablation
+            ablation_cache=None,
+            ablation_mode="zero",
             return_node_outputs=False,
         )
 
@@ -848,7 +942,7 @@ def find_circuit(
             if edge not in edges_to_keep:
                 continue
 
-            # Try removing this edge (use zero ablation)
+            # Try removing this edge
             candidate_edges = edges_to_keep - {edge}
 
             with torch.no_grad():
@@ -858,7 +952,8 @@ def find_circuit(
                     attention_mask,
                     edges_to_keep=candidate_edges,
                     graph=graph,
-                    corrupt_cache=None,  # Zero ablation
+                    ablation_cache=ablation_cache,
+                    ablation_mode=ablation_mode,
                     return_node_outputs=False,
                 )
 
@@ -902,11 +997,13 @@ def trim_circuit(
     attention_mask: torch.Tensor,
     full_logits: torch.Tensor,
     threshold: float,
+    ablation_mode: str,
+    ablation_cache: Optional[Dict[str, torch.Tensor]],
     trim_rounds: int,
     device: str,
     verbose: bool = True,
 ) -> Set[Tuple[str, str]]:
-    """Additional greedy trimming pass with zero ablation.
+    """Additional greedy trimming pass.
 
     Args:
         Similar to find_circuit
@@ -916,7 +1013,8 @@ def trim_circuit(
     """
     with torch.no_grad():
         current_logits = controlled_forward(
-            model, input_ids, attention_mask, edges_to_keep, graph, None
+            model, input_ids, attention_mask, edges_to_keep, graph,
+            ablation_cache, ablation_mode
         )
     current_score = compute_target_kl(full_logits, current_logits, attention_mask)
 
@@ -928,7 +1026,8 @@ def trim_circuit(
 
             with torch.no_grad():
                 candidate_logits = controlled_forward(
-                    model, input_ids, attention_mask, candidate_edges, graph, None
+                    model, input_ids, attention_mask, candidate_edges, graph,
+                    ablation_cache, ablation_mode
                 )
 
             candidate_score = compute_target_kl(full_logits, candidate_logits, attention_mask)
@@ -994,6 +1093,8 @@ def write_circuit_outputs(
     ablated_metrics: Dict,
     inverse_metrics: Dict,
     threshold: float,
+    ablation_mode: str,
+    mean_cache_path: Optional[str],
     trim_rounds: int,
     n_examples: int,
 ):
@@ -1006,6 +1107,7 @@ def write_circuit_outputs(
         "task": task,
         "metric": "kl",
         "threshold": threshold,
+        "ablation": ablation_mode,
         "trim_rounds": trim_rounds,
         "n_examples": n_examples,
         "nodes": graph.nodes,
@@ -1019,6 +1121,9 @@ def write_circuit_outputs(
         },
         "edge_log": edge_log,
     }
+
+    if mean_cache_path is not None:
+        circuit_data["mean_cache_path"] = mean_cache_path
 
     json_path = os.path.join(output_dir, "circuit.json")
     with open(json_path, "w") as f:
@@ -1043,6 +1148,7 @@ def write_circuit_outputs(
         f.write("=" * 80 + "\n\n")
         f.write(f"Task: {task}\n")
         f.write(f"Model: {model_path}\n")
+        f.write(f"Ablation: {ablation_mode}\n")
         f.write(f"Threshold: {threshold}\n")
         f.write(f"Trim rounds: {trim_rounds}\n\n")
 
@@ -1072,6 +1178,7 @@ def extract_circuit_for_task(
     task: str,
     n_examples: int,
     threshold: float,
+    ablation_mode: str,
     trim_rounds: int,
     output_dir: str,
     device: str,
@@ -1100,6 +1207,41 @@ def extract_circuit_for_task(
     graph = build_circuit_graph(n_layers)
     print(f"Built graph with {len(graph.nodes)} nodes and {len(graph.all_edges)} edges")
 
+    # Compute or load ablation cache if needed
+    ablation_cache = None
+    mean_cache_path = None
+
+    if ablation_mode == "mean":
+        # Use shared cache location based on model path
+        cache_dir = os.path.join(os.path.dirname(model_path), "mean_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        mean_cache_path = os.path.join(cache_dir, "mean_cache.pt")
+
+        # Check if cache already exists
+        if os.path.exists(mean_cache_path):
+            print(f"\nLoading existing mean cache from {mean_cache_path}...")
+            ablation_cache = torch.load(mean_cache_path, map_location=device)
+            print(f"Loaded mean cache for {len(ablation_cache)} nodes\n")
+        else:
+            print(f"\nComputing mean cache for {ablation_mode} ablation...")
+            # Use OpenWebText samples for background distribution
+            from datasets import load_dataset
+            dataset = load_dataset("openwebtext", split="train", streaming=True)
+            background_prompts = []
+            for i, sample in enumerate(dataset):
+                if i >= 1000:  # Use 1000 samples for mean
+                    break
+                background_prompts.append(sample["text"][:512])  # Limit length
+
+            ablation_cache = compute_mean_cache(
+                model, tokenizer, background_prompts, graph, device,
+                max_length=512, batch_size=8
+            )
+
+            # Save mean cache for reuse
+            torch.save(ablation_cache, mean_cache_path)
+            print(f"Saved mean cache to {mean_cache_path} (will be reused for future extractions)\n")
+
     # Verify controlled forward matches native model
     print("\nVerifying controlled forward implementation...")
     prompts = [ex.prompt for ex in examples]
@@ -1110,10 +1252,11 @@ def extract_circuit_for_task(
     verify_controlled_forward_matches_native(model, input_ids, attention_mask, graph, atol=1e-2)
     print("Controlled forward matches native model.\n")
 
-    # Run ACDC with zero ablation
-    print(f"Running ACDC with zero ablation (threshold={threshold})...")
+    # Run ACDC
+    print(f"Running ACDC with {ablation_mode} ablation (threshold={threshold})...")
     edges_to_keep, edge_log = find_circuit(
-        model, tokenizer, examples, graph, threshold, "kl", device, verbose=True
+        model, tokenizer, examples, graph, threshold, "kl",
+        ablation_mode, ablation_cache, device, verbose=True
     )
 
     print(f"\nACDC complete. Remaining edges: {len(edges_to_keep)} / {len(graph.all_edges)}")
@@ -1121,7 +1264,8 @@ def extract_circuit_for_task(
     # Compute full model logits for comparison
     with torch.no_grad():
         full_logits = controlled_forward(
-            model, input_ids, attention_mask, graph.all_edges, graph, None
+            model, input_ids, attention_mask, graph.all_edges, graph,
+            None, "zero"
         )
 
     # Trimming pass
@@ -1137,6 +1281,8 @@ def extract_circuit_for_task(
             attention_mask=attention_mask,
             full_logits=full_logits,
             threshold=threshold,
+            ablation_mode=ablation_mode,
+            ablation_cache=ablation_cache,
             trim_rounds=trim_rounds,
             device=device,
             verbose=True,
@@ -1153,15 +1299,18 @@ def extract_circuit_for_task(
 
     with torch.no_grad():
         circuit_logits = controlled_forward(
-            model, input_ids, attention_mask, edges_to_keep, graph, None
+            model, input_ids, attention_mask, edges_to_keep, graph,
+            ablation_cache, ablation_mode
         )
         ablated_edges = {("emb", "logits")} if ("emb", "logits") in graph.all_edges else set()
         ablated_logits = controlled_forward(
-            model, input_ids, attention_mask, ablated_edges, graph, None
+            model, input_ids, attention_mask, ablated_edges, graph,
+            ablation_cache, ablation_mode
         )
         inverse_edges = graph.all_edges - edges_to_keep
         inverse_logits = controlled_forward(
-            model, input_ids, attention_mask, inverse_edges, graph, None
+            model, input_ids, attention_mask, inverse_edges, graph,
+            ablation_cache, ablation_mode
         )
 
     full_metrics = compute_task_metrics(full_logits, examples, tokenizer, attention_mask)
@@ -1177,7 +1326,7 @@ def extract_circuit_for_task(
     write_circuit_outputs(
         output_dir, model_path, task, edges_to_keep, edge_log, graph,
         full_metrics, circuit_metrics, ablated_metrics, inverse_metrics,
-        threshold, trim_rounds, n_examples
+        threshold, ablation_mode, mean_cache_path, trim_rounds, n_examples
     )
 
     print(f"\nCircuit extraction complete!")
@@ -1204,6 +1353,9 @@ def main():
     # Circuit extraction args
     parser.add_argument("--threshold", type=float, default=0.01,
                         help="Threshold for edge removal (KL divergence)")
+    parser.add_argument("--ablation", type=str, default="mean",
+                        choices=["zero", "mean", "corrupt"],
+                        help="Ablation mode for removed edges (default: mean)")
     parser.add_argument("--trim_rounds", type=int, default=0,
                         help="Number of trimming rounds after ACDC")
 
@@ -1221,7 +1373,7 @@ def main():
         task_output_dir = os.path.join(args.output_dir, task)
         extract_circuit_for_task(
             args.model_path, task, args.n_examples, args.threshold,
-            args.trim_rounds, task_output_dir, device
+            args.ablation, args.trim_rounds, task_output_dir, device
         )
 
     else:
