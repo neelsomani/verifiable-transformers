@@ -11,7 +11,13 @@ The core idea is to make the whole Transformer verifiable so these properties ca
 
 There are two parts of the Transformer architecture that are traditionally difficult to SMT encode. First, the attention mechanism. Starting from the Deep Sets characterization of permutation-invariant functions, we re-derive the structural form of attention and show that it naturally decomposes into three learnable components: an aggregator ρ, a relevance scoring function u, and a content map v. We then characterize the verifiable subset of this space: all attention mechanisms whose computation can be expressed using only affine maps, piecewise-linear transformations, thresholding, and Top-k style selection - primitives that admit exact SMT encodings. Second, we apply a similar approach to the LayerNorm. (A third non-verifiable component, the GELU activation function, is easier to address.)
 
-We show, end-to-end, that a Transformer can be trained and then formally analyzed at the circuit level: we extract the learned addition mechanism, prove bounded correctness, prove structural properties of the circuit, and prove impossibility/generalization limits. This work suggests a new direction for interpretable and certifiable sequence modeling.
+We show, end-to-end, that a Transformer can be trained and then formally analyzed at the circuit level. In this work, we focus on extracting circuits for Python syntax tasks:
+
+* **Quote closing**: Distinguishing single quote `'` vs double quote `"` continuation
+* **Bracket type**: Distinguishing `]` vs `}` for list vs dict closing
+* **Induction (ABCAB)**: Pattern completion (A B C ... A B → predict C)
+
+These tasks allow us to demonstrate proofs of bounded correctness, structural properties of the circuit, and impossibility/generalization limits. This work suggests a new direction for interpretable and certifiable sequence modeling.
 
 ## Hardware Requirements
 
@@ -407,16 +413,15 @@ Interpretation:
 
 ## Step 3: Circuit Extraction and Formal Verification
 
-Once the verifiable model is trained, we extract minimal circuits responsible for specific behaviors and formally verify their properties using SMT solvers.
+Once the verifiable model is trained, we extract pruned circuits responsible for specific behaviors and formally verify their properties using SMT solvers.
 
 ### Step 3a: Verify behaviors are reliably evoked before circuit extraction
 
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
-The behavior scanner tests 4 categories:
+The behavior scanner tests 3 categories:
 - `quote_close`: Single vs double quote closing (varied templates)
 - `bracket_type`: `]` vs `}` distinction (varied templates)
-- `list_depth`: Nested `]]` vs flat `]` - bracket counting (varied templates)
 - `induction_ABCAB`: Pattern completion (A B C ... A B → predict C)
 
 Metrics computed:
@@ -445,4 +450,44 @@ This generates:
 - `artifacts/circuits/behavior_scan/behavior_scan.json` - Detailed metrics
 - `artifacts/circuits/behavior_scan/behavior_scan.txt` - Human-readable report
 
-Only proceed to circuit extraction for behaviors marked "viable" or "strong". Use `--force_extract` to override this check if needed.
+Use the scan results to decide which tasks to extract circuits for. Focus on behaviors marked "viable" or "strong" for meaningful results.
+
+### Step 3b: Extract pruned circuits using ACDC
+
+Once behaviors are confirmed viable, extract a pruned circuit responsible for each behavior using a simplified ACDC (Automatic Circuit DisCovery) algorithm. Note that ACDC is greedy and order-dependent, so the extracted circuit is not guaranteed to be minimal.
+
+The extractor:
+- Defines a coarse computational graph over residual-stream components (emb, attn_i, mlp_i, logits)
+- Generates clean and corrupted prompt pairs
+- Iteratively removes edges if removal doesn't significantly change task behavior
+- Cleans up the graph to retain only emb→logits paths
+- Reports necessity and sufficiency metrics
+
+Run circuit extraction for a specific task:
+
+```bash
+python scripts/extract_circuit.py \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --extract_circuit quote_close \
+  --n_examples 128 \
+  --threshold 0.01 \
+  --output_dir artifacts/circuits
+```
+
+Available tasks: `quote_close`, `bracket_type`, `induction_ABCAB`
+
+This generates:
+- `artifacts/circuits/quote_close/circuit.json` - Circuit edges, metrics, and extraction log
+- `artifacts/circuits/quote_close/circuit.dot` - Graphviz visualization
+- `artifacts/circuits/quote_close/summary.txt` - Human-readable summary
+
+Key parameters:
+- `--threshold`: Maximum KL divergence increase allowed when removing an edge (default: 0.01)
+- `--n_examples`: Number of test examples (default: 128)
+- `--trim_rounds`: Additional trimming passes after ACDC (default: 2)
+
+The output includes four metric sets:
+- **Full model**: All edges active (baseline)
+- **Circuit**: Only extracted circuit edges active
+- **Ablated**: Minimal baseline (emb→logits only)
+- **Inverse ablation**: All edges EXCEPT circuit (tests necessity)
