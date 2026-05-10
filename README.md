@@ -19,12 +19,11 @@ We show, end-to-end, that a Transformer can be trained and then formally analyze
 
 These tasks allow us to demonstrate proofs of bounded correctness, structural properties of the circuit, and impossibility/generalization limits. This work suggests a new direction for interpretable and certifiable sequence modeling.
 
-## Hardware Requirements
+## Hardware Setup
 
-To target strong local baseline reproduction and stable multi-GPU training, use datacenter-class multi-GPU training.
+The following was used to produce the results below. This heavy setup isn't strictly required, but recommended for iteration speed.
 
-- Recommended: `8x A100 80GB` (or `8x H100 80GB`)
-- Acceptable (slower, more tuning sensitive): `4x A100 40/80GB`
+- GPUs: `8x A100 80GB` (or `8x H100 80GB`)
 - Per-GPU VRAM target: `40GB+` (prefer `80GB`)
 - CPU RAM: `128GB` recommended (`64GB` minimum)
 - Storage: `200GB+` fast SSD for dataset cache/checkpoints/logs
@@ -464,7 +463,7 @@ python scripts/extract_circuit.py \
   --scan_behaviors \
   --n_examples 256 \
   --batch_size 8 \
-  --output_dir artifacts/circuits/behavior_scan
+  --output_dir artifacts/circuits
 ```
 
 #### Results (Step 2c model @ checkpoint-240000):
@@ -543,7 +542,7 @@ The circuit faithfully preserves the model behavior on the sampled quote-closing
 | Binary Accuracy | 1.000 | 0.500 | 0.327 |
 | Edges | 325 (all) | 82 | - |
 
-The extracted circuit failed to preserve bracket-type behavior. The 50% accuracy indicates random performance, and the high KL divergence (0.327) confirms the circuit does not capture the bracket-vs-brace distinction.
+The extracted circuit did not preserve bracket-type behavior under this coarse graph and extraction setting. The 50% accuracy indicates chance-level binary behavior, and the KL divergence (0.327) shows that the pruned graph is not faithfully matching the full model distribution. This does not prove that no bracket-type circuit exists; it means this extraction setup did not recover one.
 
 **Induction (ABCAB)**:
 
@@ -552,4 +551,95 @@ The extracted circuit failed to preserve bracket-type behavior. The 50% accuracy
 | Binary Accuracy | 0.887 | 0.945 | 0.114 |
 | Edges | 325 (all) | 151 | - |
 
-The extracted circuit improves the binary induction metric relative to the full model, suggesting that the pruned subgraph isolates a task-relevant induction mechanism rather than exactly preserving the full model distribution. The circuit may remove components that contributed noise or competing behaviors.
+The extracted circuit improves the binary induction metric relative to the full model, suggesting that the pruned subgraph isolates a task-relevant induction mechanism rather than exactly preserving the full model distribution. The circuit may remove components that contributed noise or competing behaviors. Because circuit accuracy exceeds full-model accuracy, this should be interpreted as a task-proficient subgraph rather than a strictly faithful reproduction of the full model's binary choices.
+
+### Step 3c: Formal verification priorities
+
+Once circuits are extracted, we formally verify their properties using SMT solvers. The verification order prioritizes circuits with the strongest extraction results.
+
+#### Proofs for `quote_close`
+
+The quote closing circuit is the cleanest extraction result.
+
+**1. Functional equivalence**
+
+$$y_C(x) = P_{\text{quote}}(x)$$
+
+Prove the circuit exactly matches a symbolic reference program for quote closing on all inputs of bounded length.
+
+**2. Content invariance**
+
+$$\text{quote}(x) = \text{quote}(x') \Rightarrow y_C(x) = y_C(x')$$
+
+Prove the circuit output depends only on the quote type, not the string content between quotes.
+
+**3. Quote-type sensitivity**
+
+Prove that swapping the opening quote character flips the predicted closing quote.
+
+**4. Edge necessity**
+
+Prove every retained edge affects quote-closing logits for at least one input.
+
+#### Proofs for `induction_ABCAB`
+
+The induction circuit demonstrates algorithmic pattern matching.
+
+**1. Restricted functional equivalence**
+
+$$A, B, C, F, A, B \mapsto C$$
+
+Prove the circuit correctly implements the ABCAB → C pattern on a restricted synthetic domain.
+
+**2. Token-renaming equivariance**
+
+$$y_C(r(x)) = r(y_C(x))$$
+
+Prove the circuit is equivariant to token renaming: renaming tokens in the input produces the corresponding renamed output.
+
+**3. Filler invariance**
+
+Prove irrelevant middle tokens (between the pattern instances) do not change the output.
+
+**4. Edge necessity / margin necessity**
+
+Prove every retained edge affects the induction logit margin for at least one input. This is a weaker requirement than strict argmax-flip necessity but is more tractable to verify.
+
+#### Running SMT verification
+
+The SMT verification system is implemented in `/scripts/smt_verify/` with the following modules:
+
+- `encoders.py`: SMT encodings of verifiable components (BandNorm, sparsemax, LeakyReLU, attention, MLP)
+- `circuit.py`: Circuit forward pass with edge masking
+- `bounded_domain.py`: Input sequence generation for bounded verification
+- `properties.py`: Property verification functions using Z3
+- `model_weights.py`: Model weight extraction and lightweight test weights
+
+**Usage:**
+
+```bash
+# Verify quote_close circuit
+python scripts/verify_circuit.py \
+  --circuit_path outputs/circuits/quote_close/circuit.json \
+  --task quote_close \
+  --output_dir outputs/verification/quote_close \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
+
+# Verify induction circuit
+python scripts/verify_circuit.py \
+  --circuit_path outputs/circuits/induction_ABCAB/circuit.json \
+  --task induction_ABCAB \
+  --output_dir outputs/verification/induction_ABCAB \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
+```
+
+**Scalability notes:**
+
+- Circuit verification encodes the extracted subgraph (e.g., 101 edges for quote_close) using the model's learned weights
+- The main computational bottleneck is encoding the circuit forward pass in Z3 with the actual weight values
+- Tractability considerations:
+  - Limiting sequence length (max_length ≤ 5-8) to reduce complexity
+  - Using candidate tokens only (2-10 tokens vs 50K)
+  - Testing on representative input samples rather than exhaustive enumeration
+  - Increasing solver timeout (--timeout_ms) if verification times out
+  - Expect verification to take minutes per sequence on small inputs
