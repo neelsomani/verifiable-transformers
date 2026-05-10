@@ -482,16 +482,79 @@ Use the scan results to decide which tasks to extract circuits for. Focus on beh
 
 ### Step 3b: Extract pruned circuits using ACDC
 
-Once behaviors are confirmed viable, extract a pruned circuit responsible for each behavior using a simplified ACDC (Automatic Circuit DisCovery) algorithm. Note that ACDC is greedy and order-dependent, so the extracted circuit is not guaranteed to be minimal.
+Once behaviors are confirmed viable, extract a pruned circuit responsible for each behavior using a simplified ACDC-style algorithm.
+
+Circuit extraction is not claim-neutral. The extraction objective determines what kind of claim the resulting circuit supports. In this repo, circuits are extracted using zero-ablation semantics:
+
+$$C_E(x) = \text{the original model restricted to retained edges } E,\text{ with deleted edges contributing }0.$$
+
+Under zero ablation, the extracted circuit is a genuine subgraph/subnetwork of the trained model. Kept edges use the original trained weights and activations; deleted edges are removed.
+
+ACDC is greedy and order-dependent, so the extracted circuit is not guaranteed to be globally minimal.
+
+#### Claim discipline
+
+Use the following rule:
+
+* If the circuit is extracted to preserve the full model's projected decisions, it can be described as a faithful projected circuit for that behavior.
+* If the circuit is extracted to optimize task accuracy against a symbolic reference program, it is a task circuit, not necessarily the model's actual mechanism.
+* If the circuit improves over the full model, it may be a useful task subnetwork, but it should not be described as faithfully representing the full model.
+
+For formal claims about an actual extracted subset of the model, the circuit should preserve the full model's behavior on the same domain used for the later claim.
+
+This is especially important for generalization or impossibility results. If a circuit is pruned only to preserve success on inputs up to some limit $k$, then failures beyond $k$ may be pruning artifacts. To support claims about failure or extrapolation, the extraction domain must include both the success cases and the failure/extrapolation cases.
+
+#### Output projection
+
+For task-specific circuits, we do not need to preserve the full vocabulary distribution. Instead, we preserve the model's behavior on a task-relevant output projection.
+
+For each task, define a candidate token set $T$:
+
+* `quote_close`: T = {', "}
+* `bracket_type`: T is the set containing ] and }
+* `induction_ABCAB`: $T$ is the set of candidate pattern tokens, e.g. `red`, `blue`, `green`, `cat`, etc.
+
+The projected decision is:
+
+$$d_T(F,x) = \arg\max_{t \in T} F_t(x)$$
+
+where $F$ is either the full model or the extracted circuit.
+
+ACDC should remove an edge only if removal preserves the full model's projected behavior on the extraction domain:
+
+$$d_T(C_E,x)=d_T(M,x)$$
+
+In practice, this is implemented with candidate-logit KL and a hard projected-agreement guard:
+
+$$\text{KL}\left(\text{softmax}(M_T(x)) \| \text{softmax}(C_{E,T}(x))\right)$$
+
+where $M_T(x)$ and $C_{E,T}(x)$ are the logits restricted to the candidate token set $T$.
+
+#### Extraction methodology
 
 The extractor:
-- Defines a coarse computational graph over residual-stream components (emb, attn_i, mlp_i, logits)
-- Generates clean and corrupted prompt pairs
-- Iteratively removes edges if removal doesn't significantly change task behavior
-- Cleans up the graph to retain only emb→logits paths
-- Reports necessity and sufficiency metrics
 
-Run circuit extraction for a specific task:
+* Defines a coarse computational graph over residual-stream components:
+  * `emb`
+  * `attn_i`
+  * `mlp_i`
+  * `logits`
+* Runs the full model on task prompts.
+* Computes full-model projected logits over the task candidate set $T$.
+* Iteratively removes edges if removal does not significantly change projected behavior.
+* Uses zero-ablation semantics for deleted edges.
+* Cleans up the graph to retain only `emb → logits` paths.
+* Reports sufficiency, inverse-ablation, and projected-agreement metrics.
+
+The most important faithfulness metric is:
+
+$$\Pr_{x \in D}[d_T(C_E,x)=d_T(M,x)]$$
+
+For a strong circuit claim over a bounded domain, this should be `1.000` on that domain.
+
+#### Run circuit extraction
+
+Quote closing:
 
 ```bash
 python scripts/circuits/extract_circuit.py \
@@ -499,111 +562,150 @@ python scripts/circuits/extract_circuit.py \
   --extract_circuit quote_close \
   --n_examples 128 \
   --threshold 0.01 \
+  --ablation zero \
+  --output_dir artifacts/circuits
+```
+
+Bracket type:
+
+```bash
+python scripts/circuits/extract_circuit.py \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --extract_circuit bracket_type \
+  --n_examples 128 \
+  --threshold 0.01 \
+  --ablation zero \
+  --output_dir artifacts/circuits
+```
+
+Induction:
+
+```bash
+python scripts/circuits/extract_circuit.py \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --extract_circuit induction_ABCAB \
+  --n_examples 128 \
+  --threshold 0.01 \
+  --ablation zero \
   --output_dir artifacts/circuits
 ```
 
 Available tasks: `quote_close`, `bracket_type`, `induction_ABCAB`
 
 This generates:
-- `artifacts/circuits/quote_close/circuit.json` - Circuit edges, metrics, and extraction log
-- `artifacts/circuits/quote_close/circuit.dot` - Graphviz visualization
-- `artifacts/circuits/quote_close/summary.txt` - Human-readable summary
+
+* `artifacts/circuits/<task>/circuit.json` — circuit edges, metrics, and extraction log
+* `artifacts/circuits/<task>/circuit.dot` — Graphviz visualization
+* `artifacts/circuits/<task>/summary.txt` — human-readable summary
 
 Key parameters:
-- `--threshold`: Maximum KL divergence increase allowed when removing an edge (default: 0.01)
-- `--n_examples`: Number of test examples (default: 128)
-- `--trim_rounds`: Additional trimming passes after ACDC (default: 0)
 
-The output includes four metric sets:
-- **Full model**: All edges active (baseline)
-- **Circuit**: Only extracted circuit edges active
-- **Ablated**: Minimal baseline (emb→logits only)
-- **Inverse ablation**: All edges EXCEPT circuit (coarse necessity check)
+* `--ablation zero`: deleted edges contribute zero.
+* `--threshold`: maximum KL increase allowed when removing an edge.
+* `--n_examples`: number of extraction examples.
+* `--trim_rounds`: additional trimming passes after ACDC. Start with `0`; extra trimming can harm faithfulness.
 
-#### Results (Step 2c model @ checkpoint-240000):
+#### Task-specific extraction details
 
-**Quote Closing**:
+##### Quote closing: `quote_close`
 
-| Metric | Full Model | Circuit | Circuit KL |
-|--------|-----------|---------|-----------|
-| Binary Accuracy | 1.000 | 1.000 | 0.062 |
-| Edges | 325 (all) | 101 | - |
+Goal: Extract the subcircuit responsible for choosing `'` vs `"` as the next token.
 
-The circuit faithfully preserves the model behavior on the sampled quote-closing task. This is the cleanest circuit. It exhibits:
-- Sample-perfect binary behavior (100% accuracy maintained)
-- Low KL divergence from full model (0.062)
-- Moderate edge count (101 edges, ~31% of full graph)
-- Clear symbolic reference program (quote matching)
+Candidate set: $T_{\text{quote}} = \{', "\}$
 
-**Bracket Type**:
+Reference behavior: If the prompt contains an unmatched single quote, predict `'`. If the prompt contains an unmatched double quote, predict `"`.
 
-| Metric | Full Model | Circuit | Circuit KL |
-|--------|-----------|---------|-----------|
-| Binary Accuracy | 1.000 | 0.500 | 0.327 |
-| Edges | 325 (all) | 82 | - |
+Recommended extraction domain: single-quote and double-quote prompts with varied but token-aligned content
 
-The extracted circuit did not preserve bracket-type behavior under this coarse graph and extraction setting. The 50% accuracy indicates chance-level binary behavior, and the KL divergence (0.327) shows that the pruned graph is not faithfully matching the full model distribution. This does not prove that no bracket-type circuit exists; it means this extraction setup did not recover one.
+Example prompts:
 
-**Induction (ABCAB)**:
+```text
+x = 'hello world
+x = "hello world
+print('hello world
+print("hello world
+message = 'foo bar
+message = "foo bar
+```
 
-| Metric | Full Model | Circuit | Circuit KL |
-|--------|-----------|---------|-----------|
-| Binary Accuracy | 0.887 | 0.945 | 0.114 |
-| Edges | 325 (all) | 151 | - |
+Required extraction guard: $d_T(C_E,x)=d_T(M,x)$ for all extraction examples.
 
-The extracted circuit improves the binary induction metric relative to the full model, suggesting that the pruned subgraph isolates a task-relevant induction mechanism rather than exactly preserving the full model distribution. The circuit may remove components that contributed noise or competing behaviors. Because circuit accuracy exceeds full-model accuracy, this should be interpreted as a task-proficient subgraph rather than a strictly faithful reproduction of the full model's binary choices.
+Formal properties to verify after extraction:
 
-### Step 3c: Formal verification priorities
+1. **Functional correctness over the quote projection**: $\forall x \in D_{\text{quote}},\quad d_T(C_E,x)=P_{\text{quote}}(x)$
 
-Once circuits are extracted, we formally verify their properties using SMT solvers. The verification order prioritizes circuits with the strongest extraction results.
+2. **Content invariance**: Changing non-quote content should not change the quote decision: $R_{\text{same quote}}(x,x') \Rightarrow d_T(C_E,x)=d_T(C_E,x')$
 
-#### Proofs for `quote_close`
+3. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{quote}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
-The quote closing circuit is the cleanest extraction result.
+##### Bracket type: `bracket_type`
 
-**1. Functional equivalence**
+Goal: Extract the subcircuit responsible for choosing `]` vs `}`.
 
-$$y_C(x) = P_{\text{quote}}(x)$$
+Candidate set: $T_{\text{bracket}} = \{], \}\}$
 
-Prove the circuit exactly matches a symbolic reference program for quote closing on all inputs of bounded length.
+Reference behavior: If the prompt opens with `[`, predict `]`. If the prompt opens with `{`, predict `}`.
 
-**2. Content invariance**
+Recommended extraction domain: Use token-aligned bracket/brace pairs:
 
-$$\text{quote}(x) = \text{quote}(x') \Rightarrow y_C(x) = y_C(x')$$
+```text
+x = [a, b, c
+x = {a, b, c
+items = [foo, bar
+items = {foo, bar
+return [x, y, z
+return {x, y, z
+```
 
-Prove the circuit output depends only on the quote type, not the string content between quotes.
+This is a bracket-vs-brace type distinction.
 
-**3. Quote-type sensitivity**
+Required extraction guard: $d_T(C_E,x)=d_T(M,x)$ for all extraction examples.
 
-Prove that swapping the opening quote character flips the predicted closing quote.
+Formal properties to verify after extraction:
 
-**4. Edge necessity**
+1. **Functional correctness over the bracket projection**: $\forall x \in D_{\text{bracket}},\quad d_T(C_E,x)=P_{\text{bracket}}(x)$
 
-Prove every retained edge affects quote-closing logits for at least one input.
+2. **Content invariance**: Changing filler/content tokens should not flip the bracket decision if the opening delimiter is unchanged: $R_{\text{same delimiter}}(x,x') \Rightarrow d_T(C_E,x)=d_T(C_E,x')$
 
-#### Proofs for `induction_ABCAB`
+3. **Delimiter sensitivity**: Changing `[` to `{` should flip the projected decision: $x' = \text{replace-opening-delimiter}(x) \Rightarrow d_T(C_E,x)\neq d_T(C_E,x')$
 
-The induction circuit demonstrates algorithmic pattern matching.
+4. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{bracket}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
-**1. Restricted functional equivalence**
+##### Induction: `induction_ABCAB`
 
-$$A, B, C, F, A, B \mapsto C$$
+Goal: Extract the subcircuit responsible for ABCAB-style pattern completion.
 
-Prove the circuit correctly implements the ABCAB → C pattern on a restricted synthetic domain.
+Candidate set: $T_{\text{induction}} = \{\text{pattern candidate tokens}\}$
 
-**2. Token-renaming equivariance**
+Example token pool: ` red`, ` blue`, ` green`, ` cat`, ` dog`, ` tree`, ` car`, ` book`, ` city`, ` river`, ...
 
-$$y_C(r(x)) = r(y_C(x))$$
+Reference behavior: A B C ... A B → predict C
 
-Prove the circuit is equivariant to token renaming: renaming tokens in the input produces the corresponding renamed output.
+Example prompt: ` red blue green foo bar baz red blue`
 
-**3. Filler invariance**
+Correct next token: ` green`
 
-Prove irrelevant middle tokens (between the pattern instances) do not change the output.
+Induction circuits are more vulnerable to pruning artifacts than quote/bracket circuits. The full model may be imperfect. Therefore extraction should preserve the full model's projected decision, not merely maximize correctness against the symbolic rule.
 
-**4. Edge necessity / margin necessity**
+Required extraction guard: $d_T(C_E,x)=d_T(M,x)$ on the extraction domain.
 
-Prove every retained edge affects the induction logit margin for at least one input. This is a weaker requirement than strict argmax-flip necessity but is more tractable to verify.
+Formal properties to verify after extraction:
+
+1. **Restricted functional correctness**: For bounded ABCAB patterns: $\forall A,B,C,F \in D,\quad d_T(C_E, A,B,C,F,A,B)=C$
+
+2. **Token-renaming equivariance**: Consistent renaming of the pattern tokens should rename the output: $d_T(C_E, r(x)) = r(d_T(C_E,x))$
+
+3. **Filler invariance**: Changing filler tokens should not change the predicted continuation token, assuming the ABCAB structure is preserved: $R_{\text{same ABCAB}}(x,x') \Rightarrow d_T(C_E,x)=d_T(C_E,x')$
+
+4. **Failure/generalization claims**: Only make impossibility or failure claims on domains included in the extraction/faithfulness check. For example, to claim that an induction circuit cannot generalize beyond a pattern length $k$, the extraction domain must include both patterns of length $\leq k$ and patterns of length $> k$, and the circuit must preserve the full model's projected decisions on both. Otherwise, the failure may simply be caused by pruning.
+
+#### Results (Step 2c model @ checkpoint-240000)
+
+Results to be filled in after extraction with zero ablation and candidate KL metric.
+
+### Step 3c: Formal verification
+
+Once circuits are extracted, we formally verify their properties using SMT solvers. The properties vary by circuit and are described above in 3b.
 
 #### Running SMT verification
 
@@ -632,14 +734,3 @@ python scripts/verify_circuit.py \
   --output_dir outputs/verification/induction_ABCAB \
   --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
 ```
-
-**Scalability notes:**
-
-- Circuit verification encodes the extracted subgraph (e.g., 101 edges for quote_close) using the model's learned weights
-- The main computational bottleneck is encoding the circuit forward pass in Z3 with the actual weight values
-- Tractability considerations:
-  - Limiting sequence length (max_length ≤ 5-8) to reduce complexity
-  - Using candidate tokens only (2-10 tokens vs 50K)
-  - Testing on representative input samples rather than exhaustive enumeration
-  - Increasing solver timeout (--timeout_ms) if verification times out
-  - Expect verification to take minutes per sequence on small inputs
