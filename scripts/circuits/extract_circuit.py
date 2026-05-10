@@ -1212,8 +1212,9 @@ def extract_circuit_for_task(
     mean_cache_path = None
 
     if ablation_mode == "mean":
-        # Use shared cache location based on model path
-        cache_dir = os.path.join(os.path.dirname(model_path), "mean_cache")
+        # Use checkpoint-specific cache location
+        checkpoint_name = os.path.basename(os.path.normpath(model_path))
+        cache_dir = os.path.join(os.path.dirname(model_path), "mean_cache", checkpoint_name)
         os.makedirs(cache_dir, exist_ok=True)
         mean_cache_path = os.path.join(cache_dir, "mean_cache.pt")
 
@@ -1354,7 +1355,7 @@ def main():
     parser.add_argument("--threshold", type=float, default=0.01,
                         help="Threshold for edge removal (KL divergence)")
     parser.add_argument("--ablation", type=str, default="mean",
-                        choices=["zero", "mean", "corrupt"],
+                        choices=["zero", "mean"],
                         help="Ablation mode for removed edges (default: mean)")
     parser.add_argument("--trim_rounds", type=int, default=0,
                         help="Number of trimming rounds after ACDC")
