@@ -76,39 +76,24 @@ If your environment already provides PyTorch (for example, RunPod images), insta
 
 ## Formal Definitions
 
-Let:
-- $M$ be a verifiable Transformer
-- $P$ be a symbolic reference program (e.g. Python)
-- $\Sigma$ be the token alphabet
-- $\Sigma^{\leq n} := \bigcup_{\ell=1}^{n} \Sigma^{\ell}$ be the set of all sequences of length at most $n$
-- $h_i(x)$ denote the internal hidden state at location $i$ for input $x$
-- $y_M(x)$ denote the output for model $M$
-- $C$ be an algorithmic circuit of $M$
-- $C \setminus e$ be the same circuit with connection $e$ removed
-- $\text{Attn}_{\ell,i}(x)$ denote the attention output at layer $\ell$ and position $i$
-- $\varphi_M(x)$ denote an output projection of $M$
+**Notation:**
+- $M$ = verifiable Transformer
+- $P$ = symbolic reference program
+- $\Sigma$ = token alphabet
+- $\Sigma^{\leq n} := \bigcup_{\ell=1}^{n} \Sigma^{\ell}$ = all sequences of length at most $n$
+- $y_M(x)$ = output for model $M$ on input $x$
+- $C$ = algorithmic circuit of $M$
+- $C \setminus e$ = circuit with connection $e$ removed
+- $\varphi_M(x)$ = output projection of $M$
 
-For a bounded domain $\Sigma^{\leq n}$, we verify properties of the following form:
+For a bounded domain $\Sigma^{\leq n}$, we verify the following properties:
 
-**1. Functional equivalence**
-
-$$\forall x \in \Sigma^{\leq n}, \quad y_M(x) = P(x)$$
-
-**2. Circuit minimality**
-
-$$\forall e \in E(C), \quad \exists x \in \Sigma^{\leq n} \text{ such that } C(x) \neq (C \setminus e)(x)$$
-
-**3. Structural invariants**
-
-$$\forall x \in \Sigma^{\leq n}, \quad S(M, x)$$
-
-where $S$ may encode locality, sparsity, monotonicity, causality, etc.
-
-**4. Impossibility results**
-
-$$\forall x, x' \in \Sigma^{\leq n}, \quad R(x, x') \Rightarrow \varphi_M(x) = \varphi_M(x')$$
-
-where $R$ identifies input pairs the model cannot distinguish
+| Property | Informal Definition | Formal Definition |
+|----------|---------------------|-------------------|
+| **Functional Equivalence** | The model is equivalent to a specific symbolic program on all inputs of length ≤ n. For a code generation model trained on simple transformations (e.g. string manipulation), we can prove that for all inputs ≤ n, the model is equivalent to a reference implementation. If the property fails, the solver returns a concrete counterexample. | $\forall x \in \Sigma^{\leq n}, \quad y_M(x) = P(x)$ |
+| **Circuit Minimality** | An algorithmic circuit contains the minimal number of edges. We can prove that removing an attention pathway does not change the output for any input ≤ n. This provides a principled way to eliminate potentially harmful circuits. | $\forall e \in E(C), \quad \exists x \in \Sigma^{\leq n} \text{ such that } C(x) \neq (C \setminus e)(x)$ |
+| **Structural Invariants** | The model obeys structural constraints (e.g. local attention). We can guarantee that sensitive information (e.g. earlier tokens containing secrets) cannot influence outputs beyond a fixed window. | $\forall x \in \Sigma^{\leq n}, \quad S(M, x)$ where $S$ encodes locality, sparsity, monotonicity, causality, etc. |
+| **Impossibility Results** | The model produces identical outputs for two classes of inputs. We can prove that for all inputs ≤ n, the model cannot distinguish between two programs that differ only in variable renaming (e.g. renaming x to y throughout). This establishes that the model has learned a representation invariant to variable identity. | $\forall x, x' \in \Sigma^{\leq n}, \quad R(x, x') \Rightarrow \varphi_M(x) = \varphi_M(x')$ where $R$ identifies input pairs the model cannot distinguish |
 
 ## Step 1: Baseline GPT-2 (Open-Source)
 
