@@ -28,7 +28,6 @@ from train_experiment import apply_model_variants
 class BehaviorExample:
     """Single example for a behavior test."""
     prompt: str
-    corrupt_prompt: str
     correct_token: str
     incorrect_token: str
 
@@ -58,35 +57,42 @@ class CircuitGraph:
 
 
 def generate_quote_close_examples(n: int) -> List[BehaviorExample]:
-    """Generate single vs double quote closing examples with paired corruption."""
-    # Paired templates with same content
-    paired_templates = [
-        ("x = 'hello world", 'x = "hello world'),
-        ("print('hello world", 'print("hello world'),
-        ("message = 'foo bar", 'message = "foo bar'),
-        ("return 'some text", 'return "some text'),
-        ("data.append('value", 'data.append("value'),
-        ("name = 'alice", 'name = "alice'),
-        ("s = 'test string", 's = "test string'),
-        ("key = 'item", 'key = "item'),
+    """Generate single vs double quote closing examples."""
+    # Templates for single and double quote examples
+    single_templates = [
+        "x = 'hello world",
+        "print('hello world",
+        "message = 'foo bar",
+        "return 'some text",
+        "data.append('value",
+        "name = 'alice",
+        "s = 'test string",
+        "key = 'item",
+    ]
+
+    double_templates = [
+        'x = "hello world',
+        'print("hello world',
+        'message = "foo bar',
+        'return "some text',
+        'data.append("value',
+        'name = "alice',
+        's = "test string',
+        'key = "item',
     ]
 
     examples = []
     for i in range(n // 2):
-        single, double = paired_templates[i % len(paired_templates)]
-        # Single quote example with double quote corruption
+        # Single quote example
         examples.append(BehaviorExample(
-            prompt=single,
-            corrupt_prompt=double,
+            prompt=single_templates[i % len(single_templates)],
             correct_token="'",
             incorrect_token='"'
         ))
     for i in range(n // 2):
-        single, double = paired_templates[i % len(paired_templates)]
-        # Double quote example with single quote corruption
+        # Double quote example
         examples.append(BehaviorExample(
-            prompt=double,
-            corrupt_prompt=single,
+            prompt=double_templates[i % len(double_templates)],
             correct_token='"',
             incorrect_token="'"
         ))
@@ -94,36 +100,42 @@ def generate_quote_close_examples(n: int) -> List[BehaviorExample]:
 
 
 def generate_bracket_type_examples(n: int) -> List[BehaviorExample]:
-    """Generate bracket vs brace examples with token-aligned corruption."""
-    # Paired templates with same interior, differing only in bracket/brace
-    # This ensures token alignment for ACDC
-    paired_templates = [
-        ("x = [a, b, c", "x = {a, b, c"),
-        ("items = [foo, bar", "items = {foo, bar"),
-        ("return [x, y, z", "return {x, y, z"),
-        ("data = [one, two", "data = {one, two"),
-        ("arr = [p, q, r", "arr = {p, q, r"),
-        ("vals = [red, blue", "vals = {red, blue"),
-        ("tmp = [left, right", "tmp = {left, right"),
-        ("out = [first, second", "out = {first, second"),
+    """Generate bracket vs brace examples."""
+    # Templates for bracket and brace examples
+    bracket_templates = [
+        "x = [a, b, c",
+        "items = [foo, bar",
+        "return [x, y, z",
+        "data = [one, two",
+        "arr = [p, q, r",
+        "vals = [red, blue",
+        "tmp = [left, right",
+        "out = [first, second",
+    ]
+
+    brace_templates = [
+        "x = {a, b, c",
+        "items = {foo, bar",
+        "return {x, y, z",
+        "data = {one, two",
+        "arr = {p, q, r",
+        "vals = {red, blue",
+        "tmp = {left, right",
+        "out = {first, second",
     ]
 
     examples = []
     for i in range(n // 2):
-        list_tmpl, brace_tmpl = paired_templates[i % len(paired_templates)]
-        # Bracket example with brace corruption
+        # Bracket example
         examples.append(BehaviorExample(
-            prompt=list_tmpl,
-            corrupt_prompt=brace_tmpl,
+            prompt=bracket_templates[i % len(bracket_templates)],
             correct_token=']',
             incorrect_token='}'
         ))
     for i in range(n // 2):
-        list_tmpl, brace_tmpl = paired_templates[i % len(paired_templates)]
-        # Brace example with bracket corruption
+        # Brace example
         examples.append(BehaviorExample(
-            prompt=brace_tmpl,
-            corrupt_prompt=list_tmpl,
+            prompt=brace_templates[i % len(brace_templates)],
             correct_token='}',
             incorrect_token=']'
         ))
@@ -131,7 +143,7 @@ def generate_bracket_type_examples(n: int) -> List[BehaviorExample]:
 
 
 def generate_induction_examples(n: int) -> List[BehaviorExample]:
-    """Generate induction examples: A B C ... A B -> predict C with corruption."""
+    """Generate induction examples: A B C ... A B -> predict C."""
     examples = []
 
     # Use common single-token words (with leading space for GPT-2)
@@ -146,17 +158,12 @@ def generate_induction_examples(n: int) -> List[BehaviorExample]:
         b = token_pool[(i + 1) % len(token_pool)]
         c = token_pool[(i + 2) % len(token_pool)]
         wrong = token_pool[(i + 3) % len(token_pool)]
-        corrupt_b = token_pool[(i + 4) % len(token_pool)]  # Different token to break pattern
 
-        # Clean: A B C ... A B -> predict C
+        # A B C ... A B -> predict C
         prompt = f"{a}{b}{c} foo bar baz{a}{b}"
-
-        # Corrupt: A B C ... A D -> breaks induction (D != B)
-        corrupt_prompt = f"{a}{b}{c} foo bar baz{a}{corrupt_b}"
 
         examples.append(BehaviorExample(
             prompt=prompt,
-            corrupt_prompt=corrupt_prompt,
             correct_token=c,
             incorrect_token=wrong,
         ))
@@ -652,34 +659,6 @@ def select_last_real_logits(logits: torch.Tensor, attention_mask: torch.Tensor) 
     return logits[batch_idx, idx, :]
 
 
-def assert_clean_corrupt_alignment(
-    clean_ids: torch.Tensor,
-    clean_mask: torch.Tensor,
-    corrupt_ids: torch.Tensor,
-    corrupt_mask: torch.Tensor,
-):
-    """Verify clean and corrupt prompts have aligned token positions.
-
-    ACDC requires that clean and corrupt caches have the same shape and
-    position alignment so that corrupt_cache[parent] can be substituted
-    into clean residual streams.
-    """
-    if clean_ids.shape != corrupt_ids.shape:
-        raise ValueError(
-            f"Clean/corrupt padded shapes differ: "
-            f"clean={tuple(clean_ids.shape)}, corrupt={tuple(corrupt_ids.shape)}. "
-            "Use paired prompts with matching tokenized lengths."
-        )
-
-    clean_lens = clean_mask.sum(dim=1)
-    corrupt_lens = corrupt_mask.sum(dim=1)
-    if not torch.equal(clean_lens, corrupt_lens):
-        bad = (clean_lens != corrupt_lens).nonzero(as_tuple=True)[0][:10].tolist()
-        raise ValueError(
-            f"Clean/corrupt per-example token lengths differ. "
-            f"First bad indices: {bad}. "
-            "ACDC activation replacement requires aligned token positions."
-        )
 
 
 def verify_controlled_forward_matches_native(
@@ -814,7 +793,7 @@ def find_circuit(
     device: str,
     verbose: bool = True,
 ) -> Tuple[Set[Tuple[str, str]], List[Dict]]:
-    """Find minimal circuit using ACDC algorithm.
+    """Find minimal circuit using ACDC algorithm with zero ablation.
 
     Args:
         model: GPT2 model
@@ -830,49 +809,24 @@ def find_circuit(
         edges_to_keep: Set of edges in circuit
         edge_log: List of edge decisions
     """
-    # Prepare clean prompts
-    clean_prompts = [ex.prompt for ex in examples]
-    clean_encoded = tokenizer(clean_prompts, return_tensors="pt", padding=True)
-    clean_ids = clean_encoded["input_ids"].to(device)
-    clean_mask = clean_encoded["attention_mask"].to(device)
+    # Prepare prompts
+    prompts = [ex.prompt for ex in examples]
+    encoded = tokenizer(prompts, return_tensors="pt", padding=True)
+    input_ids = encoded["input_ids"].to(device)
+    attention_mask = encoded["attention_mask"].to(device)
 
-    # Prepare corrupted prompts
-    corrupt_prompts = [ex.corrupt_prompt for ex in examples]
-    corrupt_encoded = tokenizer(corrupt_prompts, return_tensors="pt", padding=True)
-    corrupt_ids = corrupt_encoded["input_ids"].to(device)
-    corrupt_mask = corrupt_encoded["attention_mask"].to(device)
-
-    # Verify alignment for ACDC
-    if verbose:
-        print("Verifying clean/corrupt alignment...")
-    assert_clean_corrupt_alignment(clean_ids, clean_mask, corrupt_ids, corrupt_mask)
-
-    # Compute corrupt cache once
-    if verbose:
-        print("Computing corrupted cache...")
-    with torch.no_grad():
-        _, corrupt_cache = controlled_forward(
-            model,
-            corrupt_ids,
-            corrupt_mask,
-            edges_to_keep=graph.all_edges,
-            graph=graph,
-            corrupt_cache=None,
-            return_node_outputs=True,
-        )
-
-    # Compute full model baseline
+    # Compute full model baseline (with zero ablation for removed edges)
     if verbose:
         print("Computing full model baseline...")
     edges_to_keep = set(graph.all_edges)
     with torch.no_grad():
         full_logits = controlled_forward(
             model,
-            clean_ids,
-            clean_mask,
+            input_ids,
+            attention_mask,
             edges_to_keep=edges_to_keep,
             graph=graph,
-            corrupt_cache=corrupt_cache,
+            corrupt_cache=None,  # Zero ablation
             return_node_outputs=False,
         )
 
@@ -894,25 +848,25 @@ def find_circuit(
             if edge not in edges_to_keep:
                 continue
 
-            # Try removing this edge
+            # Try removing this edge (use zero ablation)
             candidate_edges = edges_to_keep - {edge}
 
             with torch.no_grad():
                 candidate_logits = controlled_forward(
                     model,
-                    clean_ids,
-                    clean_mask,
+                    input_ids,
+                    attention_mask,
                     edges_to_keep=candidate_edges,
                     graph=graph,
-                    corrupt_cache=corrupt_cache,
+                    corrupt_cache=None,  # Zero ablation
                     return_node_outputs=False,
                 )
 
             # Compute metric change (KL from full model)
             if metric == "kl":
-                candidate_score = compute_target_kl(full_logits, candidate_logits, clean_mask)
+                candidate_score = compute_target_kl(full_logits, candidate_logits, attention_mask)
             else:  # logit_diff
-                metrics = compute_task_metrics(candidate_logits, examples, tokenizer, clean_mask)
+                metrics = compute_task_metrics(candidate_logits, examples, tokenizer, attention_mask)
                 candidate_score = -metrics["mean_logit_diff"]  # Negative because we want to minimize
 
             delta = candidate_score - current_score
@@ -944,16 +898,15 @@ def trim_circuit(
     examples: List[BehaviorExample],
     graph: CircuitGraph,
     edges_to_keep: Set[Tuple[str, str]],
-    corrupt_cache: Dict[str, torch.Tensor],
-    clean_ids: torch.Tensor,
-    clean_mask: torch.Tensor,
+    input_ids: torch.Tensor,
+    attention_mask: torch.Tensor,
     full_logits: torch.Tensor,
     threshold: float,
     trim_rounds: int,
     device: str,
     verbose: bool = True,
 ) -> Set[Tuple[str, str]]:
-    """Additional greedy trimming pass.
+    """Additional greedy trimming pass with zero ablation.
 
     Args:
         Similar to find_circuit
@@ -962,8 +915,10 @@ def trim_circuit(
         Trimmed edge set
     """
     with torch.no_grad():
-        current_logits = controlled_forward(model, clean_ids, clean_mask, edges_to_keep, graph, corrupt_cache)
-    current_score = compute_target_kl(full_logits, current_logits, clean_mask)
+        current_logits = controlled_forward(
+            model, input_ids, attention_mask, edges_to_keep, graph, None
+        )
+    current_score = compute_target_kl(full_logits, current_logits, attention_mask)
 
     for round_idx in range(trim_rounds):
         removed_this_round = 0
@@ -973,10 +928,10 @@ def trim_circuit(
 
             with torch.no_grad():
                 candidate_logits = controlled_forward(
-                    model, clean_ids, clean_mask, candidate_edges, graph, corrupt_cache
+                    model, input_ids, attention_mask, candidate_edges, graph, None
                 )
 
-            candidate_score = compute_target_kl(full_logits, candidate_logits, clean_mask)
+            candidate_score = compute_target_kl(full_logits, candidate_logits, attention_mask)
             delta = candidate_score - current_score
 
             if delta < threshold:
@@ -1147,38 +1102,26 @@ def extract_circuit_for_task(
 
     # Verify controlled forward matches native model
     print("\nVerifying controlled forward implementation...")
-    clean_prompts = [ex.prompt for ex in examples]
-    clean_encoded = tokenizer(clean_prompts, return_tensors="pt", padding=True)
-    clean_ids = clean_encoded["input_ids"].to(device)
-    clean_mask = clean_encoded["attention_mask"].to(device)
+    prompts = [ex.prompt for ex in examples]
+    encoded = tokenizer(prompts, return_tensors="pt", padding=True)
+    input_ids = encoded["input_ids"].to(device)
+    attention_mask = encoded["attention_mask"].to(device)
 
-    verify_controlled_forward_matches_native(model, clean_ids, clean_mask, graph, atol=1e-2)
+    verify_controlled_forward_matches_native(model, input_ids, attention_mask, graph, atol=1e-2)
     print("Controlled forward matches native model.\n")
 
-    # Run ACDC
-    print(f"Running ACDC (threshold={threshold})...")
+    # Run ACDC with zero ablation
+    print(f"Running ACDC with zero ablation (threshold={threshold})...")
     edges_to_keep, edge_log = find_circuit(
         model, tokenizer, examples, graph, threshold, "kl", device, verbose=True
     )
 
     print(f"\nACDC complete. Remaining edges: {len(edges_to_keep)} / {len(graph.all_edges)}")
 
-    # Prepare for trimming - need corrupt cache
-    # Re-tokenize for trimming phase
-    corrupt_prompts = [ex.corrupt_prompt for ex in examples]
-    corrupt_encoded = tokenizer(corrupt_prompts, return_tensors="pt", padding=True)
-    corrupt_ids = corrupt_encoded["input_ids"].to(device)
-    corrupt_mask = corrupt_encoded["attention_mask"].to(device)
-
-    # Re-verify alignment (clean_ids/clean_mask already exist from verification above)
-    assert_clean_corrupt_alignment(clean_ids, clean_mask, corrupt_ids, corrupt_mask)
-
+    # Compute full model logits for comparison
     with torch.no_grad():
-        _, corrupt_cache = controlled_forward(
-            model, corrupt_ids, corrupt_mask, graph.all_edges, graph, None, True
-        )
         full_logits = controlled_forward(
-            model, clean_ids, clean_mask, graph.all_edges, graph, corrupt_cache
+            model, input_ids, attention_mask, graph.all_edges, graph, None
         )
 
     # Trimming pass
@@ -1190,9 +1133,8 @@ def extract_circuit_for_task(
             examples=examples,
             graph=graph,
             edges_to_keep=edges_to_keep,
-            corrupt_cache=corrupt_cache,
-            clean_ids=clean_ids,
-            clean_mask=clean_mask,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
             full_logits=full_logits,
             threshold=threshold,
             trim_rounds=trim_rounds,
@@ -1211,24 +1153,24 @@ def extract_circuit_for_task(
 
     with torch.no_grad():
         circuit_logits = controlled_forward(
-            model, clean_ids, clean_mask, edges_to_keep, graph, corrupt_cache
+            model, input_ids, attention_mask, edges_to_keep, graph, None
         )
         ablated_edges = {("emb", "logits")} if ("emb", "logits") in graph.all_edges else set()
         ablated_logits = controlled_forward(
-            model, clean_ids, clean_mask, ablated_edges, graph, corrupt_cache
+            model, input_ids, attention_mask, ablated_edges, graph, None
         )
         inverse_edges = graph.all_edges - edges_to_keep
         inverse_logits = controlled_forward(
-            model, clean_ids, clean_mask, inverse_edges, graph, corrupt_cache
+            model, input_ids, attention_mask, inverse_edges, graph, None
         )
 
-    full_metrics = compute_task_metrics(full_logits, examples, tokenizer, clean_mask)
-    circuit_metrics = compute_task_metrics(circuit_logits, examples, tokenizer, clean_mask)
-    circuit_metrics["kl_from_full"] = compute_target_kl(full_logits, circuit_logits, clean_mask)
+    full_metrics = compute_task_metrics(full_logits, examples, tokenizer, attention_mask)
+    circuit_metrics = compute_task_metrics(circuit_logits, examples, tokenizer, attention_mask)
+    circuit_metrics["kl_from_full"] = compute_target_kl(full_logits, circuit_logits, attention_mask)
 
-    ablated_metrics = compute_task_metrics(ablated_logits, examples, tokenizer, clean_mask)
-    inverse_metrics = compute_task_metrics(inverse_logits, examples, tokenizer, clean_mask)
-    inverse_metrics["kl_from_full"] = compute_target_kl(full_logits, inverse_logits, clean_mask)
+    ablated_metrics = compute_task_metrics(ablated_logits, examples, tokenizer, attention_mask)
+    inverse_metrics = compute_task_metrics(inverse_logits, examples, tokenizer, attention_mask)
+    inverse_metrics["kl_from_full"] = compute_target_kl(full_logits, inverse_logits, attention_mask)
 
     # Write outputs
     print("\nWriting outputs...")
