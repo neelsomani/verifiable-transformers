@@ -592,6 +592,24 @@ python scripts/circuits/extract_circuit.py \
 
 Available tasks: `quote_close`, `bracket_type`, `induction_ABCAB`
 
+#### Threshold sweeps (recommended)
+
+The threshold parameter strongly affects circuit quality. Run a threshold sweep to find the smallest circuit that preserves full-model projected behavior:
+
+```bash
+# Run sweep (tests 6 thresholds: 0.005, 0.01, 0.02, 0.05, 0.1, 0.2)
+bash scripts/circuits/sweep_thresholds.sh quote_close
+
+# Compare results and get recommendation
+python scripts/circuits/compare_sweep_results.py \
+  --sweep_dir artifacts/circuits_sweep \
+  --task quote_close
+```
+
+The comparison tool shows the circuit quality and size for each threshold. Use the recommended circuit for verification.
+
+#### Single extraction output
+
 This generates:
 
 * `artifacts/circuits/<task>/circuit.json` — circuit edges, metrics, and extraction log
@@ -600,14 +618,14 @@ This generates:
 
 Key parameters:
 
-* `--ablation zero`: deleted edges contribute zero.
-* `--threshold`: maximum KL increase allowed when removing an edge.
-* `--n_examples`: number of extraction examples.
-* `--trim_rounds`: additional trimming passes after ACDC. Start with `0`; extra trimming can harm faithfulness.
+* `--ablation zero`: deleted edges contribute zero (default). Use `--ablation mean` for mean ablation (experimental).
+* `--threshold`: maximum KL increase allowed when removing an edge (default: 0.01). Use sweeps to find optimal value.
+* `--n_examples`: number of extraction examples (default: 128).
+* `--trim_rounds`: additional trimming passes after ACDC (default: 0). Start with `0`; extra trimming can harm faithfulness.
 
 #### Task-specific extraction details
 
-##### Quote closing: `quote_close`
+##### Quote closing
 
 Goal: Extract the subcircuit responsible for choosing `'` vs `"` as the next token.
 
@@ -638,11 +656,11 @@ Formal properties to verify after extraction:
 
 3. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{quote}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
-##### Bracket type: `bracket_type`
+##### Bracket type
 
 Goal: Extract the subcircuit responsible for choosing `]` vs `}`.
 
-Candidate set: $T_{\text{bracket}} = \{], \}\}$
+Candidate set: T is the set containing ] and }
 
 Reference behavior: If the prompt opens with `[`, predict `]`. If the prompt opens with `{`, predict `}`.
 
@@ -671,7 +689,7 @@ Formal properties to verify after extraction:
 
 4. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{bracket}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
-##### Induction: `induction_ABCAB`
+##### Induction
 
 Goal: Extract the subcircuit responsible for ABCAB-style pattern completion.
 
