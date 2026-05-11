@@ -34,15 +34,20 @@ def generate_bounded_sequences(
 def generate_quote_close_sequences(
     max_length: int,
     special_tokens: dict,
+    max_sequences: int = 10000,
 ) -> List[Tuple[List[int], str]]:
     """Generate quote closing sequences.
 
     Pattern: <content> <quote> <more_content>
     where the quote is either ' or "
 
+    For exhaustive formal verification, use a small content vocabulary (e.g., 2 tokens).
+    With content_vocab size m, approximate count at length L is: 2 * (L-2) * m^(L-1).
+
     Args:
         max_length: Maximum sequence length
         special_tokens: Dict with 'single_quote' and 'double_quote' token IDs
+        max_sequences: Safety cap to prevent accidental explosion
 
     Returns:
         List of (sequence, correct_closing_quote) pairs
@@ -73,9 +78,14 @@ def generate_quote_close_sequences(
                     seq_double = list(content_before) + [double_id] + list(content_after)
                     sequences.append((seq_double, "double"))
 
-                    # Limit to avoid exponential blowup
-                    if len(sequences) >= 1000:
-                        return sequences
+                    # Safety cap to prevent accidental explosion
+                    if len(sequences) >= max_sequences:
+                        raise RuntimeError(
+                            f"Domain size exceeded max_sequences={max_sequences}. "
+                            f"Generated {len(sequences)} sequences at length {seq_len}. "
+                            "Use a smaller content vocabulary or lower max_length for exhaustive verification. "
+                            f"Example: content_tokens=[10, 11] gives ~136 sequences at max_length=5."
+                        )
 
     return sequences
 
@@ -83,15 +93,20 @@ def generate_quote_close_sequences(
 def generate_bracket_type_sequences(
     max_length: int,
     special_tokens: dict,
+    max_sequences: int = 10000,
 ) -> List[Tuple[List[int], str]]:
     """Generate bracket type sequences.
 
     Pattern: <content> <bracket> <more_content>
     where bracket is [ or {
 
+    For exhaustive formal verification, use a small content vocabulary (e.g., 2 tokens).
+    With content_vocab size m, approximate count at length L is: 2 * (L-2) * m^(L-1).
+
     Args:
         max_length: Maximum sequence length
         special_tokens: Dict with 'left_bracket' and 'left_brace' token IDs
+        max_sequences: Safety cap to prevent accidental explosion
 
     Returns:
         List of (sequence, correct_closing_bracket) pairs
@@ -118,8 +133,14 @@ def generate_bracket_type_sequences(
                     seq_brace = list(content_before) + [brace_id] + list(content_after)
                     sequences.append((seq_brace, "brace"))
 
-                    if len(sequences) >= 1000:
-                        return sequences
+                    # Safety cap to prevent accidental explosion
+                    if len(sequences) >= max_sequences:
+                        raise RuntimeError(
+                            f"Domain size exceeded max_sequences={max_sequences}. "
+                            f"Generated {len(sequences)} sequences at length {seq_len}. "
+                            "Use a smaller content vocabulary or lower max_length for exhaustive verification. "
+                            f"Example: content_tokens=[10, 11] gives ~136 sequences at max_length=5."
+                        )
 
     return sequences
 

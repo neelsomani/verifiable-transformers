@@ -116,7 +116,7 @@ def verify_quote_close(
     special_tokens = {
         "single_quote": single_id,
         "double_quote": double_id,
-        "content_tokens": list(range(10, 20)),
+        "content_tokens": list(range(10, 12)),  # Small vocab for exhaustive verification
     }
 
     try:
@@ -341,7 +341,7 @@ def verify_bracket_type(
         "left_brace": left_brace,
         "right_bracket": right_bracket,
         "right_brace": right_brace,
-        "content_tokens": list(range(10, 20)),
+        "content_tokens": list(range(10, 12)),  # Small vocab for exhaustive verification
     }
 
     try:

@@ -170,68 +170,78 @@ def verify_content_invariance(
         if len(sequences) < 2:
             continue
 
-        # Compare first two sequences with same feature
-        seq1, label1 = sequences[0]
-        seq2, label2 = sequences[1]
+        # Check all pairs within this feature group
+        for a in range(len(sequences)):
+            for b in range(a + 1, len(sequences)):
+                seq1, _ = sequences[a]
+                seq2, _ = sequences[b]
 
-        if len(seq1) != len(seq2):
-            continue  # Skip different lengths for now
+                if len(seq1) != len(seq2):
+                    continue  # Skip different lengths
 
-        solver = Solver()
-        solver.set("timeout", timeout_ms)
+                solver = Solver()
+                solver.set("timeout", timeout_ms)
 
-        try:
-            # Encode both sequences
-            logits1 = encode_circuit_forward(
-                seq1, circuit_edges, model_weights, candidate_tokens, solver, "seq1"
-            )
-            logits2 = encode_circuit_forward(
-                seq2, circuit_edges, model_weights, candidate_tokens, solver, "seq2"
-            )
+                try:
+                    # Encode both sequences
+                    logits1 = encode_circuit_forward(
+                        seq1, circuit_edges, model_weights, candidate_tokens, solver, f"feat{feature}_a{a}"
+                    )
+                    logits2 = encode_circuit_forward(
+                        seq2, circuit_edges, model_weights, candidate_tokens, solver, f"feat{feature}_b{b}"
+                    )
 
-            # Add constraint: decisions (argmax) differ
-            # Check if there exist tok1, tok2 where ordering differs
-            ordering_violations = []
-            for tok1 in candidate_tokens:
-                if tok1 not in logits1 or tok1 not in logits2:
+                    # Add constraint: decisions (argmax) differ
+                    # Check if there exist tok1, tok2 where ordering differs
+                    ordering_violations = []
+                    for tok1 in candidate_tokens:
+                        if tok1 not in logits1 or tok1 not in logits2:
+                            continue
+                        for tok2 in candidate_tokens:
+                            if tok2 != tok1 and tok2 in logits1 and tok2 in logits2:
+                                # Ordering differs: tok1 > tok2 in seq1 but tok1 <= tok2 in seq2
+                                ordering_violations.append(
+                                    And(logits1[tok1] > logits1[tok2], logits2[tok1] <= logits2[tok2])
+                                )
+                                # Or: tok1 <= tok2 in seq1 but tok1 > tok2 in seq2
+                                ordering_violations.append(
+                                    And(logits1[tok1] <= logits1[tok2], logits2[tok1] > logits2[tok2])
+                                )
+
+                    if not ordering_violations:
+                        verified_pairs += 1
+                        continue
+
+                    solver.add(Or(ordering_violations))
+
+                    result = solver.check()
+
+                    if result == unsat:
+                        # Property holds: decisions are identical
+                        verified_pairs += 1
+                    elif result == sat:
+                        counterexamples.append({
+                            "feature": str(feature),
+                            "seq1": seq1,
+                            "seq2": seq2,
+                        })
+                        if len(counterexamples) >= 10:
+                            break
+                    else:
+                        timeout_count += 1
+
+                except Exception as e:
+                    print(f"  Error verifying feature {feature}, pair ({a}, {b}): {e}")
+                    error_count += 1
                     continue
-                for tok2 in candidate_tokens:
-                    if tok2 != tok1 and tok2 in logits1 and tok2 in logits2:
-                        # Ordering differs: tok1 > tok2 in seq1 but tok1 <= tok2 in seq2
-                        ordering_violations.append(
-                            And(logits1[tok1] > logits1[tok2], logits2[tok1] <= logits2[tok2])
-                        )
-                        # Or: tok1 <= tok2 in seq1 but tok1 > tok2 in seq2
-                        ordering_violations.append(
-                            And(logits1[tok1] <= logits1[tok2], logits2[tok1] > logits2[tok2])
-                        )
 
-            if not ordering_violations:
-                verified_pairs += 1
-                continue
+            # Break outer loop if we have enough counterexamples
+            if len(counterexamples) >= 10:
+                break
 
-            solver.add(Or(ordering_violations))
-
-            result = solver.check()
-
-            if result == unsat:
-                # Property holds: decisions are identical
-                verified_pairs += 1
-            elif result == sat:
-                counterexamples.append({
-                    "feature": str(feature),
-                    "seq1": seq1,
-                    "seq2": seq2,
-                })
-                if len(counterexamples) >= 10:
-                    break
-            else:
-                timeout_count += 1
-
-        except Exception as e:
-            print(f"  Error verifying feature {feature}: {e}")
-            error_count += 1
-            continue
+        # Break feature loop if we have enough counterexamples
+        if len(counterexamples) >= 10:
+            break
 
     if len(counterexamples) > 0:
         status = "FAILED"
@@ -275,6 +285,7 @@ def verify_edge_necessity(
 
     unnecessary_edges = []
     necessary_edges = []
+    unresolved_edges = []
     timeout_count = 0
     error_count = 0
 
@@ -291,8 +302,9 @@ def verify_edge_necessity(
 
         # Try to find input where removing edge changes output
         found_witness = False
+        had_timeout_or_error = False
 
-        for input_tokens in test_inputs[:20]:  # Test on first 20 inputs per edge
+        for input_tokens in test_inputs:
             solver = Solver()
             solver.set("timeout", timeout_ms)
 
@@ -353,21 +365,31 @@ def verify_edge_necessity(
                     continue
                 else:
                     timeout_count += 1
+                    had_timeout_or_error = True
 
             except Exception as e:
                 print(f"  Error testing edge {edge}: {e}")
                 error_count += 1
+                had_timeout_or_error = True
                 break
 
-        if not found_witness:
+        # Categorize edge based on results
+        if found_witness:
+            pass  # Already added to necessary_edges
+        elif had_timeout_or_error:
+            unresolved_edges.append({
+                "edge": f"{edge_from} -> {edge_to}",
+                "tested_inputs": len(test_inputs),
+            })
+        else:
             unnecessary_edges.append({
                 "edge": f"{edge_from} -> {edge_to}",
-                "tested_inputs": min(20, len(test_inputs)),
+                "tested_inputs": len(test_inputs),
             })
 
     if len(unnecessary_edges) > 0:
         status = "FAILED"
-    elif timeout_count > 0 or error_count > 0:
+    elif len(unresolved_edges) > 0 or timeout_count > 0 or error_count > 0:
         status = "UNKNOWN"
     else:
         status = "VERIFIED"
@@ -378,9 +400,11 @@ def verify_edge_necessity(
         "total_edges": len(edges),
         "necessary_edges": len(necessary_edges),
         "unnecessary_edges_found": len(unnecessary_edges),
+        "unresolved_edges_found": len(unresolved_edges),
         "timeout_count": timeout_count,
         "error_count": error_count,
-        "suspicious_edges": unnecessary_edges[:10],
+        "unnecessary_edges": unnecessary_edges[:10],
+        "unresolved_edges": unresolved_edges[:10],
     }
 
 
