@@ -645,7 +645,43 @@ Formal properties to verify after extraction:
 
 #### Results (Step 2c model @ checkpoint-240000)
 
-Results to be filled in after extraction with zero ablation and candidate KL metric.
+Circuits extracted using zero ablation, candidate_kl metric, and min_agreement=1.0 guard.
+
+##### Quote closing
+
+Threshold sweep results:
+
+| Threshold | Edges | Full Acc | Circuit Acc | Agreement | Cand KL | Full Margin | Circ Margin |
+|----------:|------:|---------:|------------:|----------:|--------:|------------:|------------:|
+| 0.005 | 78 | 1.000 | 1.000 | 1.000 | 0.054 | 6.225 | 3.114 |
+| 0.010 | 85 | 1.000 | 1.000 | 1.000 | 0.057 | 6.225 | 2.960 |
+| 0.020 | 56 | 1.000 | 1.000 | 1.000 | 0.062 | 6.225 | 2.912 |
+| 0.050 | 135 | 1.000 | 1.000 | 1.000 | 0.295 | 6.225 | 1.023 |
+| 0.100 | 116 | 1.000 | 1.000 | 1.000 | 0.392 | 6.225 | 0.698 |
+| 0.200 | 135 | 1.000 | 1.000 | 1.000 | 0.380 | 6.225 | 0.711 |
+
+**Selected circuit: threshold=0.020**
+- Edges: 56 / 325 (17.2%)
+- Projected agreement: 1.000
+- Candidate KL: 0.062
+
+##### Bracket type
+
+Threshold sweep results:
+
+| Threshold | Edges | Full Acc | Circuit Acc | Agreement | Cand KL | Full Margin | Circ Margin |
+|----------:|------:|---------:|------------:|----------:|--------:|------------:|------------:|
+| 0.005 | 115 | 1.000 | 1.000 | 1.000 | 0.025 | 4.931 | 3.736 |
+| 0.010 | 76 | 1.000 | 1.000 | 1.000 | 0.084 | 4.931 | 2.287 |
+| 0.020 | 69 | 1.000 | 1.000 | 1.000 | 0.179 | 4.931 | 1.571 |
+| 0.050 | 114 | 1.000 | 1.000 | 1.000 | 0.201 | 4.931 | 1.470 |
+| 0.100 | 51 | 1.000 | 0.500 | 0.500 | 0.811 | 4.931 | 1.249 |
+| 0.200 | 51 | 1.000 | 1.000 | 1.000 | 0.180 | 4.931 | 1.671 |
+
+**Selected circuit: threshold=0.200**
+- Edges: 51 / 325 (15.7%)
+- Projected agreement: 1.000
+- Candidate KL: 0.180
 
 ### Step 3c: Formal verification
 
