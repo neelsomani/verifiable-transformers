@@ -559,8 +559,8 @@ def controlled_forward(
         attention_mask: [B, T], 1 for real tokens, 0 for padding
         edges_to_keep: Set of (parent, child) edges to use clean activations
         graph: Circuit graph
-        ablation_cache: Cache for ablated edges (corrupt or mean activations)
-        ablation_mode: "zero", "mean", or "corrupt"
+        ablation_cache: Unused (kept for compatibility)
+        ablation_mode: "zero" (only mode supported)
         return_node_outputs: If True, return node activations
 
     Returns:
@@ -598,12 +598,7 @@ def controlled_forward(
         for parent in attn_parents:
             if (parent, attn_node) in edges_to_keep:
                 resid_for_attn = resid_for_attn + node_outputs[parent]
-            elif ablation_mode == "mean" and ablation_cache is not None:
-                # Expand mean to match batch and sequence dimensions
-                resid_for_attn = resid_for_attn + ablation_cache[parent].expand_as(emb)
-            elif ablation_mode == "corrupt" and ablation_cache is not None:
-                resid_for_attn = resid_for_attn + ablation_cache[parent]
-            # else: zero ablation (no contribution)
+            # else: zero ablation (deleted edges contribute 0)
 
         # Compute attention output
         x_norm = block.ln_1(resid_for_attn)
@@ -623,10 +618,7 @@ def controlled_forward(
         for parent in mlp_parents:
             if (parent, mlp_node) in edges_to_keep:
                 resid_for_mlp = resid_for_mlp + node_outputs[parent]
-            elif ablation_mode == "mean" and ablation_cache is not None:
-                resid_for_mlp = resid_for_mlp + ablation_cache[parent].expand_as(emb)
-            elif ablation_mode == "corrupt" and ablation_cache is not None:
-                resid_for_mlp = resid_for_mlp + ablation_cache[parent]
+            # else: zero ablation (deleted edges contribute 0)
 
         # Compute MLP output
         x_norm = block.ln_2(resid_for_mlp)
@@ -639,10 +631,7 @@ def controlled_forward(
     for parent in logit_parents:
         if (parent, "logits") in edges_to_keep:
             final_resid = final_resid + node_outputs[parent]
-        elif ablation_mode == "mean" and ablation_cache is not None:
-            final_resid = final_resid + ablation_cache[parent].expand_as(emb)
-        elif ablation_mode == "corrupt" and ablation_cache is not None:
-            final_resid = final_resid + ablation_cache[parent]
+        # else: zero ablation (deleted edges contribute 0)
 
     # Final layer norm and logits
     hidden = model.transformer.ln_f(final_resid)
@@ -760,6 +749,115 @@ def compute_task_metrics(
     return {
         "binary_accuracy": n_correct / n_used,
         "mean_logit_diff": sum(logit_diffs) / n_used,
+        "n_examples": n_used,
+    }
+
+
+def compute_projected_agreement(
+    full_logits: torch.Tensor,
+    candidate_logits: torch.Tensor,
+    attention_mask: torch.Tensor,
+    candidate_token_ids: List[int],
+) -> float:
+    """Compute projected-decision agreement: Pr[d_T(C_E,x) = d_T(M,x)].
+
+    Args:
+        full_logits: [B, T, vocab] - reference distribution (full model)
+        candidate_logits: [B, T, vocab] - candidate distribution (ablated model)
+        attention_mask: [B, T]
+        candidate_token_ids: List of candidate token IDs
+
+    Returns:
+        Fraction of examples where argmax over candidate tokens agrees
+    """
+    # Select logits at target position
+    p_logits_full = select_last_real_logits(full_logits, attention_mask)  # [B, vocab]
+    q_logits_full = select_last_real_logits(candidate_logits, attention_mask)  # [B, vocab]
+
+    # Extract candidate token logits
+    candidate_ids = torch.tensor(candidate_token_ids, device=p_logits_full.device)
+    p_logits = p_logits_full[:, candidate_ids]  # [B, |T|]
+    q_logits = q_logits_full[:, candidate_ids]  # [B, |T|]
+
+    # Compute argmax over candidate tokens
+    p_argmax = p_logits.argmax(dim=-1)  # [B]
+    q_argmax = q_logits.argmax(dim=-1)  # [B]
+
+    # Compute agreement
+    agreement = (p_argmax == q_argmax).float().mean().item()
+    return agreement
+
+
+def compute_candidate_accuracy(
+    logits: torch.Tensor,
+    examples: List[BehaviorExample],
+    tokenizer: GPT2Tokenizer,
+    attention_mask: torch.Tensor,
+    candidate_token_ids: List[int],
+) -> Dict[str, float]:
+    """Compute accuracy over candidate token set.
+
+    For binary tasks (quote_close, bracket_type), this is equivalent to binary_accuracy.
+    For multi-candidate tasks (induction), this checks if correct token beats ALL other candidates.
+
+    Args:
+        logits: [B, T, vocab]
+        examples: List of examples
+        tokenizer: Tokenizer
+        attention_mask: [B, T]
+        candidate_token_ids: List of candidate token IDs
+
+    Returns:
+        Dict with candidate_accuracy, mean_margin
+    """
+    n_correct = 0
+    margins = []
+
+    # Get logits at last real position
+    last_logits = select_last_real_logits(logits, attention_mask)  # [B, vocab]
+
+    # Extract candidate token logits
+    candidate_ids_tensor = torch.tensor(candidate_token_ids, device=last_logits.device)
+    candidate_logits = last_logits[:, candidate_ids_tensor]  # [B, |T|]
+
+    for i, ex in enumerate(examples):
+        correct_id = get_single_token_id(tokenizer, ex.correct_token)
+
+        if correct_id is None or correct_id not in candidate_token_ids:
+            continue
+
+        # Find index of correct token in candidate list
+        correct_idx = candidate_token_ids.index(correct_id)
+
+        # Get logits for this example
+        ex_candidate_logits = candidate_logits[i]  # [|T|]
+        correct_logit = ex_candidate_logits[correct_idx].item()
+
+        # Check if correct token has highest logit among candidates
+        max_logit = ex_candidate_logits.max().item()
+        if correct_logit >= max_logit - 1e-6:  # Allow small numerical error
+            n_correct += 1
+
+        # Compute margin: correct - max(other candidates)
+        other_logits = torch.cat([
+            ex_candidate_logits[:correct_idx],
+            ex_candidate_logits[correct_idx + 1:]
+        ])
+        if len(other_logits) > 0:
+            margin = correct_logit - other_logits.max().item()
+            margins.append(margin)
+
+    n_used = len(margins)
+    if n_used == 0:
+        return {
+            "candidate_accuracy": 0.0,
+            "mean_margin": 0.0,
+            "n_examples": 0,
+        }
+
+    return {
+        "candidate_accuracy": n_correct / n_used,
+        "mean_margin": sum(margins) / n_used,
         "n_examples": n_used,
     }
 
@@ -958,6 +1056,7 @@ def find_circuit(
     threshold: float,
     metric: str,
     task: str,
+    min_agreement: float,
     ablation_mode: str,
     ablation_cache: Optional[Dict[str, torch.Tensor]],
     device: str,
@@ -973,8 +1072,9 @@ def find_circuit(
         threshold: Threshold for edge removal
         metric: Metric to use ("kl", "candidate_kl", or "logit_diff")
         task: Task name (for candidate token extraction)
-        ablation_mode: "zero", "mean", or "corrupt"
-        ablation_cache: Cache for mean or corrupt activations
+        min_agreement: Minimum projected-agreement required (default: 1.0)
+        ablation_mode: "zero" or "mean"
+        ablation_cache: Cache for mean activations
         device: Device
         verbose: Print progress
 
@@ -1044,6 +1144,14 @@ def find_circuit(
                     return_node_outputs=False,
                 )
 
+            # Compute projected-agreement guard
+            if candidate_token_ids is not None:
+                agreement = compute_projected_agreement(
+                    full_logits, candidate_logits, attention_mask, candidate_token_ids
+                )
+            else:
+                agreement = 1.0  # No guard for non-candidate metrics
+
             # Compute metric change (KL from full model)
             if metric == "kl":
                 candidate_score = compute_target_kl(full_logits, candidate_logits, attention_mask)
@@ -1055,21 +1163,26 @@ def find_circuit(
 
             delta = candidate_score - current_score
 
-            if delta < threshold:
+            # Apply projected-agreement guard and threshold
+            if agreement >= min_agreement and delta < threshold:
                 # Remove edge
                 edges_to_keep.remove(edge)
                 current_score = candidate_score
                 decision = "removed"
                 if verbose:
-                    print(f"  [-] {edge[0]:12s} -> {edge[1]:12s} (delta={delta:.6f})")
+                    print(f"  [-] {edge[0]:12s} -> {edge[1]:12s} (delta={delta:.6f}, agreement={agreement:.3f})")
             else:
                 decision = "kept"
+                reason = ""
+                if agreement < min_agreement:
+                    reason = f" [agreement={agreement:.3f} < {min_agreement}]"
                 if verbose:
-                    print(f"  [+] {edge[0]:12s} -> {edge[1]:12s} (delta={delta:.6f})")
+                    print(f"  [+] {edge[0]:12s} -> {edge[1]:12s} (delta={delta:.6f}, agreement={agreement:.3f}){reason}")
 
             edge_log.append({
                 "edge": list(edge),
                 "delta": delta,
+                "agreement": agreement,
                 "decision": decision,
             })
 
@@ -1086,6 +1199,9 @@ def trim_circuit(
     attention_mask: torch.Tensor,
     full_logits: torch.Tensor,
     threshold: float,
+    metric: str,
+    task: str,
+    min_agreement: float,
     ablation_mode: str,
     ablation_cache: Optional[Dict[str, torch.Tensor]],
     trim_rounds: int,
@@ -1100,12 +1216,21 @@ def trim_circuit(
     Returns:
         Trimmed edge set
     """
+    # Get candidate token IDs if using candidate_kl metric
+    candidate_token_ids = None
+    if metric == "candidate_kl":
+        candidate_token_ids = get_candidate_token_ids(task, tokenizer)
+
     with torch.no_grad():
         current_logits = controlled_forward(
             model, input_ids, attention_mask, edges_to_keep, graph,
             ablation_cache, ablation_mode
         )
-    current_score = compute_target_kl(full_logits, current_logits, attention_mask)
+
+    if metric == "candidate_kl":
+        current_score = compute_candidate_kl(full_logits, current_logits, attention_mask, candidate_token_ids)
+    else:
+        current_score = compute_target_kl(full_logits, current_logits, attention_mask)
 
     for round_idx in range(trim_rounds):
         removed_this_round = 0
@@ -1119,15 +1244,28 @@ def trim_circuit(
                     ablation_cache, ablation_mode
                 )
 
-            candidate_score = compute_target_kl(full_logits, candidate_logits, attention_mask)
+            # Check projected-agreement guard
+            if candidate_token_ids is not None:
+                agreement = compute_projected_agreement(
+                    full_logits, candidate_logits, attention_mask, candidate_token_ids
+                )
+            else:
+                agreement = 1.0
+
+            # Compute score
+            if metric == "candidate_kl":
+                candidate_score = compute_candidate_kl(full_logits, candidate_logits, attention_mask, candidate_token_ids)
+            else:
+                candidate_score = compute_target_kl(full_logits, candidate_logits, attention_mask)
+
             delta = candidate_score - current_score
 
-            if delta < threshold:
+            if agreement >= min_agreement and delta < threshold:
                 edges_to_keep.remove(edge)
                 current_score = candidate_score
                 removed_this_round += 1
                 if verbose:
-                    print(f"  Trim round {round_idx}: removed {edge}")
+                    print(f"  Trim round {round_idx}: removed {edge} (delta={delta:.6f}, agreement={agreement:.3f})")
 
         if verbose:
             print(f"Trim round {round_idx}: removed {removed_this_round} edges")
@@ -1183,6 +1321,7 @@ def write_circuit_outputs(
     inverse_metrics: Dict,
     threshold: float,
     metric: str,
+    min_agreement: float,
     ablation_mode: str,
     mean_cache_path: Optional[str],
     trim_rounds: int,
@@ -1197,6 +1336,7 @@ def write_circuit_outputs(
         "task": task,
         "metric": metric,
         "threshold": threshold,
+        "min_agreement": min_agreement,
         "ablation": ablation_mode,
         "trim_rounds": trim_rounds,
         "n_examples": n_examples,
@@ -1238,8 +1378,10 @@ def write_circuit_outputs(
         f.write("=" * 80 + "\n\n")
         f.write(f"Task: {task}\n")
         f.write(f"Model: {model_path}\n")
-        f.write(f"Ablation: {ablation_mode}\n")
+        f.write(f"Metric: {metric}\n")
         f.write(f"Threshold: {threshold}\n")
+        f.write(f"Min agreement: {min_agreement}\n")
+        f.write(f"Ablation: {ablation_mode}\n")
         f.write(f"Trim rounds: {trim_rounds}\n\n")
 
         f.write("-" * 80 + "\n")
@@ -1269,6 +1411,7 @@ def extract_circuit_for_task(
     n_examples: int,
     threshold: float,
     metric: str,
+    min_agreement: float,
     ablation_mode: str,
     trim_rounds: int,
     output_dir: str,
@@ -1298,41 +1441,9 @@ def extract_circuit_for_task(
     graph = build_circuit_graph(n_layers)
     print(f"Built graph with {len(graph.nodes)} nodes and {len(graph.all_edges)} edges")
 
-    # Compute or load ablation cache if needed
+    # Zero ablation only (no cache needed)
     ablation_cache = None
     mean_cache_path = None
-
-    if ablation_mode == "mean":
-        # Use checkpoint-specific cache location
-        checkpoint_name = os.path.basename(os.path.normpath(model_path))
-        cache_dir = os.path.join(os.path.dirname(model_path), "mean_cache", checkpoint_name)
-        os.makedirs(cache_dir, exist_ok=True)
-        mean_cache_path = os.path.join(cache_dir, "mean_cache.pt")
-
-        # Check if cache already exists
-        if os.path.exists(mean_cache_path):
-            print(f"\nLoading existing mean cache from {mean_cache_path}...")
-            ablation_cache = torch.load(mean_cache_path, map_location=device)
-            print(f"Loaded mean cache for {len(ablation_cache)} nodes\n")
-        else:
-            print(f"\nComputing mean cache for {ablation_mode} ablation...")
-            # Use OpenWebText samples for background distribution
-            from datasets import load_dataset
-            dataset = load_dataset("openwebtext", split="train", streaming=True)
-            background_prompts = []
-            for i, sample in enumerate(dataset):
-                if i >= 1000:  # Use 1000 samples for mean
-                    break
-                background_prompts.append(sample["text"][:512])  # Limit length
-
-            ablation_cache = compute_mean_cache(
-                model, tokenizer, background_prompts, graph, device,
-                max_length=512, batch_size=8
-            )
-
-            # Save mean cache for reuse
-            torch.save(ablation_cache, mean_cache_path)
-            print(f"Saved mean cache to {mean_cache_path} (will be reused for future extractions)\n")
 
     # Verify controlled forward matches native model
     print("\nVerifying controlled forward implementation...")
@@ -1345,10 +1456,10 @@ def extract_circuit_for_task(
     print("Controlled forward matches native model.\n")
 
     # Run ACDC
-    print(f"Running ACDC with {ablation_mode} ablation (threshold={threshold}, metric={metric})...")
+    print(f"Running ACDC with {ablation_mode} ablation (threshold={threshold}, metric={metric}, min_agreement={min_agreement})...")
     edges_to_keep, edge_log = find_circuit(
         model, tokenizer, examples, graph, threshold, metric, task,
-        ablation_mode, ablation_cache, device, verbose=True
+        min_agreement, ablation_mode, ablation_cache, device, verbose=True
     )
 
     print(f"\nACDC complete. Remaining edges: {len(edges_to_keep)} / {len(graph.all_edges)}")
@@ -1373,6 +1484,9 @@ def extract_circuit_for_task(
             attention_mask=attention_mask,
             full_logits=full_logits,
             threshold=threshold,
+            metric=metric,
+            task=task,
+            min_agreement=min_agreement,
             ablation_mode=ablation_mode,
             ablation_cache=ablation_cache,
             trim_rounds=trim_rounds,
@@ -1388,6 +1502,9 @@ def extract_circuit_for_task(
 
     # Compute final metrics
     print("\nComputing final metrics...")
+
+    # Get candidate token IDs for final metrics
+    candidate_token_ids = get_candidate_token_ids(task, tokenizer)
 
     with torch.no_grad():
         circuit_logits = controlled_forward(
@@ -1405,26 +1522,61 @@ def extract_circuit_for_task(
             ablation_cache, ablation_mode
         )
 
+    # Compute metrics
     full_metrics = compute_task_metrics(full_logits, examples, tokenizer, attention_mask)
+    full_metrics.update(compute_candidate_accuracy(full_logits, examples, tokenizer, attention_mask, candidate_token_ids))
+
     circuit_metrics = compute_task_metrics(circuit_logits, examples, tokenizer, attention_mask)
+    circuit_metrics.update(compute_candidate_accuracy(circuit_logits, examples, tokenizer, attention_mask, candidate_token_ids))
     circuit_metrics["kl_from_full"] = compute_target_kl(full_logits, circuit_logits, attention_mask)
+    circuit_metrics["candidate_kl_from_full"] = compute_candidate_kl(full_logits, circuit_logits, attention_mask, candidate_token_ids)
+    circuit_metrics["projected_agreement_with_full"] = compute_projected_agreement(full_logits, circuit_logits, attention_mask, candidate_token_ids)
 
     ablated_metrics = compute_task_metrics(ablated_logits, examples, tokenizer, attention_mask)
+    ablated_metrics.update(
+        compute_candidate_accuracy(
+            ablated_logits, examples, tokenizer, attention_mask, candidate_token_ids
+        )
+    )
+    ablated_metrics["kl_from_full"] = compute_target_kl(
+        full_logits, ablated_logits, attention_mask
+    )
+    ablated_metrics["candidate_kl_from_full"] = compute_candidate_kl(
+        full_logits, ablated_logits, attention_mask, candidate_token_ids
+    )
+    ablated_metrics["projected_agreement_with_full"] = compute_projected_agreement(
+        full_logits, ablated_logits, attention_mask, candidate_token_ids
+    )
+
     inverse_metrics = compute_task_metrics(inverse_logits, examples, tokenizer, attention_mask)
-    inverse_metrics["kl_from_full"] = compute_target_kl(full_logits, inverse_logits, attention_mask)
+    inverse_metrics.update(
+        compute_candidate_accuracy(
+            inverse_logits, examples, tokenizer, attention_mask, candidate_token_ids
+        )
+    )
+    inverse_metrics["kl_from_full"] = compute_target_kl(
+        full_logits, inverse_logits, attention_mask
+    )
+    inverse_metrics["candidate_kl_from_full"] = compute_candidate_kl(
+        full_logits, inverse_logits, attention_mask, candidate_token_ids
+    )
+    inverse_metrics["projected_agreement_with_full"] = compute_projected_agreement(
+        full_logits, inverse_logits, attention_mask, candidate_token_ids
+    )
 
     # Write outputs
     print("\nWriting outputs...")
     write_circuit_outputs(
         output_dir, model_path, task, edges_to_keep, edge_log, graph,
         full_metrics, circuit_metrics, ablated_metrics, inverse_metrics,
-        threshold, metric, ablation_mode, mean_cache_path, trim_rounds, n_examples
+        threshold, metric, min_agreement, ablation_mode, mean_cache_path, trim_rounds, n_examples
     )
 
     print(f"\nCircuit extraction complete!")
-    print(f"Full model accuracy: {full_metrics['binary_accuracy']:.3f}")
-    print(f"Circuit accuracy: {circuit_metrics['binary_accuracy']:.3f}")
-    print(f"Circuit KL from full: {circuit_metrics['kl_from_full']:.6f}")
+    print(f"Full model candidate accuracy: {full_metrics['candidate_accuracy']:.3f}")
+    print(f"Circuit candidate accuracy: {circuit_metrics['candidate_accuracy']:.3f}")
+    print(f"Circuit projected agreement with full: {circuit_metrics['projected_agreement_with_full']:.3f}")
+    print(f"Circuit candidate KL from full: {circuit_metrics['candidate_kl_from_full']:.6f}")
 
 
 def main():
@@ -1448,8 +1600,10 @@ def main():
     parser.add_argument("--metric", type=str, default="candidate_kl",
                         choices=["kl", "candidate_kl"],
                         help="Metric for edge removal (default: candidate_kl)")
+    parser.add_argument("--min_agreement", type=float, default=1.0,
+                        help="Minimum projected-agreement required to remove edge (default: 1.0)")
     parser.add_argument("--ablation", type=str, default="zero",
-                        choices=["zero", "mean"],
+                        choices=["zero"],
                         help="Ablation mode for removed edges (default: zero)")
     parser.add_argument("--trim_rounds", type=int, default=0,
                         help="Number of trimming rounds after ACDC")
@@ -1468,7 +1622,7 @@ def main():
         task_output_dir = os.path.join(args.output_dir, task)
         extract_circuit_for_task(
             args.model_path, task, args.n_examples, args.threshold,
-            args.metric, args.ablation, args.trim_rounds, task_output_dir, device
+            args.metric, args.min_agreement, args.ablation, args.trim_rounds, task_output_dir, device
         )
 
     else:

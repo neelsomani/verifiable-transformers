@@ -87,7 +87,7 @@ If your environment already provides PyTorch (for example, RunPod images), insta
 
 For a bounded domain $\Sigma^{\leq n}$, we verify the following properties:
 
-| Property | Informal Definition | Formal Definition |
+| Property | Informal Description | Formal Definition |
 |----------|---------------------|-------------------|
 | **Functional Equivalence** | The model is equivalent to a specific symbolic program on all inputs of length ≤ n. For a code generation model trained on simple transformations (e.g. string manipulation), we can prove that for all inputs ≤ n, the model is equivalent to a reference implementation. If the property fails, the solver returns a concrete counterexample. | $\forall x \in \Sigma^{\leq n}, \quad y_M(x) = P(x)$ |
 | **Circuit Minimality** | An algorithmic circuit contains the minimal number of edges. We can prove that removing an attention pathway does not change the output for any input ≤ n. This provides a principled way to eliminate potentially harmful circuits. | $\forall e \in E(C), \quad \exists x \in \Sigma^{\leq n} \text{ such that } C(x) \neq (C \setminus e)(x)$ |
@@ -618,8 +618,9 @@ This generates:
 
 Key parameters:
 
-* `--ablation zero`: deleted edges contribute zero (default). Use `--ablation mean` for mean ablation (experimental).
 * `--threshold`: maximum KL increase allowed when removing an edge (default: 0.01). Use sweeps to find optimal value.
+* `--metric`: metric for edge removal (default: `candidate_kl`). Use `candidate_kl` for projection-based extraction.
+* `--min_agreement`: minimum projected-agreement required to remove edge (default: 1.0). Enforces $d_T(C_E,x) = d_T(M,x)$ guard.
 * `--n_examples`: number of extraction examples (default: 128).
 * `--trim_rounds`: additional trimming passes after ACDC (default: 0). Start with `0`; extra trimming can harm faithfulness.
 
@@ -629,7 +630,7 @@ Key parameters:
 
 Goal: Extract the subcircuit responsible for choosing `'` vs `"` as the next token.
 
-Candidate set: $T_{\text{quote}} = \{', "\}$
+Candidate set: T = {', "}
 
 Reference behavior: If the prompt contains an unmatched single quote, predict `'`. If the prompt contains an unmatched double quote, predict `"`.
 
