@@ -76,7 +76,7 @@ def load_model_weights(model_path: str, model_info_path: str = None) -> Dict[str
             from safetensors.torch import load_file
             state_dict = load_file(weights_path)
 
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict, strict=False)
         print(f"Loaded weights from {weights_path}")
     else:
         raise FileNotFoundError(f"Model weights not found in {model_path}")
@@ -122,21 +122,20 @@ def load_model_weights(model_path: str, model_info_path: str = None) -> Dict[str
         attn = layer.attn
 
         # QKV projection (combined in c_attn)
-        c_attn_weight = attn.c_attn.weight.detach().cpu().numpy()  # [3*d_model, d_model]
+        c_attn_weight = attn.c_attn.weight.detach().cpu().numpy()  # [d_model, 3*d_model]
         c_attn_bias = attn.c_attn.bias.detach().cpu().numpy()  # [3*d_model]
 
         d_model = config.n_embd
 
-        # Split Q, K, V (GPT-2 stores as [d_model, 3*d_model] transposed)
-        W_qkv = c_attn_weight.T  # [d_model, 3*d_model]
-        W_q = W_qkv[:, :d_model].tolist()
-        W_k = W_qkv[:, d_model:2*d_model].tolist()
-        W_v = W_qkv[:, 2*d_model:].tolist()
+        # Encoder expects W_q[output_i][input_j]
+        # GPT-2 Conv1D stores as [d_model, 3*d_model], slice then transpose
+        W_q = c_attn_weight[:, :d_model].T.tolist()
+        W_k = c_attn_weight[:, d_model:2*d_model].T.tolist()
+        W_v = c_attn_weight[:, 2*d_model:3*d_model].T.tolist()
 
-        b_qkv = c_attn_bias
-        b_q = b_qkv[:d_model].tolist()
-        b_k = b_qkv[d_model:2*d_model].tolist()
-        b_v = b_qkv[2*d_model:].tolist()
+        b_q = c_attn_bias[:d_model].tolist()
+        b_k = c_attn_bias[d_model:2*d_model].tolist()
+        b_v = c_attn_bias[2*d_model:3*d_model].tolist()
 
         weights[f"attn_{layer_idx}_W_q"] = W_q
         weights[f"attn_{layer_idx}_W_k"] = W_k

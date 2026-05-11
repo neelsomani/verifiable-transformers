@@ -5,10 +5,8 @@ Formal verification of extracted circuits using SMT solvers.
 Verifies properties like:
 - Functional equivalence to symbolic reference program
 - Content invariance
-- Quote-type sensitivity
 - Edge necessity
-- Token-renaming equivariance
-- Filler invariance
+- Continuous robustness
 """
 
 import argparse
@@ -32,9 +30,8 @@ from scripts.smt_verify import (
     verify_functional_equivalence,
     verify_content_invariance,
     verify_edge_necessity,
-    verify_token_renaming_equivariance,
     generate_quote_close_sequences,
-    generate_induction_sequences,
+    generate_bracket_type_sequences,
 )
 from scripts.smt_verify.model_weights import load_model_weights
 from scripts.smt_verify.helpers import parse_circuit_edges, get_candidate_tokens
@@ -51,6 +48,15 @@ def get_quote_tokens(tokenizer: GPT2Tokenizer) -> Tuple[int, int]:
     single_id = tokenizer.encode("'", add_special_tokens=False)[0]
     double_id = tokenizer.encode('"', add_special_tokens=False)[0]
     return single_id, double_id
+
+
+def get_bracket_tokens(tokenizer: GPT2Tokenizer) -> Tuple[int, int, int, int]:
+    """Get token IDs for [, {, ], }."""
+    left_bracket = tokenizer.encode("[", add_special_tokens=False)[0]
+    left_brace = tokenizer.encode("{", add_special_tokens=False)[0]
+    right_bracket = tokenizer.encode("]", add_special_tokens=False)[0]
+    right_brace = tokenizer.encode("}", add_special_tokens=False)[0]
+    return left_bracket, left_brace, right_bracket, right_brace
 
 
 # ============================================================================
@@ -242,17 +248,17 @@ def verify_quote_close(
 
 
 # ============================================================================
-# Induction Verification
+# Bracket Type Verification
 # ============================================================================
 
-def verify_induction_abcab(
+def verify_bracket_type(
     circuit_path: str,
     output_dir: str,
     model_path: str,
 ):
-    """Run all induction_ABCAB verification properties."""
+    """Run all bracket_type verification properties."""
     print(f"\n{'#' * 80}")
-    print("VERIFYING INDUCTION (ABCAB) CIRCUIT")
+    print("VERIFYING BRACKET TYPE CIRCUIT")
     print(f"{'#' * 80}\n")
 
     circuit = load_circuit(circuit_path)
@@ -273,34 +279,53 @@ def verify_induction_abcab(
         print(f"ERROR: Could not load model weights: {e}")
         return []
 
-    # Use synthetic token vocabulary
-    candidate_tokens = list(range(20, 30))
+    # Get candidate tokens
+    left_bracket, left_brace, right_bracket, right_brace = get_bracket_tokens(tokenizer)
+    candidate_tokens = [right_bracket, right_brace]
+    model_weights["left_bracket_id"] = left_bracket
+    model_weights["left_brace_id"] = left_brace
+    model_weights["right_bracket_id"] = right_bracket
+    model_weights["right_brace_id"] = right_brace
+
+    print(f"Candidate tokens: [ = {left_bracket}, {{ = {left_brace}, "
+          f"] = {right_bracket}, }} = {right_brace}\n")
 
     results = []
 
-    # Property 1: Restricted functional equivalence
+    # Property 1: Functional equivalence
     print(f"\n{'=' * 80}")
-    print("PROPERTY 1: Restricted Functional Equivalence")
+    print("PROPERTY 1: Functional Equivalence")
     print(f"{'=' * 80}\n")
 
-    print("Verifying: A B C F A B -> C")
-    print("Reference program: return third token when pattern matches\n")
+    print("Verifying: y_C(x) = P_bracket(x) for bounded inputs")
+    print("Reference program: predict closing bracket matching opening bracket\n")
+
+    # Generate test sequences
+    special_tokens = {
+        "left_bracket": left_bracket,
+        "left_brace": left_brace,
+        "right_bracket": right_bracket,
+        "right_brace": right_brace,
+        "content_tokens": list(range(10, 20)),
+    }
 
     try:
-        vocab = set(range(20, 30))
-        test_sequences = generate_induction_sequences(max_length=6, vocab=vocab)
+        test_sequences = generate_bracket_type_sequences(max_length=5, special_tokens=special_tokens)
         print(f"Generated {len(test_sequences)} test sequences\n")
 
         def reference_program(tokens: List[int]) -> int:
-            """Extract C from A B C ... A B pattern."""
-            if len(tokens) >= 5:
-                return tokens[2]
-            return tokens[0] if tokens else 20
+            """Return expected closing bracket token."""
+            for i in range(len(tokens) - 1, -1, -1):
+                if tokens[i] == left_bracket:
+                    return right_bracket
+                elif tokens[i] == left_brace:
+                    return right_brace
+            return right_bracket
 
         result = verify_functional_equivalence(
             circuit,
             reference_program,
-            test_sequences[:50],
+            test_sequences[:50],  # Limit for tractability
             model_weights,
             candidate_tokens,
             timeout_ms=30000,
@@ -310,40 +335,88 @@ def verify_induction_abcab(
         print(f"Status: {result['status']}")
         if "verified_count" in result:
             print(f"Verified: {result['verified_count']}/{result.get('total_sequences', 0)}")
+        if result.get("num_counterexamples", 0) > 0:
+            print(f"Counterexamples: {result['num_counterexamples']}")
         print()
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "functional_equivalence_restricted", "status": "ERROR", "message": str(e)})
+        results.append({"property": "functional_equivalence", "status": "ERROR", "message": str(e)})
 
-    # Property 2: Token-renaming equivariance
+    # Property 2: Content invariance
     print(f"\n{'=' * 80}")
-    print("PROPERTY 2: Token-Renaming Equivariance")
+    print("PROPERTY 2: Content Invariance")
     print(f"{'=' * 80}\n")
 
-    print("Verifying: y_C(r(x)) = r(y_C(x))")
-    print("Circuit is equivariant to token renaming\n")
+    print("Verifying: bracket(x) = bracket(x') => y_C(x) = y_C(x')")
+    print("Circuit output should depend only on bracket type, not content\n")
 
     try:
-        test_sequences_tok = [seq for seq, _ in test_sequences[:30]]
+        def get_bracket_type(tokens: List[int]) -> str:
+            for tok in tokens:
+                if tok == left_bracket:
+                    return "bracket"
+                elif tok == left_brace:
+                    return "brace"
+            return "none"
 
-        result = verify_token_renaming_equivariance(
+        result = verify_content_invariance(
             circuit,
-            test_sequences_tok,
+            test_sequences[:30],
             model_weights,
-            vocab_size=50,
+            candidate_tokens,
+            get_bracket_type,
             timeout_ms=30000,
         )
         results.append(result)
 
         print(f"Status: {result['status']}")
-        if "verified_count" in result:
-            print(f"Verified: {result['verified_count']}")
+        if "verified_pairs" in result:
+            print(f"Verified pairs: {result['verified_pairs']}")
+        if result.get("num_counterexamples", 0) > 0:
+            print(f"Counterexamples: {result['num_counterexamples']}")
         print()
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "token_renaming_equivariance", "status": "ERROR", "message": str(e)})
+        results.append({"property": "content_invariance", "status": "ERROR", "message": str(e)})
+
+    # Property 3: Edge necessity
+    print(f"\n{'=' * 80}")
+    print("PROPERTY 3: Edge Necessity")
+    print(f"{'=' * 80}\n")
+
+    edges = circuit["edges"]
+    print(f"Verifying: all {len(edges)} edges are necessary")
+    print("For each edge e, prove exists x such that C(x) != (C \\\\ e)(x)\n")
+
+    try:
+        test_inputs = [
+            [left_bracket, 12, 13],
+            [left_brace, 12, 13],
+            [14, left_bracket, 15],
+            [14, left_brace, 15],
+        ]
+
+        result = verify_edge_necessity(
+            circuit,
+            test_inputs,
+            model_weights,
+            candidate_tokens,
+            timeout_ms=20000,
+        )
+        results.append(result)
+
+        print(f"Status: {result['status']}")
+        if "necessary_edges" in result:
+            print(f"Necessary edges: {result['necessary_edges']}/{result['total_edges']}")
+        if result.get("unnecessary_edges_found", 0) > 0:
+            print(f"Suspicious edges: {result['unnecessary_edges_found']}")
+        print()
+
+    except Exception as e:
+        print(f"ERROR: {e}\n")
+        results.append({"property": "edge_necessity", "status": "ERROR", "message": str(e)})
 
     # Write results
     os.makedirs(output_dir, exist_ok=True)
@@ -376,7 +449,7 @@ def main():
     parser.add_argument("--circuit_path", type=str, required=True,
                         help="Path to circuit.json from extraction")
     parser.add_argument("--task", type=str, required=True,
-                        choices=["quote_close", "induction_ABCAB"],
+                        choices=["quote_close", "bracket_type"],
                         help="Task to verify")
     parser.add_argument("--output_dir", type=str, required=True,
                         help="Output directory for verification results")
@@ -395,8 +468,8 @@ def main():
             args.output_dir,
             args.model_path,
         )
-    elif args.task == "induction_ABCAB":
-        verify_induction_abcab(
+    elif args.task == "bracket_type":
+        verify_bracket_type(
             args.circuit_path,
             args.output_dir,
             args.model_path,

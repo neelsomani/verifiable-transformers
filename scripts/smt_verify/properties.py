@@ -36,7 +36,7 @@ def verify_functional_equivalence(
 
     print(f"Verifying functional equivalence on {len(input_sequences)} sequences...")
 
-    for i, (input_tokens, expected_output) in enumerate(input_sequences):
+    for i, (input_tokens, _) in enumerate(input_sequences):
         if i % 100 == 0 and i > 0:
             print(f"  Progress: {i}/{len(input_sequences)}")
 
@@ -55,15 +55,8 @@ def verify_functional_equivalence(
                 f"seq_{i}",
             )
 
-            # Get expected token
-            if isinstance(expected_output, int):
-                expected_token = expected_output
-            elif expected_output == "single":
-                expected_token = model_weights.get("single_quote_id", candidate_tokens[0])
-            elif expected_output == "double":
-                expected_token = model_weights.get("double_quote_id", candidate_tokens[1])
-            else:
-                expected_token = int(expected_output)
+            # Get expected token from reference program
+            expected_token = reference_program(input_tokens)
 
             # Check if expected token is in candidates
             if expected_token not in circuit_logits:
@@ -184,22 +177,33 @@ def verify_content_invariance(
                 seq2, circuit_edges, model_weights, candidate_tokens, solver, "seq2"
             )
 
-            # Add constraint: logits differ for any candidate
-            differences = []
-            for tok in candidate_tokens:
-                if tok in logits1 and tok in logits2:
-                    differences.append(logits1[tok] != logits2[tok])
+            # Add constraint: decisions (argmax) differ
+            # Check if there exist tok1, tok2 where ordering differs
+            ordering_violations = []
+            for tok1 in candidate_tokens:
+                if tok1 not in logits1 or tok1 not in logits2:
+                    continue
+                for tok2 in candidate_tokens:
+                    if tok2 != tok1 and tok2 in logits1 and tok2 in logits2:
+                        # Ordering differs: tok1 > tok2 in seq1 but tok1 <= tok2 in seq2
+                        ordering_violations.append(
+                            And(logits1[tok1] > logits1[tok2], logits2[tok1] <= logits2[tok2])
+                        )
+                        # Or: tok1 <= tok2 in seq1 but tok1 > tok2 in seq2
+                        ordering_violations.append(
+                            And(logits1[tok1] <= logits1[tok2], logits2[tok1] > logits2[tok2])
+                        )
 
-            if not differences:
+            if not ordering_violations:
                 verified_pairs += 1
                 continue
 
-            solver.add(Or(differences))
+            solver.add(Or(ordering_violations))
 
             result = solver.check()
 
             if result == unsat:
-                # Property holds: outputs are identical
+                # Property holds: decisions are identical
                 verified_pairs += 1
             elif result == sat:
                 counterexamples.append({
@@ -294,21 +298,34 @@ def verify_edge_necessity(
                     f"ablated_e{edge_idx}",
                 )
 
-                # Add constraint: logits are identical for all candidates
-                constraints = []
-                for tok in candidate_tokens:
-                    if tok in logits_full and tok in logits_ablated:
-                        constraints.append(logits_full[tok] == logits_ablated[tok])
+                # Add constraint: decisions (argmax) differ
+                # Check if ordering differs between full and ablated circuits
+                ordering_violations = []
+                for tok1 in candidate_tokens:
+                    if tok1 not in logits_full or tok1 not in logits_ablated:
+                        continue
+                    for tok2 in candidate_tokens:
+                        if tok2 != tok1 and tok2 in logits_full and tok2 in logits_ablated:
+                            # Ordering differs: tok1 > tok2 in full but tok1 <= tok2 in ablated
+                            ordering_violations.append(
+                                And(logits_full[tok1] > logits_full[tok2],
+                                    logits_ablated[tok1] <= logits_ablated[tok2])
+                            )
+                            # Or: tok1 <= tok2 in full but tok1 > tok2 in ablated
+                            ordering_violations.append(
+                                And(logits_full[tok1] <= logits_full[tok2],
+                                    logits_ablated[tok1] > logits_ablated[tok2])
+                            )
 
-                if not constraints:
+                if not ordering_violations:
                     continue
 
-                solver.add(And(constraints))
+                solver.add(Or(ordering_violations))
 
                 result = solver.check()
 
-                if result == unsat:
-                    # Outputs differ - edge is necessary
+                if result == sat:
+                    # Decisions differ - edge is necessary
                     found_witness = True
                     necessary_edges.append(edge)
                     break

@@ -18,7 +18,7 @@ We show, end-to-end, that a Transformer can be trained and then formally analyze
 
 These tasks allow us to demonstrate proofs of bounded correctness, structural properties of the circuit, and impossibility/generalization limits. This work suggests a new direction for interpretable and certifiable sequence modeling.
 
-## Hardware Setup
+## Hardware Specs
 
 The following was used to produce the results below. This heavy setup isn't strictly required, but recommended for iteration speed.
 

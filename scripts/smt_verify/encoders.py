@@ -86,10 +86,14 @@ def encode_additive_lift(
     n = len(y)
     mass = Sum(y)
 
-    # Active mask: use y[i] > 0, fallback to fallback_mask
-    # For SMT, we approximate: if any y[i] > 0, active[i] = (y[i] > 0)
-    # Otherwise, use fallback
-    active = [If(y[i] > 0, RealVal(1), RealVal(fallback_mask[i])) for i in range(n)]
+    # Check if any coordinate is active
+    any_active = Or([y[i] > 0 for i in range(n)])
+
+    # Active mask: if any y[i] > 0 globally, use y[i] > 0; otherwise use fallback
+    active = [If(any_active,
+                 If(y[i] > 0, RealVal(1), RealVal(0)),
+                 RealVal(fallback_mask[i]))
+              for i in range(n)]
     active_count = Sum(active)
 
     # Delta per active coordinate
