@@ -142,39 +142,9 @@ def generate_bracket_type_examples(n: int) -> List[BehaviorExample]:
     return examples
 
 
-def generate_induction_examples(n: int) -> List[BehaviorExample]:
-    """Generate induction examples: A B C ... A B -> predict C."""
-    examples = []
-
-    # Use common single-token words (with leading space for GPT-2)
-    token_pool = [
-        " red", " blue", " green", " cat", " dog", " tree",
-        " car", " book", " city", " river", " sun", " moon",
-        " star", " bird", " fish", " lake", " hill", " road",
-    ]
-
-    for i in range(n):
-        a = token_pool[i % len(token_pool)]
-        b = token_pool[(i + 1) % len(token_pool)]
-        c = token_pool[(i + 2) % len(token_pool)]
-        wrong = token_pool[(i + 3) % len(token_pool)]
-
-        # A B C ... A B -> predict C
-        prompt = f"{a}{b}{c} foo bar baz{a}{b}"
-
-        examples.append(BehaviorExample(
-            prompt=prompt,
-            correct_token=c,
-            incorrect_token=wrong,
-        ))
-
-    return examples
-
-
 BEHAVIOR_GENERATORS = {
     'quote_close': generate_quote_close_examples,
     'bracket_type': generate_bracket_type_examples,
-    'induction_ABCAB': generate_induction_examples,
 }
 
 
@@ -797,8 +767,7 @@ def compute_candidate_accuracy(
 ) -> Dict[str, float]:
     """Compute accuracy over candidate token set.
 
-    For binary tasks (quote_close, bracket_type), this is equivalent to binary_accuracy.
-    For multi-candidate tasks (induction), this checks if correct token beats ALL other candidates.
+    For binary tasks (quote_close, bracket_type), this checks if correct token beats the other candidate.
 
     Args:
         logits: [B, T, vocab]
@@ -990,16 +959,8 @@ def get_candidate_token_ids(task: str, tokenizer: GPT2Tokenizer) -> List[int]:
             get_single_token_id(tokenizer, ']'),
             get_single_token_id(tokenizer, '}'),
         ]
-    elif task == "induction_ABCAB":
-        # Use the same token pool as generate_induction_examples
-        token_pool = [
-            " red", " blue", " green", " cat", " dog", " tree",
-            " car", " book", " city", " river", " sun", " moon",
-            " star", " bird", " fish", " lake", " hill", " road",
-        ]
-        ids = [get_single_token_id(tokenizer, t) for t in token_pool]
     else:
-        raise ValueError(f"Unknown task: {task}")
+        raise ValueError(f"Unknown task: {task}. Available: quote_close, bracket_type")
 
     # Filter out None values (tokens that don't encode to single tokens)
     valid_ids = [tid for tid in ids if tid is not None]
@@ -1586,7 +1547,7 @@ def main():
     # Mode selection
     parser.add_argument("--scan_behaviors", action="store_true", help="Run behavior viability scan")
     parser.add_argument("--extract_circuit", type=str, default=None,
-                        help="Extract circuit for task (quote_close, bracket_type, induction_ABCAB)")
+                        help="Extract circuit for task (quote_close, bracket_type)")
 
     # Common args
     parser.add_argument("--n_examples", type=int, default=256, help="Number of examples per behavior")

@@ -15,7 +15,6 @@ We show, end-to-end, that a Transformer can be trained and then formally analyze
 
 * **Quote closing**: Distinguishing single quote `'` vs double quote `"` continuation
 * **Bracket type**: Distinguishing `]` vs `}` for list vs dict closing
-* **Induction (ABCAB)**: Pattern completion (A B C ... A B → predict C)
 
 These tasks allow us to demonstrate proofs of bounded correctness, structural properties of the circuit, and impossibility/generalization limits. This work suggests a new direction for interpretable and certifiable sequence modeling.
 
@@ -439,10 +438,9 @@ Once the verifiable model is trained, we extract pruned circuits responsible for
 
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
-The behavior scanner tests 3 categories:
+The behavior scanner tests 2 categories:
 - `quote_close`: Single vs double quote closing (varied templates)
 - `bracket_type`: `]` vs `}` distinction (varied templates)
-- `induction_ABCAB`: Pattern completion (A B C ... A B → predict C)
 
 Metrics computed:
 - Binary accuracy (correct token logit > incorrect token logit)
@@ -471,8 +469,7 @@ python scripts/circuits/extract_circuit.py \
 | Task | Binary Accuracy | Mean Logit Diff | Viability |
 |------|----------------|-----------------|-----------|
 | `quote_close` | 1.000 | 6.22 | **strong** |
-| `bracket_type` | 1.000 | 4.62 | **strong** |
-| `induction_ABCAB` | 0.887 | 3.67 | **strong** |
+| `bracket_type` | 1.000 | 4.93 | **strong** |
 
 This generates:
 - `artifacts/circuits/behavior_scan/behavior_scan.json` - Detailed metrics
@@ -512,7 +509,6 @@ For each task, define a candidate token set $T$:
 
 * `quote_close`: T = {', "}
 * `bracket_type`: T is the set containing ] and }
-* `induction_ABCAB`: $T$ is the set of candidate pattern tokens, e.g. `red`, `blue`, `green`, `cat`, etc.
 
 The projected decision is:
 
@@ -565,7 +561,7 @@ python scripts/circuits/extract_circuit.py \
   --output_dir artifacts/circuits/quote_close
 ```
 
-Available tasks: `quote_close`, `bracket_type`, `induction_ABCAB`
+Available tasks: `quote_close`, `bracket_type`
 
 The threshold parameter strongly affects circuit quality. Run a threshold sweep to find the smallest circuit that preserves full-model projected behavior:
 
@@ -647,34 +643,6 @@ Formal properties to verify after extraction:
 
 4. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{bracket}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
-##### Induction
-
-Goal: Extract the subcircuit responsible for ABCAB-style pattern completion.
-
-Candidate set: $T_{\text{induction}} = \{\text{pattern candidate tokens}\}$
-
-Example token pool: ` red`, ` blue`, ` green`, ` cat`, ` dog`, ` tree`, ` car`, ` book`, ` city`, ` river`, ...
-
-Reference behavior: A B C ... A B → predict C
-
-Example prompt: ` red blue green foo bar baz red blue`
-
-Correct next token: ` green`
-
-Induction circuits are more vulnerable to pruning artifacts than quote/bracket circuits. The full model may be imperfect. Therefore extraction should preserve the full model's projected decision, not merely maximize correctness against the symbolic rule.
-
-Required extraction guard: $d_T(C_E,x)=d_T(M,x)$ on the extraction domain.
-
-Formal properties to verify after extraction:
-
-1. **Restricted functional correctness**: For bounded ABCAB patterns: $\forall A,B,C,F \in D,\quad d_T(C_E, A,B,C,F,A,B)=C$
-
-2. **Token-renaming equivariance**: Consistent renaming of the pattern tokens should rename the output: $d_T(C_E, r(x)) = r(d_T(C_E,x))$
-
-3. **Filler invariance**: Changing filler tokens should not change the predicted continuation token, assuming the ABCAB structure is preserved: $R_{\text{same ABCAB}}(x,x') \Rightarrow d_T(C_E,x)=d_T(C_E,x')$
-
-4. **Failure/generalization claims**: Only make impossibility or failure claims on domains included in the extraction/faithfulness check. For example, to claim that an induction circuit cannot generalize beyond a pattern length $k$, the extraction domain must include both patterns of length $\leq k$ and patterns of length $> k$, and the circuit must preserve the full model's projected decisions on both. Otherwise, the failure may simply be caused by pruning.
-
 #### Results (Step 2c model @ checkpoint-240000)
 
 Results to be filled in after extraction with zero ablation and candidate KL metric.
@@ -703,10 +671,10 @@ python scripts/verify_circuit.py \
   --output_dir outputs/verification/quote_close \
   --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
 
-# Verify induction circuit
+# Verify bracket_type circuit
 python scripts/verify_circuit.py \
-  --circuit_path outputs/circuits/induction_ABCAB/circuit.json \
-  --task induction_ABCAB \
-  --output_dir outputs/verification/induction_ABCAB \
+  --circuit_path outputs/circuits/bracket_type/circuit.json \
+  --task bracket_type \
+  --output_dir outputs/verification/bracket_type \
   --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
 ```

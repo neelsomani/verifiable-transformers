@@ -4,7 +4,6 @@
 # Usage:
 #   bash scripts/circuits/sweep_thresholds.sh quote_close
 #   bash scripts/circuits/sweep_thresholds.sh bracket_type
-#   bash scripts/circuits/sweep_thresholds.sh induction_ABCAB
 
 set -e
 
