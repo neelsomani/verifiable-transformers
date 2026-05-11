@@ -68,13 +68,13 @@ solver.set("timeout", 10000)
 import signal
 
 def timeout_handler(signum, frame):
-    raise TimeoutError("Encoding timed out after 30s")
+    raise TimeoutError(f"Encoding timed out after {args.timeout}s")
 
 signal.signal(signal.SIGALRM, timeout_handler)
-signal.alarm(30)  # 30 second timeout
+signal.alarm(args.timeout)
 
 start = time.time()
-print("  Building SMT formula (30s timeout)...", flush=True)
+print(f"  Building SMT formula ({args.timeout}s timeout)...", flush=True)
 try:
     logits = encode_circuit_forward(
         input_tokens,
