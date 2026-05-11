@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 .DS_Store
 
+dump_verification_code.sh
+*.txt
+
 # C extensions
 *.so
 

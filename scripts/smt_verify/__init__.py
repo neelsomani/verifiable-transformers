@@ -16,6 +16,7 @@ from .properties import (
     verify_edge_necessity,
     verify_token_renaming_equivariance,
     verify_structural_constraint,
+    verify_continuous_robustness,
 )
 from .bounded_domain import (
     generate_bounded_sequences,
@@ -46,6 +47,7 @@ __all__ = [
     "verify_edge_necessity",
     "verify_token_renaming_equivariance",
     "verify_structural_constraint",
+    "verify_continuous_robustness",
     "generate_bounded_sequences",
     "generate_quote_close_sequences",
     "generate_bracket_type_sequences",

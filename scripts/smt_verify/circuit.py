@@ -11,6 +11,11 @@ from .encoders import (
 )
 
 
+def zero_output(seq_len: int, d_model: int) -> List[List[ArithRef]]:
+    """Create zero output for inactive nodes."""
+    return [[RealVal(0) for _ in range(d_model)] for _ in range(seq_len)]
+
+
 def encode_circuit_forward(
     input_tokens: List[int],
     circuit_edges: Set[Tuple[str, str]],
@@ -20,6 +25,8 @@ def encode_circuit_forward(
     ctx_prefix: str,
 ) -> Dict[int, ArithRef]:
     """Encode circuit forward pass with edge masking using SMT.
+
+    Optimized to skip encoding inactive nodes (not on any path to logits).
 
     Args:
         input_tokens: Input token IDs
@@ -37,6 +44,12 @@ def encode_circuit_forward(
     n_layers = model_weights["n_layers"]
     n_heads = model_weights["n_heads"]
 
+    # Compute active nodes from circuit edges
+    active_nodes = {"emb", "logits"}
+    for node_from, node_to in circuit_edges:
+        active_nodes.add(node_from)
+        active_nodes.add(node_to)
+
     # Node computation cache
     node_outputs = {}
 
@@ -53,33 +66,39 @@ def encode_circuit_forward(
 
     node_outputs["emb"] = emb_output
 
-    # Layer-by-layer forward pass
+    # Layer-by-layer forward pass (skip inactive nodes)
     for layer in range(n_layers):
         attn_node = f"attn_{layer}"
         mlp_node = f"mlp_{layer}"
 
         # Attention block
-        attn_output = encode_attention_layer(
-            node_outputs,
-            layer,
-            circuit_edges,
-            model_weights,
-            n_heads,
-            solver,
-            f"{ctx_prefix}_L{layer}_attn",
-        )
-        node_outputs[attn_node] = attn_output
+        if attn_node in active_nodes:
+            attn_output = encode_attention_layer(
+                node_outputs,
+                layer,
+                circuit_edges,
+                model_weights,
+                n_heads,
+                solver,
+                f"{ctx_prefix}_L{layer}_attn",
+            )
+            node_outputs[attn_node] = attn_output
+        else:
+            node_outputs[attn_node] = zero_output(seq_len, d_model)
 
         # MLP block
-        mlp_output = encode_mlp_layer(
-            node_outputs,
-            layer,
-            circuit_edges,
-            model_weights,
-            solver,
-            f"{ctx_prefix}_L{layer}_mlp",
-        )
-        node_outputs[mlp_node] = mlp_output
+        if mlp_node in active_nodes:
+            mlp_output = encode_mlp_layer(
+                node_outputs,
+                layer,
+                circuit_edges,
+                model_weights,
+                solver,
+                f"{ctx_prefix}_L{layer}_mlp",
+            )
+            node_outputs[mlp_node] = mlp_output
+        else:
+            node_outputs[mlp_node] = zero_output(seq_len, d_model)
 
     # Final logits (only for candidate tokens)
     logits = encode_logits_layer_candidates(

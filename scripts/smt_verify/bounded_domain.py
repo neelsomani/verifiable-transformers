@@ -60,23 +60,22 @@ def generate_quote_close_sequences(
     for seq_len in range(3, max_length + 1):
         # Position of opening quote
         for quote_pos in range(1, seq_len - 1):
-            # Content before quote
-            for content_before_len in range(quote_pos):
-                for content_before in itertools.product(content_vocab, repeat=content_before_len):
-                    # Content after quote
-                    content_after_len = seq_len - quote_pos - 1
-                    for content_after in itertools.product(content_vocab, repeat=content_after_len):
-                        # Single quote version
-                        seq_single = list(content_before) + [single_id] + list(content_after)
-                        sequences.append((seq_single, "single"))
+            content_before_len = quote_pos
+            content_after_len = seq_len - quote_pos - 1
 
-                        # Double quote version
-                        seq_double = list(content_before) + [double_id] + list(content_after)
-                        sequences.append((seq_double, "double"))
+            for content_before in itertools.product(content_vocab, repeat=content_before_len):
+                for content_after in itertools.product(content_vocab, repeat=content_after_len):
+                    # Single quote version
+                    seq_single = list(content_before) + [single_id] + list(content_after)
+                    sequences.append((seq_single, "single"))
 
-                        # Limit to avoid exponential blowup
-                        if len(sequences) >= 1000:
-                            return sequences
+                    # Double quote version
+                    seq_double = list(content_before) + [double_id] + list(content_after)
+                    sequences.append((seq_double, "double"))
+
+                    # Limit to avoid exponential blowup
+                    if len(sequences) >= 1000:
+                        return sequences
 
     return sequences
 
@@ -106,20 +105,21 @@ def generate_bracket_type_sequences(
 
     for seq_len in range(3, max_length + 1):
         for bracket_pos in range(1, seq_len - 1):
-            for content_before_len in range(bracket_pos):
-                for content_before in itertools.product(content_vocab, repeat=content_before_len):
-                    content_after_len = seq_len - bracket_pos - 1
-                    for content_after in itertools.product(content_vocab, repeat=content_after_len):
-                        # Bracket version
-                        seq_bracket = list(content_before) + [bracket_id] + list(content_after)
-                        sequences.append((seq_bracket, "bracket"))
+            content_before_len = bracket_pos
+            content_after_len = seq_len - bracket_pos - 1
 
-                        # Brace version
-                        seq_brace = list(content_before) + [brace_id] + list(content_after)
-                        sequences.append((seq_brace, "brace"))
+            for content_before in itertools.product(content_vocab, repeat=content_before_len):
+                for content_after in itertools.product(content_vocab, repeat=content_after_len):
+                    # Bracket version
+                    seq_bracket = list(content_before) + [bracket_id] + list(content_after)
+                    sequences.append((seq_bracket, "bracket"))
 
-                        if len(sequences) >= 1000:
-                            return sequences
+                    # Brace version
+                    seq_brace = list(content_before) + [brace_id] + list(content_after)
+                    sequences.append((seq_brace, "brace"))
+
+                    if len(sequences) >= 1000:
+                        return sequences
 
     return sequences
 

@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Set, Tuple, Callable, Optional
 from .circuit import encode_circuit_forward
 from .bounded_domain import generate_bounded_sequences
 from .helpers import parse_circuit_edges, get_candidate_tokens
+from .encoders import encode_signed_l1_band_norm
 
 
 def verify_functional_equivalence(
@@ -33,6 +34,7 @@ def verify_functional_equivalence(
     counterexamples = []
     verified_count = 0
     timeout_count = 0
+    error_count = 0
 
     print(f"Verifying functional equivalence on {len(input_sequences)} sequences...")
 
@@ -99,16 +101,22 @@ def verify_functional_equivalence(
 
         except Exception as e:
             print(f"  Error on sequence {i}: {e}")
+            error_count += 1
             continue
 
-    success = len(counterexamples) == 0
-    status = "VERIFIED" if success else "FAILED"
+    if len(counterexamples) > 0:
+        status = "FAILED"
+    elif timeout_count > 0 or error_count > 0:
+        status = "UNKNOWN"
+    else:
+        status = "VERIFIED"
 
     return {
         "property": "functional_equivalence",
         "status": status,
         "verified_count": verified_count,
         "timeout_count": timeout_count,
+        "error_count": error_count,
         "total_sequences": len(input_sequences),
         "counterexamples": counterexamples[:5],  # Return first 5
         "num_counterexamples": len(counterexamples),
@@ -123,9 +131,12 @@ def verify_content_invariance(
     get_structural_feature: Callable[[List[int]], Any],
     timeout_ms: int = 60000,
 ) -> Dict[str, Any]:
-    """Verify: same structure => same output.
+    """Verify: same structure => same decision (argmax over candidate tokens).
 
-    For quote_close: quote(x) = quote(x') => y_C(x) = y_C(x')
+    For quote_close: quote(x) = quote(x') => argmax_T(C(x)) = argmax_T(C(x'))
+
+    NOTE: This implementation samples one pair per feature group for tractability.
+    For full-domain verification, all pairs within each group should be checked.
 
     Args:
         circuit: Extracted circuit
@@ -151,6 +162,7 @@ def verify_content_invariance(
     counterexamples = []
     verified_pairs = 0
     timeout_count = 0
+    error_count = 0
 
     print(f"Verifying content invariance across {len(feature_groups)} feature groups...")
 
@@ -218,16 +230,22 @@ def verify_content_invariance(
 
         except Exception as e:
             print(f"  Error verifying feature {feature}: {e}")
+            error_count += 1
             continue
 
-    success = len(counterexamples) == 0
-    status = "VERIFIED" if success else "FAILED"
+    if len(counterexamples) > 0:
+        status = "FAILED"
+    elif timeout_count > 0 or error_count > 0:
+        status = "UNKNOWN"
+    else:
+        status = "VERIFIED"
 
     return {
         "property": "content_invariance",
         "status": status,
         "verified_pairs": verified_pairs,
         "timeout_count": timeout_count,
+        "error_count": error_count,
         "counterexamples": counterexamples[:5],
         "num_counterexamples": len(counterexamples),
     }
@@ -258,6 +276,7 @@ def verify_edge_necessity(
     unnecessary_edges = []
     necessary_edges = []
     timeout_count = 0
+    error_count = 0
 
     print(f"Verifying necessity of {len(edges)} edges...")
 
@@ -329,7 +348,7 @@ def verify_edge_necessity(
                     found_witness = True
                     necessary_edges.append(edge)
                     break
-                elif result == sat:
+                elif result == unsat:
                     # Outputs same on this input - try next input
                     continue
                 else:
@@ -337,6 +356,7 @@ def verify_edge_necessity(
 
             except Exception as e:
                 print(f"  Error testing edge {edge}: {e}")
+                error_count += 1
                 break
 
         if not found_witness:
@@ -345,8 +365,12 @@ def verify_edge_necessity(
                 "tested_inputs": min(20, len(test_inputs)),
             })
 
-    success = len(unnecessary_edges) == 0
-    status = "VERIFIED" if success else "FAILED"
+    if len(unnecessary_edges) > 0:
+        status = "FAILED"
+    elif timeout_count > 0 or error_count > 0:
+        status = "UNKNOWN"
+    else:
+        status = "VERIFIED"
 
     return {
         "property": "edge_necessity",
@@ -355,6 +379,7 @@ def verify_edge_necessity(
         "necessary_edges": len(necessary_edges),
         "unnecessary_edges_found": len(unnecessary_edges),
         "timeout_count": timeout_count,
+        "error_count": error_count,
         "suspicious_edges": unnecessary_edges[:10],
     }
 
@@ -473,6 +498,8 @@ def verify_structural_constraint(
 
     violations = []
     verified_count = 0
+    timeout_count = 0
+    error_count = 0
 
     print(f"Verifying {constraint_name} on {len(test_inputs)} inputs...")
 
@@ -502,18 +529,249 @@ def verify_structural_constraint(
                 violations.append({"input": input_tokens})
                 if len(violations) >= 10:
                     break
+            else:
+                timeout_count += 1
 
         except Exception as e:
             print(f"  Error on input {i}: {e}")
+            error_count += 1
             continue
 
-    success = len(violations) == 0
-    status = "VERIFIED" if success else "FAILED"
+    if len(violations) > 0:
+        status = "FAILED"
+    elif timeout_count > 0 or error_count > 0:
+        status = "UNKNOWN"
+    else:
+        status = "VERIFIED"
 
     return {
         "property": constraint_name,
         "status": status,
         "verified_count": verified_count,
+        "timeout_count": timeout_count,
+        "error_count": error_count,
+        "violations": violations[:5],
+        "num_violations": len(violations),
+    }
+
+
+def verify_continuous_robustness(
+    circuit: Dict[str, Any],
+    test_inputs: List[List[int]],
+    model_weights: Dict[str, Any],
+    candidate_tokens: List[int],
+    epsilon: float = 0.01,
+    timeout_ms: int = 60000,
+) -> Dict[str, Any]:
+    """Verify continuous robustness to perturbations of final residual.
+
+    Property: ∀x, ∀η: ||η||_∞ ≤ ε ⇒ g_T(r_E(x)+η) = g_T(r_E(x))
+
+    where r_E(x) is the final residual before ln_f, and
+    g_T(r) = argmax_{t∈T}(W_U ln_f(r))_t
+
+    Args:
+        circuit: Extracted circuit
+        test_inputs: Test input sequences
+        model_weights: Model weights
+        candidate_tokens: List of candidate output token IDs
+        epsilon: Perturbation radius (L-infinity norm)
+        timeout_ms: Solver timeout
+
+    Returns:
+        Verification result dict
+    """
+    from .circuit import encode_circuit_forward, get_residual_input
+
+    circuit_edges = parse_circuit_edges(circuit)
+
+    violations = []
+    verified_count = 0
+    timeout_count = 0
+    error_count = 0
+
+    d_model = model_weights["d_model"]
+    n_layers = model_weights["n_layers"]
+    norm_variant = model_weights.get("norm_variant", "layernorm")
+
+    print(f"Verifying continuous robustness on {len(test_inputs)} inputs...")
+    print(f"Perturbation radius: ε = {epsilon}\n")
+
+    for i, input_tokens in enumerate(test_inputs):
+        if i % 10 == 0 and i > 0:
+            print(f"  Progress: {i}/{len(test_inputs)}")
+
+        solver = Solver()
+        solver.set("timeout", timeout_ms)
+
+        try:
+            # Encode circuit forward pass (get final residual via modified circuit encoding)
+            # We need to reimplement the final residual extraction inline here
+            seq_len = len(input_tokens)
+
+            # Get all node outputs
+            from .circuit import encode_attention_layer, encode_mlp_layer, zero_output
+
+            # Compute active nodes
+            active_nodes = {"emb", "logits"}
+            for node_from, node_to in circuit_edges:
+                active_nodes.add(node_from)
+                active_nodes.add(node_to)
+
+            # Node computation cache
+            node_outputs = {}
+
+            # Embedding
+            wte = model_weights["wte"]
+            wpe = model_weights["wpe"]
+            emb_output = []
+            for pos in range(seq_len):
+                tok = input_tokens[pos]
+                emb_pos = [wte[tok][j] + wpe[pos][j] for j in range(d_model)]
+                emb_output.append(emb_pos)
+            node_outputs["emb"] = emb_output
+
+            # Layer-by-layer forward pass
+            for layer in range(n_layers):
+                attn_node = f"attn_{layer}"
+                mlp_node = f"mlp_{layer}"
+
+                if attn_node in active_nodes:
+                    attn_output = encode_attention_layer(
+                        node_outputs,
+                        layer,
+                        circuit_edges,
+                        model_weights,
+                        model_weights["n_heads"],
+                        solver,
+                        f"rob_{i}_L{layer}_attn",
+                    )
+                    node_outputs[attn_node] = attn_output
+                else:
+                    node_outputs[attn_node] = zero_output(seq_len, d_model)
+
+                if mlp_node in active_nodes:
+                    mlp_output = encode_mlp_layer(
+                        node_outputs,
+                        layer,
+                        circuit_edges,
+                        model_weights,
+                        solver,
+                        f"rob_{i}_L{layer}_mlp",
+                    )
+                    node_outputs[mlp_node] = mlp_output
+                else:
+                    node_outputs[mlp_node] = zero_output(seq_len, d_model)
+
+            # Extract final residual at last position (before ln_f)
+            parent_nodes = ["emb"]
+            for layer in range(n_layers):
+                parent_nodes.extend([f"attn_{layer}", f"mlp_{layer}"])
+
+            residual_last = [RealVal(0) for _ in range(d_model)]
+            for parent in parent_nodes:
+                if (parent, "logits") in circuit_edges:
+                    parent_output = node_outputs[parent]
+                    for j in range(d_model):
+                        residual_last[j] = residual_last[j] + parent_output[seq_len - 1][j]
+
+            # Create symbolic perturbation η with ||η||_∞ ≤ ε
+            eta = [Real(f"rob_{i}_eta_{j}") for j in range(d_model)]
+            for j in range(d_model):
+                solver.add(eta[j] >= -epsilon)
+                solver.add(eta[j] <= epsilon)
+
+            # Perturbed residual
+            perturbed_residual = [residual_last[j] + eta[j] for j in range(d_model)]
+
+            # Apply ln_f to both residuals
+            def apply_final_norm(residual, ctx):
+                if norm_variant == "signed_l1_band_norm":
+                    norm_gamma = model_weights["final_norm_gamma"]
+                    norm_beta = model_weights["final_norm_beta"]
+                    half_low = model_weights["half_low"]
+                    half_high = model_weights["half_high"]
+                    pos_fallback = [1.0 if k % 2 == 0 else 0.0 for k in range(d_model)]
+                    neg_fallback = [0.0 if k % 2 == 0 else 1.0 for k in range(d_model)]
+                    return encode_signed_l1_band_norm(
+                        residual, norm_gamma, norm_beta,
+                        half_low, half_high,
+                        pos_fallback, neg_fallback,
+                        solver, ctx,
+                    )
+                else:
+                    norm_gamma = model_weights["final_norm_gamma"]
+                    norm_beta = model_weights["final_norm_beta"]
+                    return [residual[k] * norm_gamma[k] + norm_beta[k] for k in range(d_model)]
+
+            normed_original = apply_final_norm(residual_last, f"rob_{i}_norm_orig")
+            normed_perturbed = apply_final_norm(perturbed_residual, f"rob_{i}_norm_pert")
+
+            # Compute logits for both
+            lm_head = model_weights["lm_head"]
+            logits_original = {tok: Sum([lm_head[tok][j] * normed_original[j] for j in range(d_model)])
+                              for tok in candidate_tokens}
+            logits_perturbed = {tok: Sum([lm_head[tok][j] * normed_perturbed[j] for j in range(d_model)])
+                               for tok in candidate_tokens}
+
+            # Check if decisions differ
+            ordering_violations = []
+            for tok1 in candidate_tokens:
+                for tok2 in candidate_tokens:
+                    if tok1 != tok2:
+                        # Original prefers tok1, perturbed prefers tok2
+                        ordering_violations.append(
+                            And(logits_original[tok1] > logits_original[tok2],
+                                logits_perturbed[tok1] <= logits_perturbed[tok2])
+                        )
+                        # Or vice versa
+                        ordering_violations.append(
+                            And(logits_original[tok1] <= logits_original[tok2],
+                                logits_perturbed[tok1] > logits_perturbed[tok2])
+                        )
+
+            if not ordering_violations:
+                verified_count += 1
+                continue
+
+            solver.add(Or(ordering_violations))
+
+            result = solver.check()
+
+            if result == unsat:
+                # No perturbation can change the decision
+                verified_count += 1
+            elif result == sat:
+                # Found a perturbation that changes decision
+                model = solver.model()
+                violations.append({
+                    "input": input_tokens,
+                    "perturbation_found": True,
+                })
+                if len(violations) >= 10:
+                    break
+            else:
+                timeout_count += 1
+
+        except Exception as e:
+            print(f"  Error on input {i}: {e}")
+            error_count += 1
+            continue
+
+    if len(violations) > 0:
+        status = "FAILED"
+    elif timeout_count > 0 or error_count > 0:
+        status = "UNKNOWN"
+    else:
+        status = "VERIFIED"
+
+    return {
+        "property": "continuous_robustness",
+        "status": status,
+        "verified_count": verified_count,
+        "timeout_count": timeout_count,
+        "error_count": error_count,
+        "epsilon": epsilon,
         "violations": violations[:5],
         "num_violations": len(violations),
     }

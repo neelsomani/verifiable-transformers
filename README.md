@@ -611,7 +611,7 @@ Formal properties to verify after extraction:
 
 3. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{quote}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
-4. **Continuous robustness**: For every continuous perturbation $\eta$ to the final residual satisfying $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged: $$\forall x \in D_{\text{quote}},\ \forall \eta \in \mathbb{R}^{d_{\text{model}}},\quad \|\eta\|_\infty \le \epsilon \Rightarrow d_T(\text{ln\_f}(r_E(x)+\eta)) = P_{\text{quote}}(x)$$
+4. **Continuous robustness**: For every perturbation $\eta$ to the final residual with $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged: $\forall x \in D_{\mathrm{quote}},\ \forall \eta \in \mathbb{R}^{d},\ \|\eta\|_\infty \le \epsilon \Rightarrow G_T(r_E(x)+\eta)=P_{\mathrm{quote}}(x)$, where $G_T(r)$ is the projected decision after final normalization and unembedding.
 
 ##### Bracket type
 
@@ -646,7 +646,7 @@ Formal properties to verify after extraction:
 
 4. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{bracket}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
-5. **Continuous robustness**: For every continuous perturbation $\eta$ to the final residual satisfying $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged: $$\forall x \in D_{\text{bracket}},\ \forall \eta \in \mathbb{R}^{d_{\text{model}}},\quad \|\eta\|_\infty \le \epsilon \Rightarrow d_T(\text{ln\_f}(r_E(x)+\eta)) = P_{\text{bracket}}(x)$$
+5. **Continuous robustness**: For every perturbation $\eta$ to the final residual with $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged: $\forall x \in D_{\mathrm{bracket}},\ \forall \eta \in \mathbb{R}^{d},\ \|\eta\|_\infty \le \epsilon \Rightarrow G_T(r_E(x)+\eta)=P_{\mathrm{bracket}}(x)$, where $G_T(r)$ is the projected decision after final normalization and unembedding.
 
 #### Results (Step 2c model @ checkpoint-240000)
 

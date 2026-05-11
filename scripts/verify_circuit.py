@@ -30,6 +30,7 @@ from scripts.smt_verify import (
     verify_functional_equivalence,
     verify_content_invariance,
     verify_edge_necessity,
+    verify_continuous_robustness,
     generate_quote_close_sequences,
     generate_bracket_type_sequences,
 )
@@ -67,6 +68,8 @@ def verify_quote_close(
     circuit_path: str,
     output_dir: str,
     model_path: str,
+    max_length: int,
+    timeout_ms: int,
 ):
     """Run all quote_close verification properties."""
     print(f"\n{'#' * 80}")
@@ -117,7 +120,7 @@ def verify_quote_close(
     }
 
     try:
-        test_sequences = generate_quote_close_sequences(max_length=5, special_tokens=special_tokens)
+        test_sequences = generate_quote_close_sequences(max_length=max_length, special_tokens=special_tokens)
         print(f"Generated {len(test_sequences)} test sequences\n")
 
         def reference_program(tokens: List[int]) -> int:
@@ -132,10 +135,10 @@ def verify_quote_close(
         result = verify_functional_equivalence(
             circuit,
             reference_program,
-            test_sequences[:50],  # Limit for tractability
+            test_sequences,
             model_weights,
             candidate_tokens,
-            timeout_ms=30000,
+            timeout_ms=timeout_ms,
         )
         results.append(result)
 
@@ -169,11 +172,11 @@ def verify_quote_close(
 
         result = verify_content_invariance(
             circuit,
-            test_sequences[:30],
+            test_sequences,
             model_weights,
             candidate_tokens,
             get_quote_type,
-            timeout_ms=30000,
+            timeout_ms=timeout_ms,
         )
         results.append(result)
 
@@ -198,19 +201,15 @@ def verify_quote_close(
     print("For each edge e, prove exists x such that C(x) != (C \\\\ e)(x)\n")
 
     try:
-        test_inputs = [
-            [single_id, 12, 13],
-            [double_id, 12, 13],
-            [14, single_id, 15],
-            [14, double_id, 15],
-        ]
+        # Use bounded domain sequences for formal verification
+        test_inputs = [seq for seq, _ in test_sequences]
 
         result = verify_edge_necessity(
             circuit,
             test_inputs,
             model_weights,
             candidate_tokens,
-            timeout_ms=20000,
+            timeout_ms=timeout_ms,
         )
         results.append(result)
 
@@ -224,6 +223,40 @@ def verify_quote_close(
     except Exception as e:
         print(f"ERROR: {e}\n")
         results.append({"property": "edge_necessity", "status": "ERROR", "message": str(e)})
+
+    # Property 4: Continuous robustness
+    print(f"\n{'=' * 80}")
+    print("PROPERTY 4: Continuous Robustness")
+    print(f"{'=' * 80}\n")
+
+    print("Verifying: decision is stable under perturbations to final residual")
+    print("For all x, all η with ||η||_∞ ≤ ε: g_T(r_E(x)+η) = g_T(r_E(x))\n")
+
+    try:
+        # Use bounded domain sequences for formal verification
+        test_inputs = [seq for seq, _ in test_sequences]
+
+        result = verify_continuous_robustness(
+            circuit,
+            test_inputs,
+            model_weights,
+            candidate_tokens,
+            epsilon=0.01,
+            timeout_ms=timeout_ms,
+        )
+        results.append(result)
+
+        print(f"Status: {result['status']}")
+        print(f"Epsilon: {result.get('epsilon', 0.01)}")
+        if "verified_count" in result:
+            print(f"Verified: {result['verified_count']}/{len(test_inputs)}")
+        if result.get("num_violations", 0) > 0:
+            print(f"Violations found: {result['num_violations']}")
+        print()
+
+    except Exception as e:
+        print(f"ERROR: {e}\n")
+        results.append({"property": "continuous_robustness", "status": "ERROR", "message": str(e)})
 
     # Write results
     os.makedirs(output_dir, exist_ok=True)
@@ -255,6 +288,8 @@ def verify_bracket_type(
     circuit_path: str,
     output_dir: str,
     model_path: str,
+    max_length: int,
+    timeout_ms: int,
 ):
     """Run all bracket_type verification properties."""
     print(f"\n{'#' * 80}")
@@ -310,7 +345,7 @@ def verify_bracket_type(
     }
 
     try:
-        test_sequences = generate_bracket_type_sequences(max_length=5, special_tokens=special_tokens)
+        test_sequences = generate_bracket_type_sequences(max_length=max_length, special_tokens=special_tokens)
         print(f"Generated {len(test_sequences)} test sequences\n")
 
         def reference_program(tokens: List[int]) -> int:
@@ -325,10 +360,10 @@ def verify_bracket_type(
         result = verify_functional_equivalence(
             circuit,
             reference_program,
-            test_sequences[:50],  # Limit for tractability
+            test_sequences,
             model_weights,
             candidate_tokens,
-            timeout_ms=30000,
+            timeout_ms=timeout_ms,
         )
         results.append(result)
 
@@ -362,11 +397,11 @@ def verify_bracket_type(
 
         result = verify_content_invariance(
             circuit,
-            test_sequences[:30],
+            test_sequences,
             model_weights,
             candidate_tokens,
             get_bracket_type,
-            timeout_ms=30000,
+            timeout_ms=timeout_ms,
         )
         results.append(result)
 
@@ -391,19 +426,15 @@ def verify_bracket_type(
     print("For each edge e, prove exists x such that C(x) != (C \\\\ e)(x)\n")
 
     try:
-        test_inputs = [
-            [left_bracket, 12, 13],
-            [left_brace, 12, 13],
-            [14, left_bracket, 15],
-            [14, left_brace, 15],
-        ]
+        # Use bounded domain sequences for formal verification
+        test_inputs = [seq for seq, _ in test_sequences]
 
         result = verify_edge_necessity(
             circuit,
             test_inputs,
             model_weights,
             candidate_tokens,
-            timeout_ms=20000,
+            timeout_ms=timeout_ms,
         )
         results.append(result)
 
@@ -417,6 +448,40 @@ def verify_bracket_type(
     except Exception as e:
         print(f"ERROR: {e}\n")
         results.append({"property": "edge_necessity", "status": "ERROR", "message": str(e)})
+
+    # Property 4: Continuous robustness
+    print(f"\n{'=' * 80}")
+    print("PROPERTY 4: Continuous Robustness")
+    print(f"{'=' * 80}\n")
+
+    print("Verifying: decision is stable under perturbations to final residual")
+    print("For all x, all η with ||η||_∞ ≤ ε: g_T(r_E(x)+η) = g_T(r_E(x))\n")
+
+    try:
+        # Use bounded domain sequences for formal verification
+        test_inputs = [seq for seq, _ in test_sequences]
+
+        result = verify_continuous_robustness(
+            circuit,
+            test_inputs,
+            model_weights,
+            candidate_tokens,
+            epsilon=0.01,
+            timeout_ms=timeout_ms,
+        )
+        results.append(result)
+
+        print(f"Status: {result['status']}")
+        print(f"Epsilon: {result.get('epsilon', 0.01)}")
+        if "verified_count" in result:
+            print(f"Verified: {result['verified_count']}/{len(test_inputs)}")
+        if result.get("num_violations", 0) > 0:
+            print(f"Violations found: {result['num_violations']}")
+        print()
+
+    except Exception as e:
+        print(f"ERROR: {e}\n")
+        results.append({"property": "continuous_robustness", "status": "ERROR", "message": str(e)})
 
     # Write results
     os.makedirs(output_dir, exist_ok=True)
@@ -467,12 +532,16 @@ def main():
             args.circuit_path,
             args.output_dir,
             args.model_path,
+            args.max_length,
+            args.timeout_ms,
         )
     elif args.task == "bracket_type":
         verify_bracket_type(
             args.circuit_path,
             args.output_dir,
             args.model_path,
+            args.max_length,
+            args.timeout_ms,
         )
 
 

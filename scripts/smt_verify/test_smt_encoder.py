@@ -14,7 +14,7 @@ from typing import List, Dict
 
 import torch
 import numpy as np
-from z3 import Solver
+from z3 import Solver, sat
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -22,6 +22,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from scripts.smt_verify import encode_circuit_forward
 from scripts.smt_verify.model_weights import load_model_weights
 from scripts.smt_verify.helpers import parse_circuit_edges
+from scripts.circuits.extract_circuit import (
+    controlled_forward,
+    build_circuit_graph,
+)
 
 
 def load_pytorch_model(model_path: str, model_info_path: str = None):
@@ -83,11 +87,26 @@ def load_pytorch_model(model_path: str, model_info_path: str = None):
     return model
 
 
-def get_pytorch_logits(model: GPT2LMHeadModel, input_ids: torch.Tensor) -> torch.Tensor:
-    """Get logits from PyTorch model."""
+def get_pytorch_logits(
+    model: GPT2LMHeadModel,
+    input_ids: torch.Tensor,
+    circuit_edges: set,
+) -> torch.Tensor:
+    """Get logits from PyTorch circuit using controlled_forward."""
+    graph = build_circuit_graph(model.config.n_layer)
+
     with torch.no_grad():
-        outputs = model(input_ids)
-        return outputs.logits[0, -1, :]  # Last position logits
+        logits = controlled_forward(
+            model=model,
+            input_ids=input_ids,
+            attention_mask=torch.ones_like(input_ids),
+            edges_to_keep=circuit_edges,
+            graph=graph,
+            ablation_cache=None,
+            ablation_mode="zero",
+            return_node_outputs=False,
+        )
+        return logits[0, -1, :]  # Last position logits
 
 
 def get_smt_logits(
@@ -122,11 +141,10 @@ def get_smt_logits(
         if tok in logits_z3:
             val = model.eval(logits_z3[tok], model_completion=True)
             # Convert Z3 rational to float
-            if hasattr(val, 'as_fraction'):
-                num, den = val.as_fraction()
-                logits[tok] = float(num) / float(den)
+            if hasattr(val, "as_fraction"):
+                logits[tok] = float(val.as_fraction())
             else:
-                logits[tok] = float(val.as_decimal(10).rstrip('?'))
+                logits[tok] = float(val.as_decimal(20).rstrip("?"))
 
     return logits
 
@@ -177,7 +195,7 @@ def test_encoder_sanity(
 
         # Get PyTorch logits
         input_ids = torch.tensor([input_tokens])
-        pytorch_logits_full = get_pytorch_logits(pytorch_model, input_ids)
+        pytorch_logits_full = get_pytorch_logits(pytorch_model, input_ids, circuit_edges)
         pytorch_logits = {tok: pytorch_logits_full[tok].item() for tok in candidate_tokens}
 
         # Get SMT logits
