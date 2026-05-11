@@ -1619,10 +1619,9 @@ def main():
 
     elif args.extract_circuit:
         task = args.extract_circuit
-        task_output_dir = os.path.join(args.output_dir, task)
         extract_circuit_for_task(
             args.model_path, task, args.n_examples, args.threshold,
-            args.metric, args.min_agreement, args.ablation, args.trim_rounds, task_output_dir, device
+            args.metric, args.min_agreement, args.ablation, args.trim_rounds, args.output_dir, device
         )
 
     else:

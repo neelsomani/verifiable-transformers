@@ -562,8 +562,7 @@ python scripts/circuits/extract_circuit.py \
   --extract_circuit quote_close \
   --n_examples 128 \
   --threshold 0.01 \
-  --ablation zero \
-  --output_dir artifacts/circuits
+  --output_dir artifacts/circuits/quote_close
 ```
 
 Bracket type:
@@ -574,8 +573,7 @@ python scripts/circuits/extract_circuit.py \
   --extract_circuit bracket_type \
   --n_examples 128 \
   --threshold 0.01 \
-  --ablation zero \
-  --output_dir artifacts/circuits
+  --output_dir artifacts/circuits/bracket_type
 ```
 
 Induction:
@@ -586,8 +584,7 @@ python scripts/circuits/extract_circuit.py \
   --extract_circuit induction_ABCAB \
   --n_examples 128 \
   --threshold 0.01 \
-  --ablation zero \
-  --output_dir artifacts/circuits
+  --output_dir artifacts/circuits/induction_ABCAB
 ```
 
 Available tasks: `quote_close`, `bracket_type`, `induction_ABCAB`
@@ -612,9 +609,9 @@ The comparison tool shows the circuit quality and size for each threshold. Use t
 
 This generates:
 
-* `artifacts/circuits/<task>/circuit.json` — circuit edges, metrics, and extraction log
-* `artifacts/circuits/<task>/circuit.dot` — Graphviz visualization
-* `artifacts/circuits/<task>/summary.txt` — human-readable summary
+* `<output_dir>/circuit.json` — circuit edges, metrics, and extraction log
+* `<output_dir>/circuit.dot` — Graphviz visualization
+* `<output_dir>/summary.txt` — human-readable summary
 
 Key parameters:
 
