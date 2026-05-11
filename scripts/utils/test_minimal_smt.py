@@ -8,8 +8,9 @@ SMT encoding is feasible at any scale.
 
 import sys
 import os
+import argparse
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from z3 import *
 from scripts.smt_verify import encode_circuit_forward
@@ -18,8 +19,29 @@ from scripts.smt_verify.helpers import parse_circuit_edges
 import json
 import time
 
+# Parse arguments
+parser = argparse.ArgumentParser(description="Minimal SMT encoding test")
+parser.add_argument("--circuit_path", type=str,
+                    default="artifacts/circuits_sweep/quote_close_t0.02/circuit.json",
+                    help="Path to circuit.json")
+parser.add_argument("--model_path", type=str,
+                    default="artifacts/step2c-band-norm-sparsemax/checkpoint-240000",
+                    help="Path to model checkpoint")
+parser.add_argument("--timeout", type=int, default=300,
+                    help="Timeout in seconds for encoding (default: 300)")
+parser.add_argument("--input_tokens", type=str, default="6",
+                    help="Comma-separated input token IDs (default: 6)")
+parser.add_argument("--candidate_tokens", type=str, default="6,1",
+                    help="Comma-separated candidate token IDs (default: 6,1)")
+
+args = parser.parse_args()
+
+# Parse tokens
+input_tokens = [int(x) for x in args.input_tokens.split(",")]
+candidate_tokens = [int(x) for x in args.candidate_tokens.split(",")]
+
 # Load circuit
-circuit_path = 'artifacts/circuits_sweep/quote_close_t0.02/circuit.json'
+circuit_path = args.circuit_path
 print(f"Loading circuit from {circuit_path}...")
 with open(circuit_path) as f:
     circuit = json.load(f)
