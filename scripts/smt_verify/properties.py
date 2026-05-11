@@ -112,7 +112,7 @@ def verify_functional_equivalence(
         status = "VERIFIED"
 
     return {
-        "property": "functional_equivalence",
+        "property": "projected_functional_equivalence",
         "status": status,
         "verified_count": verified_count,
         "timeout_count": timeout_count,
@@ -251,7 +251,7 @@ def verify_content_invariance(
         status = "VERIFIED"
 
     return {
-        "property": "content_invariance",
+        "property": "projected_content_invariance",
         "status": status,
         "verified_pairs": verified_pairs,
         "timeout_count": timeout_count,
@@ -395,7 +395,7 @@ def verify_edge_necessity(
         status = "VERIFIED"
 
     return {
-        "property": "edge_necessity",
+        "property": "projected_edge_necessity",
         "status": status,
         "total_edges": len(edges),
         "necessary_edges": len(necessary_edges),
@@ -790,12 +790,12 @@ def verify_continuous_robustness(
         status = "VERIFIED"
 
     return {
-        "property": "continuous_robustness",
+        "property": "projected_continuous_robustness",
         "status": status,
         "verified_count": verified_count,
         "timeout_count": timeout_count,
         "error_count": error_count,
-        "epsilon": epsilon,
+        "certified_epsilon": epsilon,
         "violations": violations[:5],
         "num_violations": len(violations),
     }

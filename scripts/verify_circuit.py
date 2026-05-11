@@ -151,7 +151,7 @@ def verify_quote_close(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "functional_equivalence", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_functional_equivalence", "status": "ERROR", "message": str(e)})
 
     # Property 2: Content invariance
     print(f"\n{'=' * 80}")
@@ -189,7 +189,7 @@ def verify_quote_close(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "content_invariance", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_content_invariance", "status": "ERROR", "message": str(e)})
 
     # Property 3: Edge necessity
     print(f"\n{'=' * 80}")
@@ -222,7 +222,7 @@ def verify_quote_close(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "edge_necessity", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_edge_necessity", "status": "ERROR", "message": str(e)})
 
     # Property 4: Continuous robustness
     print(f"\n{'=' * 80}")
@@ -247,7 +247,7 @@ def verify_quote_close(
         results.append(result)
 
         print(f"Status: {result['status']}")
-        print(f"Epsilon: {result.get('epsilon', 0.01)}")
+        print(f"Certified at epsilon: {result.get('certified_epsilon', 0.01)}")
         if "verified_count" in result:
             print(f"Verified: {result['verified_count']}/{len(test_inputs)}")
         if result.get("num_violations", 0) > 0:
@@ -256,7 +256,7 @@ def verify_quote_close(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "continuous_robustness", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_continuous_robustness", "status": "ERROR", "message": str(e)})
 
     # Write results
     os.makedirs(output_dir, exist_ok=True)
@@ -376,7 +376,7 @@ def verify_bracket_type(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "functional_equivalence", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_functional_equivalence", "status": "ERROR", "message": str(e)})
 
     # Property 2: Content invariance
     print(f"\n{'=' * 80}")
@@ -414,7 +414,7 @@ def verify_bracket_type(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "content_invariance", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_content_invariance", "status": "ERROR", "message": str(e)})
 
     # Property 3: Edge necessity
     print(f"\n{'=' * 80}")
@@ -447,7 +447,7 @@ def verify_bracket_type(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "edge_necessity", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_edge_necessity", "status": "ERROR", "message": str(e)})
 
     # Property 4: Continuous robustness
     print(f"\n{'=' * 80}")
@@ -472,7 +472,7 @@ def verify_bracket_type(
         results.append(result)
 
         print(f"Status: {result['status']}")
-        print(f"Epsilon: {result.get('epsilon', 0.01)}")
+        print(f"Certified at epsilon: {result.get('certified_epsilon', 0.01)}")
         if "verified_count" in result:
             print(f"Verified: {result['verified_count']}/{len(test_inputs)}")
         if result.get("num_violations", 0) > 0:
@@ -481,7 +481,7 @@ def verify_bracket_type(
 
     except Exception as e:
         print(f"ERROR: {e}\n")
-        results.append({"property": "continuous_robustness", "status": "ERROR", "message": str(e)})
+        results.append({"property": "projected_continuous_robustness", "status": "ERROR", "message": str(e)})
 
     # Write results
     os.makedirs(output_dir, exist_ok=True)
@@ -520,8 +520,8 @@ def main():
                         help="Output directory for verification results")
     parser.add_argument("--model_path", type=str, required=True,
                         help="Path to trained model checkpoint directory")
-    parser.add_argument("--max_length", type=int, default=8,
-                        help="Maximum sequence length for bounded verification")
+    parser.add_argument("--max_length", type=int, default=3,
+                        help="Maximum sequence length for bounded verification (use 3-4 for exhaustive verification)")
     parser.add_argument("--timeout_ms", type=int, default=60000,
                         help="SMT solver timeout in milliseconds")
 

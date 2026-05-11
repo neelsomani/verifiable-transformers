@@ -253,10 +253,10 @@ def test_encoder_sanity(
     print(f"{'='*80}")
     if all_pass:
         print("✓ ALL TESTS PASSED")
-        print("SMT encoder matches PyTorch within tolerance")
+        print("SMT encoder projected decisions match PyTorch on tested sequences")
     else:
         print("❌ SOME TESTS FAILED")
-        print("SMT encoder does not match PyTorch!")
+        print("SMT encoder decisions do not match PyTorch!")
         print("DO NOT TRUST VERIFICATION RESULTS UNTIL THIS IS FIXED")
     print(f"{'='*80}\n")
 
