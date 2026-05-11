@@ -3,7 +3,7 @@
 We design a Transformer variant whose entire forward pass can be encoded exactly in an SMT solver, so the solver can reason about the model’s behavior over all inputs in a bounded domain. Once the full model is SMT-representable, we formally check properties like:
 
 * whether the model is exactly equivalent to a given symbolic program on all sequences of length ≤ n,
-* whether particular connections are necessary for the model’s behavior (circuit minimality)
+* whether particular connections are necessary for the model’s behavior (edge necessity)
 * whether the model obeys structural constraints (like local attention), and
 * impossibility results on circuits (e.g., counts above k collapse to the same internal state)
 
@@ -89,9 +89,10 @@ For a bounded domain $\Sigma^{\leq n}$, we verify the following properties:
 | Property | Informal Description | Formal Definition |
 |----------|---------------------|-------------------|
 | **Functional Equivalence** | The model is equivalent to a specific symbolic program on all inputs of length ≤ n. For a code generation model trained on simple transformations (e.g. string manipulation), we can prove that for all inputs ≤ n, the model is equivalent to a reference implementation. If the property fails, the solver returns a concrete counterexample. | $\forall x \in \Sigma^{\leq n}, \quad y_M(x) = P(x)$ |
-| **Circuit Minimality** | An algorithmic circuit contains the minimal number of edges. We can prove that removing an attention pathway does not change the output for any input ≤ n. This provides a principled way to eliminate potentially harmful circuits. | $\forall e \in E(C), \quad \exists x \in \Sigma^{\leq n} \text{ such that } C(x) \neq (C \setminus e)(x)$ |
+| **Edge Necessity** | Every retained edge is behaviorally necessary on the bounded domain: for each edge, there exists an input where removing that edge changes the circuit's projected output. This does not prove that ACDC found the globally smallest possible circuit; it proves that no retained edge is obviously redundant under the checked criterion. | $\forall e \in E(C), \quad \exists x \in \Sigma^{\leq n} \text{ such that } C(x) \neq (C \setminus e)(x)$ |
 | **Structural Invariants** | The model obeys structural constraints (e.g. local attention). We can guarantee that sensitive information (e.g. earlier tokens containing secrets) cannot influence outputs beyond a fixed window. | $\forall x \in \Sigma^{\leq n}, \quad S(M, x)$ where $S$ encodes locality, sparsity, monotonicity, causality, etc. |
 | **Impossibility Results** | The model produces identical outputs for two classes of inputs. We can prove that for all inputs ≤ n, the model cannot distinguish between two programs that differ only in variable renaming (e.g. renaming x to y throughout). This establishes that the model has learned a representation invariant to variable identity. | $\forall x, x' \in \Sigma^{\leq n}, \quad R(x, x') \Rightarrow \varphi_M(x) = \varphi_M(x')$ where $R$ identifies input pairs the model cannot distinguish |
+| **Continuous Robustness** | The circuit's projected decision is stable under continuous perturbations to its internal state, such as quantization or bounded activation noise. For every input in a bounded domain and every perturbation $\eta$ to the circuit's final residual satisfying $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged. | Let $r_E(x)$ be the final residual of circuit $C_E$. Let $G_T(r)$ be the token in candidate set $T$ with highest logit after final normalization and unembedding. We verify: $\forall x \in \Sigma^{\leq n},\ \forall \eta \in \mathbb{R}^{d},\ \|\eta\|_\infty \le \epsilon \Rightarrow G_T(r_E(x)+\eta)=G_T(r_E(x))$. If functional correctness is also verified, then $G_T(r_E(x)+\eta)=P(x)$. |
 
 ## Step 1: Baseline GPT-2 (Open-Source)
 
@@ -610,6 +611,8 @@ Formal properties to verify after extraction:
 
 3. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{quote}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
+4. **Continuous robustness**: For every continuous perturbation $\eta$ to the final residual satisfying $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged: $$\forall x \in D_{\text{quote}},\ \forall \eta \in \mathbb{R}^{d_{\text{model}}},\quad \|\eta\|_\infty \le \epsilon \Rightarrow d_T(\text{ln\_f}(r_E(x)+\eta)) = P_{\text{quote}}(x)$$
+
 ##### Bracket type
 
 Goal: Extract the subcircuit responsible for choosing `]` vs `}`.
@@ -643,6 +646,8 @@ Formal properties to verify after extraction:
 
 4. **Edge necessity**: For retained edges $e$, check whether removing $e$ changes the projected behavior on some bounded input: $\forall e \in E(C),\quad \exists x \in D_{\text{bracket}}: d_T(C_E,x)\neq d_T(C_E\setminus e,x)$
 
+5. **Continuous robustness**: For every continuous perturbation $\eta$ to the final residual satisfying $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged: $$\forall x \in D_{\text{bracket}},\ \forall \eta \in \mathbb{R}^{d_{\text{model}}},\quad \|\eta\|_\infty \le \epsilon \Rightarrow d_T(\text{ln\_f}(r_E(x)+\eta)) = P_{\text{bracket}}(x)$$
+
 #### Results (Step 2c model @ checkpoint-240000)
 
 Circuits extracted using zero ablation, candidate_kl metric, and min_agreement=1.0 guard.
@@ -664,6 +669,7 @@ Threshold sweep results:
 - Edges: 56 / 325 (17.2%)
 - Projected agreement: 1.000
 - Candidate KL: 0.062
+- Selected path: `artifacts/circuits_sweep/quote_close_t0.02/circuit.json`
 
 ##### Bracket type
 
@@ -682,6 +688,7 @@ Threshold sweep results:
 - Edges: 51 / 325 (15.7%)
 - Projected agreement: 1.000
 - Candidate KL: 0.180
+- Selected path: `artifacts/circuits_sweep/bracket_type_t0.2/circuit.json`
 
 ### Step 3c: Formal verification
 
@@ -700,17 +707,19 @@ The SMT verification system is implemented in `/scripts/smt_verify/` with the fo
 **Usage:**
 
 ```bash
-# Verify quote_close circuit
+# Verify quote_close circuit (functional correctness, content invariance, edge necessity, continuous robustness)
 python scripts/verify_circuit.py \
-  --circuit_path outputs/circuits/quote_close/circuit.json \
+  --circuit_path artifacts/circuits_sweep/quote_close_t0.02/circuit.json \
   --task quote_close \
-  --output_dir outputs/verification/quote_close \
+  --output_dir artifacts/verification/quote_close \
   --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
 
-# Verify bracket_type circuit
+# Verify bracket_type circuit (functional correctness, content invariance, delimiter sensitivity, edge necessity, continuous robustness)
 python scripts/verify_circuit.py \
-  --circuit_path outputs/circuits/bracket_type/circuit.json \
+  --circuit_path artifacts/circuits_sweep/bracket_type_t0.2/circuit.json \
   --task bracket_type \
-  --output_dir outputs/verification/bracket_type \
+  --output_dir artifacts/verification/bracket_type \
   --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
 ```
+
+The verification script checks all applicable properties for each task, including functional correctness, content/delimiter invariance, edge necessity, and continuous robustness. See the formal definitions table at the top of this document for property specifications.

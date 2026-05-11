@@ -520,6 +520,7 @@ def controlled_forward(
     ablation_cache: Optional[Dict[str, torch.Tensor]] = None,
     ablation_mode: str = "zero",
     return_node_outputs: bool = False,
+    return_final_resid: bool = False,
 ):
     """Controlled forward pass with edge ablation.
 
@@ -532,10 +533,12 @@ def controlled_forward(
         ablation_cache: Unused (kept for compatibility)
         ablation_mode: "zero" (only mode supported)
         return_node_outputs: If True, return node activations
+        return_final_resid: If True, return final residual before ln_f
 
     Returns:
         logits: [B, T, vocab]
         node_outputs: Dict[str, Tensor] if return_node_outputs, else None
+        final_resid: [B, T, D] if return_final_resid, else None
     """
     device = input_ids.device
     B, T = input_ids.shape
@@ -607,8 +610,12 @@ def controlled_forward(
     hidden = model.transformer.ln_f(final_resid)
     logits = model.lm_head(hidden)
 
-    if return_node_outputs:
+    if return_node_outputs and return_final_resid:
+        return logits, node_outputs, final_resid
+    elif return_node_outputs:
         return logits, node_outputs
+    elif return_final_resid:
+        return logits, final_resid
     return logits
 
 
