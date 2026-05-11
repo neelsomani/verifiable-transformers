@@ -554,7 +554,7 @@ For a strong circuit claim over a bounded domain, this should be `1.000` on that
 
 #### Run circuit extraction
 
-Quote closing:
+Example circuit extraction:
 
 ```bash
 python scripts/circuits/extract_circuit.py \
@@ -565,31 +565,7 @@ python scripts/circuits/extract_circuit.py \
   --output_dir artifacts/circuits/quote_close
 ```
 
-Bracket type:
-
-```bash
-python scripts/circuits/extract_circuit.py \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
-  --extract_circuit bracket_type \
-  --n_examples 128 \
-  --threshold 0.01 \
-  --output_dir artifacts/circuits/bracket_type
-```
-
-Induction:
-
-```bash
-python scripts/circuits/extract_circuit.py \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
-  --extract_circuit induction_ABCAB \
-  --n_examples 128 \
-  --threshold 0.01 \
-  --output_dir artifacts/circuits/induction_ABCAB
-```
-
 Available tasks: `quote_close`, `bracket_type`, `induction_ABCAB`
-
-#### Threshold sweeps (recommended)
 
 The threshold parameter strongly affects circuit quality. Run a threshold sweep to find the smallest circuit that preserves full-model projected behavior:
 
@@ -604,22 +580,6 @@ python scripts/circuits/compare_sweep_results.py \
 ```
 
 The comparison tool shows the circuit quality and size for each threshold. Use the recommended circuit for verification.
-
-#### Single extraction output
-
-This generates:
-
-* `<output_dir>/circuit.json` — circuit edges, metrics, and extraction log
-* `<output_dir>/circuit.dot` — Graphviz visualization
-* `<output_dir>/summary.txt` — human-readable summary
-
-Key parameters:
-
-* `--threshold`: maximum KL increase allowed when removing an edge (default: 0.01). Use sweeps to find optimal value.
-* `--metric`: metric for edge removal (default: `candidate_kl`). Use `candidate_kl` for projection-based extraction.
-* `--min_agreement`: minimum projected-agreement required to remove edge (default: 1.0). Enforces $d_T(C_E,x) = d_T(M,x)$ guard.
-* `--n_examples`: number of extraction examples (default: 128).
-* `--trim_rounds`: additional trimming passes after ACDC (default: 0). Start with `0`; extra trimming can harm faithfulness.
 
 #### Task-specific extraction details
 
