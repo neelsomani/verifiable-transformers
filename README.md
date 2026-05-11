@@ -706,20 +706,44 @@ The SMT verification system is implemented in `/scripts/smt_verify/` with the fo
 
 **Usage:**
 
+First, run sanity tests to verify SMT encoder matches PyTorch circuit:
+
 ```bash
-# Verify quote_close circuit (functional correctness, content invariance, edge necessity, continuous robustness)
+# Sanity test for quote_close
+python scripts/smt_verify/test_smt_encoder.py \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --circuit_path artifacts/circuits_sweep/quote_close_t0.02/circuit.json \
+  --task quote_close \
+  --tolerance 1e-2
+
+# Sanity test for bracket_type
+python scripts/smt_verify/test_smt_encoder.py \
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --circuit_path artifacts/circuits_sweep/bracket_type_t0.2/circuit.json \
+  --task bracket_type \
+  --tolerance 1e-2
+```
+
+Then run formal verification. Start with `--max_length 3`:
+
+```bash
+# Verify quote_close circuit at length 3
 python scripts/verify_circuit.py \
   --circuit_path artifacts/circuits_sweep/quote_close_t0.02/circuit.json \
   --task quote_close \
   --output_dir artifacts/verification/quote_close \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --max_length 3 \
+  --timeout_ms 60000
 
-# Verify bracket_type circuit (functional correctness, content invariance, delimiter sensitivity, edge necessity, continuous robustness)
+# Verify bracket_type circuit at length 3
 python scripts/verify_circuit.py \
   --circuit_path artifacts/circuits_sweep/bracket_type_t0.2/circuit.json \
   --task bracket_type \
   --output_dir artifacts/verification/bracket_type \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000
+  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --max_length 3 \
+  --timeout_ms 60000
 ```
 
-The verification script checks all applicable properties for each task, including functional correctness, content/delimiter invariance, edge necessity, and continuous robustness. See the formal definitions table at the top of this document for property specifications.
+The verification script checks all projected properties: functional equivalence, content invariance, edge necessity, and continuous robustness (certified at ε=0.01). Properties are verified over the exhaustive bounded domain with `content_tokens=[10, 11]`. See the formal definitions table at the top of this document for property specifications.

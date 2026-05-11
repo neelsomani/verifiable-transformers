@@ -116,10 +116,14 @@ def get_smt_logits(
     candidate_tokens: List[int],
 ) -> Dict[int, float]:
     """Get logits from SMT encoder."""
+    import time
+
     solver = Solver()
     solver.set("timeout", 30000)
 
     # Encode circuit forward pass
+    print(f"     Encoding circuit...", end="", flush=True)
+    start = time.time()
     logits_z3 = encode_circuit_forward(
         input_tokens,
         circuit_edges,
@@ -128,9 +132,17 @@ def get_smt_logits(
         solver,
         "test",
     )
+    encode_time = time.time() - start
+    num_constraints = len(solver.assertions())
+    print(f" done ({encode_time:.1f}s, {num_constraints} constraints)", flush=True)
 
     # Check satisfiability
+    print(f"     Solving constraints...", end="", flush=True)
+    start = time.time()
     result = solver.check()
+    solve_time = time.time() - start
+    print(f" done ({solve_time:.1f}s)", flush=True)
+
     if result != sat:
         raise RuntimeError(f"SMT solver returned {result}, expected sat")
 
