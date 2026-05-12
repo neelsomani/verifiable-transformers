@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Set, Tuple, Callable, Optional
 from .circuit import encode_circuit_forward
 from .domain import generate_bounded_sequences
 from .utils import parse_circuit_edges, get_candidate_tokens
-from .encoders import encode_signed_l1_band_norm
+from .encoders import encode_signed_l1_band_norm, z3_real
 
 
 def verify_functional_equivalence(
@@ -653,7 +653,7 @@ def verify_continuous_robustness(
             emb_output = []
             for pos in range(seq_len):
                 tok = input_tokens[pos]
-                emb_pos = [wte[tok][j] + wpe[pos][j] for j in range(d_model)]
+                emb_pos = [z3_real(wte[tok][j]) + z3_real(wpe[pos][j]) for j in range(d_model)]
                 emb_output.append(emb_pos)
             node_outputs["emb"] = emb_output
 
@@ -704,8 +704,8 @@ def verify_continuous_robustness(
             # Create symbolic perturbation η with ||η||_∞ ≤ ε
             eta = [Real(f"rob_{i}_eta_{j}") for j in range(d_model)]
             for j in range(d_model):
-                solver.add(eta[j] >= -epsilon)
-                solver.add(eta[j] <= epsilon)
+                solver.add(eta[j] >= -z3_real(epsilon))
+                solver.add(eta[j] <= z3_real(epsilon))
 
             # Perturbed residual
             perturbed_residual = [residual_last[j] + eta[j] for j in range(d_model)]
@@ -728,16 +728,16 @@ def verify_continuous_robustness(
                 else:
                     norm_gamma = model_weights["final_norm_gamma"]
                     norm_beta = model_weights["final_norm_beta"]
-                    return [residual[k] * norm_gamma[k] + norm_beta[k] for k in range(d_model)]
+                    return [residual[k] * z3_real(norm_gamma[k]) + z3_real(norm_beta[k]) for k in range(d_model)]
 
             normed_original = apply_final_norm(residual_last, f"rob_{i}_norm_orig")
             normed_perturbed = apply_final_norm(perturbed_residual, f"rob_{i}_norm_pert")
 
             # Compute logits for both
             lm_head = model_weights["lm_head"]
-            logits_original = {tok: Sum([lm_head[tok][j] * normed_original[j] for j in range(d_model)])
+            logits_original = {tok: Sum([z3_real(lm_head[tok][j]) * normed_original[j] for j in range(d_model)])
                               for tok in candidate_tokens}
-            logits_perturbed = {tok: Sum([lm_head[tok][j] * normed_perturbed[j] for j in range(d_model)])
+            logits_perturbed = {tok: Sum([z3_real(lm_head[tok][j]) * normed_perturbed[j] for j in range(d_model)])
                                for tok in candidate_tokens}
 
             # Check if decisions differ

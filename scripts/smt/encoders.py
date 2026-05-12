@@ -1,7 +1,26 @@
 """SMT encoders for verifiable transformer components."""
 
 from z3 import *
+from fractions import Fraction
+import math
 from typing import List, Tuple
+
+
+def z3_real(value) -> ArithRef:
+    """Convert Python numeric constants to Z3 rationals without float parsing."""
+    if isinstance(value, ArithRef):
+        return value
+    if isinstance(value, bool):
+        return RealVal(int(value))
+    if isinstance(value, int):
+        return RealVal(value)
+
+    value_float = float(value)
+    if not math.isfinite(value_float):
+        raise ValueError(f"Non-finite SMT constant: {value!r}")
+
+    fraction = Fraction(str(value_float))
+    return Q(fraction.numerator, fraction.denominator)
 
 
 def encode_leaky_relu(x: ArithRef, alpha: float = 0.01) -> ArithRef:
@@ -16,7 +35,7 @@ def encode_leaky_relu(x: ArithRef, alpha: float = 0.01) -> ArithRef:
     Returns:
         Z3 expression for LeakyReLU(x)
     """
-    return If(x > 0, x, alpha * x)
+    return If(x > 0, x, z3_real(alpha) * x)
 
 
 def encode_nonnegative_l1_projection(
@@ -54,6 +73,7 @@ def encode_nonnegative_l1_projection(
     # Add constraint based on whether projection is needed
     # If mass <= radius: tau = 0 (no projection)
     # If mass > radius: proj_mass = radius
+    radius = z3_real(radius)
     solver.add(If(mass <= radius, tau == 0, proj_mass == radius))
 
     # Ensure tau is non-negative
@@ -92,12 +112,13 @@ def encode_additive_lift(
     # Active mask: if any y[i] > 0 globally, use y[i] > 0; otherwise use fallback
     active = [If(any_active,
                  If(y[i] > 0, RealVal(1), RealVal(0)),
-                 RealVal(fallback_mask[i]))
+                 z3_real(fallback_mask[i]))
               for i in range(n)]
     active_count = Sum(active)
 
     # Delta per active coordinate
     delta_var = Real(f"{ctx_prefix}_delta")
+    target = z3_real(target)
     solver.add(delta_var == (target - mass) / active_count)
 
     # Lifted values
@@ -169,7 +190,7 @@ def encode_signed_l1_band_norm(
     z_recentered = [z[i] - mean_z for i in range(d)]
 
     # Step 7: Affine transform
-    output = [gamma[i] * z_recentered[i] + beta[i] for i in range(d)]
+    output = [z3_real(gamma[i]) * z_recentered[i] + z3_real(beta[i]) for i in range(d)]
 
     return output
 
@@ -244,7 +265,7 @@ def encode_multihead_attention_sparsemax(
         raise ValueError(f"d_model={d_model} must be divisible by n_heads={n_heads}")
 
     # Scale factor for attention scores
-    scale = 1.0 / (head_dim ** 0.5)
+    scale = z3_real(1.0 / (head_dim ** 0.5))
 
     head_outputs = []
 
@@ -302,13 +323,13 @@ def encode_mlp(
     # Up-projection + activation
     hidden = []
     for i in range(d_ff):
-        h_i = Sum([W_up[i][j] * x[j] for j in range(d_model)]) + b_up[i]
+        h_i = Sum([z3_real(W_up[i][j]) * x[j] for j in range(d_model)]) + z3_real(b_up[i])
         hidden.append(encode_leaky_relu(h_i))
 
     # Down-projection
     output = []
     for i in range(d_model):
-        out_i = Sum([W_down[i][j] * hidden[j] for j in range(d_ff)]) + b_down[i]
+        out_i = Sum([z3_real(W_down[i][j]) * hidden[j] for j in range(d_ff)]) + z3_real(b_down[i])
         output.append(out_i)
 
     return output

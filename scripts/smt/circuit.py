@@ -8,6 +8,7 @@ from .encoders import (
     encode_sparsemax,
     encode_multihead_attention_sparsemax,
     encode_mlp,
+    z3_real,
 )
 
 
@@ -61,7 +62,7 @@ def encode_circuit_forward(
     for pos in range(seq_len):
         tok = input_tokens[pos]
         # Token embedding + position embedding
-        emb_pos = [wte[tok][j] + wpe[pos][j] for j in range(d_model)]
+        emb_pos = [z3_real(wte[tok][j]) + z3_real(wpe[pos][j]) for j in range(d_model)]
         emb_output.append(emb_pos)
 
     node_outputs["emb"] = emb_output
@@ -225,7 +226,7 @@ def encode_attention_layer(
         normed = []
         for pos in range(seq_len):
             # Simplified: just affine transform (not exact LayerNorm)
-            normed_pos = [residual[pos][i] * norm_gamma[i] + norm_beta[i] for i in range(d_model)]
+            normed_pos = [residual[pos][i] * z3_real(norm_gamma[i]) + z3_real(norm_beta[i]) for i in range(d_model)]
             normed.append(normed_pos)
 
     # Attention: Q, K, V projections
@@ -244,11 +245,11 @@ def encode_attention_layer(
     keys = []
     values = []
     for pos in range(seq_len):
-        q = [Sum([W_q[i][j] * normed[pos][j] for j in range(d_model)]) + b_q[i]
+        q = [Sum([z3_real(W_q[i][j]) * normed[pos][j] for j in range(d_model)]) + z3_real(b_q[i])
              for i in range(d_model)]
-        k = [Sum([W_k[i][j] * normed[pos][j] for j in range(d_model)]) + b_k[i]
+        k = [Sum([z3_real(W_k[i][j]) * normed[pos][j] for j in range(d_model)]) + z3_real(b_k[i])
              for i in range(d_model)]
-        v = [Sum([W_v[i][j] * normed[pos][j] for j in range(d_model)]) + b_v[i]
+        v = [Sum([z3_real(W_v[i][j]) * normed[pos][j] for j in range(d_model)]) + z3_real(b_v[i])
              for i in range(d_model)]
         queries.append(q)
         keys.append(k)
@@ -275,7 +276,7 @@ def encode_attention_layer(
     output = []
     for pos in range(seq_len):
         out_pos = [
-            Sum([W_o[i][j] * attn_output[pos][j] for j in range(d_model)]) + b_o[i]
+            Sum([z3_real(W_o[i][j]) * attn_output[pos][j] for j in range(d_model)]) + z3_real(b_o[i])
             for i in range(d_model)
         ]
         output.append(out_pos)
@@ -355,7 +356,7 @@ def encode_mlp_layer(
 
         normed = []
         for pos in range(seq_len):
-            normed_pos = [residual[pos][i] * norm_gamma[i] + norm_beta[i] for i in range(d_model)]
+            normed_pos = [residual[pos][i] * z3_real(norm_gamma[i]) + z3_real(norm_beta[i]) for i in range(d_model)]
             normed.append(normed_pos)
 
     # MLP forward
@@ -438,12 +439,12 @@ def encode_logits_layer_candidates(
         norm_gamma = model_weights["final_norm_gamma"]
         norm_beta = model_weights["final_norm_beta"]
 
-        normed = [residual_last[i] * norm_gamma[i] + norm_beta[i] for i in range(d_model)]
+        normed = [residual_last[i] * z3_real(norm_gamma[i]) + z3_real(norm_beta[i]) for i in range(d_model)]
 
     # LM head projection - ONLY for candidate tokens
     lm_head = model_weights["lm_head"]
     logits = {}
     for tok in candidate_tokens:
-        logits[tok] = Sum([lm_head[tok][j] * normed[j] for j in range(d_model)])
+        logits[tok] = Sum([z3_real(lm_head[tok][j]) * normed[j] for j in range(d_model)])
 
     return logits
