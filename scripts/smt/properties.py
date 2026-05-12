@@ -3,8 +3,8 @@
 from z3 import *
 from typing import List, Dict, Any, Set, Tuple, Callable, Optional
 from .circuit import encode_circuit_forward
-from .bounded_domain import generate_bounded_sequences
-from .helpers import parse_circuit_edges, get_candidate_tokens
+from .domain import generate_bounded_sequences
+from .utils import parse_circuit_edges, get_candidate_tokens
 from .encoders import encode_signed_l1_band_norm
 
 

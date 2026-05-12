@@ -19,10 +19,10 @@ from transformers import GPT2Tokenizer, GPT2LMHeadModel
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from scripts.smt_verify import encode_circuit_forward
-from scripts.smt_verify.model_weights import load_model_weights
-from scripts.smt_verify.helpers import parse_circuit_edges
-from scripts.circuits.extract_circuit import (
+from scripts.smt import encode_circuit_forward
+from scripts.gpt2.model_weights import load_model_weights
+from scripts.smt.utils import parse_circuit_edges
+from scripts.gpt2.extract import (
     controlled_forward,
     build_circuit_graph,
 )
@@ -30,7 +30,7 @@ from scripts.circuits.extract_circuit import (
 
 def load_pytorch_model(model_path: str, model_info_path: str = None):
     """Load PyTorch model for reference."""
-    from train_experiment import apply_model_variants
+    from scripts.gpt2.train import apply_model_variants
     from transformers import GPT2Config
 
     # Load model_info.json

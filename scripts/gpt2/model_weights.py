@@ -8,11 +8,11 @@ from typing import Dict, Any
 from types import MethodType
 
 # Add scripts directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from transformers import GPT2LMHeadModel, GPT2Config
-from train_experiment import apply_model_variants
-from .helpers import get_norm_params, get_bandnorm_params
+from scripts.gpt2.train import apply_model_variants
+from scripts.smt.utils import get_norm_params, get_bandnorm_params
 
 
 def load_model_weights(model_path: str, model_info_path: str = None) -> Dict[str, Any]:

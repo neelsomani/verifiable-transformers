@@ -24,7 +24,7 @@ Note: exact absolute numbers depend on hardware scale, effective batch size, tra
 Run this first to record pretrained GPT-2 reference numbers with the same evaluation protocol:
 
 ```bash
-python scripts/eval_pretrained_reference.py \
+python scripts/gpt2/eval_pretrained.py \
   --model_name gpt2 \
   --block_size 1024 \
   --stride 1024 \
@@ -41,9 +41,9 @@ These values are a local anchor for relative comparisons. Minor drift is expecte
 Then train the local baseline (8 GPUs) until OWT hits the threshold:
 
 ```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step1_gpt2_small_openwebtext_resume_stable.json \
-  --output_dir artifacts/step1-gpt2-small-openwebtext
+python -m torch.distributed.run --nproc_per_node=8 scripts/gpt2/train.py \
+  --config configs/gpt2_baseline.json \
+  --output_dir artifacts/gpt2-baseline
 ```
 
 This run uses early stopping on OpenWebText validation loss by default (`early_stop_eval_loss = 3.2` in the config).
@@ -75,20 +75,20 @@ Performance defaults in the baseline config:
 Evaluate WikiText-103 perplexity:
 
 ```bash
-python scripts/eval_wikitext103.py \
-  --model_path artifacts/step1-gpt2-small-openwebtext \
+python scripts/gpt2/eval_wikitext.py \
+  --model_path artifacts/gpt2-baseline \
   --split validation \
   --block_size 1024 \
   --stride 1024 \
-  --output_json artifacts/step1-wikitext103-validation.json
+  --output_json artifacts/gpt2-baseline-wikitext103-validation.json
 ```
 
 Plot training curves:
 
 ```bash
-python scripts/plot_training_curves.py \
-  --run_dir artifacts/step1-gpt2-small-openwebtext \
-  --output_png artifacts/step1-gpt2-small-openwebtext/training_curves.png
+python scripts/utils/plot_training_curves.py \
+  --run_dir artifacts/gpt2-baseline \
+  --output_png artifacts/gpt2-baseline/training_curves.png
 ```
 
 This reads `trainer_state.json` from the run directory and plots train/eval loss versus training step.
@@ -106,38 +106,38 @@ Current local baseline outcome (this repository run):
 Interpretation:
 
 * WikiText-103 perplexity is substantially worse than the pretrained GPT-2 reference in this run.
-* This Step 1 setup is optimized for the OpenWebText training pipeline and uses OpenWebText-based stopping criteria by default.
+* This baseline setup is optimized for the OpenWebText training pipeline and uses OpenWebText-based stopping criteria by default.
 * We use this run as a local baseline anchor for relative architecture comparisons, not as a claim of best absolute WikiText-103 performance.
 
 This run met the configured early-stop target (`eval_loss <= 3.2`).
 
 ## Verifiable Replacement Evaluations
 
-We use the same training script and process, with architecture variants controlled via config (`norm_variant`, `attn_variant`) to keep training/eval pipeline constant. We first establish the pretrained GPT-2 reference and local Step 1 baseline above, then compare these variants against that local baseline.
+We use the same training script and process, with architecture variants controlled via config (`norm_variant`, `attn_variant`) to keep training/eval pipeline constant. We first establish the pretrained GPT-2 reference and local baseline above, then compare these variants against that local baseline.
 
 ### LayerNorm Replacement Only
 
 **DyT (Failed)**:
 
-Config: `configs/step2a_norm_dyt_only.json`
+Config: `configs/norm_dyt.json`
 
 DyTNorm replaces LayerNorm with an affine → clamp → affine transformation. It is fully SMT-encodable, but it is not a true normalization layer: it provides neither data-dependent centering nor scale control. In practice, training improved briefly, then gradient norms rose and the run diverged, consistent with uncontrolled residual accumulation.
 
 **Verifiable PWL Norm v1 (Failed)**
 
-Config: `configs/step2a_norm_verifiable_pwl_v1.json`
+Config: `configs/norm_pwl_v1.json`
 
 PiecewiseLinearNorm v1 restored two important normalization ingredients — mean-centering and adaptive rescaling via mean absolute deviation (MAD) — while remaining SMT-encodable. However, its gain function used coarse discontinuous buckets `[4.0, 2.0, 1.0, 0.5, 0.25]`, which caused abrupt scaling changes and could over-amplify low-MAD tokens. Empirically, it trained at first but later showed rising gradient norms and eventual divergence.
 
 **Verifiable PWL Norm v2: Soft Leaky Clamp (Failed)**
 
-Config: `configs/step2a_norm_verifiable_pwl_v2.json`
+Config: `configs/norm_pwl_v2.json`
 
 v2 simplified the norm to mean subtraction, leaky piecewise-linear clamp, fixed scaling by 0.5, and learned bias. This results in better gradient flow relative to a hard clamp, but the clamp remained unbounded: outside the clamp region, activations still grew linearly. The result was better early optimization but eventual explosion once residual accumulation returned. The key lesson was that gradient flow alone is not enough; the norm must also enforce explicit magnitude control.
 
 **Verifiable PWL Norm v3: Bounded PWL Clamp (Stable but High Error)**
 
-Config: `configs/step2a_norm_verifiable_pwl_v3.json`
+Config: `configs/norm_pwl_v3.json`
 
 The progression v1 → v2 → v3 isolates the core requirement: v1 had insufficient scale control, hard clamp bounded activations but killed gradients, and v2 preserved gradients but left activations unbounded. The resulting target is bounded activations and nonzero gradients.
 
@@ -174,12 +174,12 @@ This differs fundamentally from v3:
 
 v3 made the model bounded but destroyed dynamic range. BandNorm enforces a scale invariant without clamping every coordinate independently, much closer to what normalization actually needs to do.
 
-Config: `configs/step2a_norm_signed_l1_band_norm.json`
+Config: `configs/norm_band_norm.json`
 
 ```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2a_norm_signed_l1_band_norm.json \
-  --output_dir artifacts/step2a-signed-l1-band-norm-only \
+python -m torch.distributed.run --nproc_per_node=8 scripts/gpt2/train.py \
+  --config configs/norm_band_norm.json \
+  --output_dir artifacts/norm-band-norm-only \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \
@@ -219,15 +219,15 @@ Implementation:
 
 Verification (run before full training to make sure patch is working):
 ```bash
-python scripts/verify_sparsemax.py
+python scripts/utils/verify_sparsemax.py
 ```
 
-Config: `configs/step2b_attn_sparsemax_only.json`
+Config: `configs/attn_sparsemax.json`
 
 ```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2b_attn_sparsemax_only.json \
-  --output_dir artifacts/step2b-attn-sparsemax-only \
+python -m torch.distributed.run --nproc_per_node=8 scripts/gpt2/train.py \
+  --config configs/attn_sparsemax.json \
+  --output_dir artifacts/attn-sparsemax-only \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \
@@ -260,12 +260,12 @@ This combines the two verifiable components from steps 2a and 2b, in addition to
 
 This represents the **end-to-end verifiable Transformer**: normalization, attention, and activations are fully SMT-encodable.
 
-Config: `configs/step2c_band_norm_sparsemax.json`
+Config: `configs/band_norm_sparsemax.json`
 
 ```bash
-python -m torch.distributed.run --nproc_per_node=8 scripts/train_experiment.py \
-  --config configs/step2c_band_norm_sparsemax.json \
-  --output_dir artifacts/step2c-band-norm-sparsemax \
+python -m torch.distributed.run --nproc_per_node=8 scripts/gpt2/train.py \
+  --config configs/band_norm_sparsemax.json \
+  --output_dir artifacts/band-norm-sparsemax \
   --disable_auto_resume \
   --use_wikitext_as_dev \
   --target_wikitext_ppl 53 \
@@ -317,15 +317,15 @@ Viability thresholds:
 Run the behavior viability scan:
 
 ```bash
-python scripts/circuits/extract_circuit.py \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+python scripts/gpt2/extract.py \
+  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
   --scan_behaviors \
   --n_examples 256 \
   --batch_size 8 \
   --output_dir artifacts/circuits
 ```
 
-Results (Step 2c model @ checkpoint-240000):
+Results (band_norm_sparsemax model @ checkpoint-240000):
 
 | Task | Binary Accuracy | Mean Logit Diff | Viability |
 |------|----------------|-----------------|-----------|
@@ -412,8 +412,8 @@ For a strong circuit claim over a bounded domain, this should be `1.000` on that
 Run circuit extraction:
 
 ```bash
-python scripts/circuits/extract_circuit.py \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+python scripts/gpt2/extract.py \
+  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
   --extract_circuit quote_close \
   --n_examples 128 \
   --threshold 0.01 \
@@ -426,10 +426,10 @@ The threshold parameter strongly affects circuit quality. Run a threshold sweep 
 
 ```bash
 # Run sweep (tests 6 thresholds: 0.005, 0.01, 0.02, 0.05, 0.1, 0.2)
-bash scripts/circuits/sweep_thresholds.sh quote_close
+bash scripts/gpt2/sweep_thresholds.sh quote_close
 
 # Compare results and get recommendation
-python scripts/circuits/compare_sweep_results.py \
+python scripts/gpt2/compare_sweeps.py \
   --sweep_dir artifacts/circuits_sweep \
   --task quote_close
 ```
@@ -554,13 +554,18 @@ Once circuits are extracted, we can in theory formally verify their properties u
 
 The problem is that while the circuit is SMT-representable, it is still not efficiently encodable. The result is that we cannot (yet) prove properties on the extracted circuits from the GPT-2 scale model. Nonetheless, the implementation below would in principle prove the desired results if it were tractable.
 
-The SMT verification system is implemented in `/scripts/smt_verify/` with the following modules:
+The SMT verification system is implemented in `/scripts/smt/` (core encoders) and `/scripts/gpt2/` (GPT-2 specific) with the following modules:
 
+Core SMT encoders (`scripts/smt/`):
 - `encoders.py`: SMT encodings of verifiable components (BandNorm, sparsemax, LeakyReLU, attention, MLP)
 - `circuit.py`: Circuit forward pass with edge masking
-- `bounded_domain.py`: Input sequence generation for bounded verification
+- `domain.py`: Input sequence generation for bounded verification
 - `properties.py`: Property verification functions using Z3
-- `model_weights.py`: Model weight extraction and lightweight test weights
+- `utils.py`: Utility functions
+
+GPT-2 specific (`scripts/gpt2/`):
+- `model_weights.py`: Model weight extraction for GPT-2
+- `verify.py`: Verification script for GPT-2 circuits
 
 **Usage:**
 
@@ -568,15 +573,15 @@ Scripts to run sanity tests to verify SMT encoder matches PyTorch circuit:
 
 ```bash
 # Sanity test for quote_close
-python scripts/smt_verify/test_smt_encoder.py \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+python scripts/gpt2/test_smt_encoder.py \
+  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
   --circuit_path artifacts/circuits_sweep/quote_close_t0.02/circuit.json \
   --task quote_close \
   --tolerance 1e-2
 
 # Sanity test for bracket_type
-python scripts/smt_verify/test_smt_encoder.py \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+python scripts/gpt2/test_smt_encoder.py \
+  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
   --circuit_path artifacts/circuits_sweep/bracket_type_t0.2/circuit.json \
   --task bracket_type \
   --tolerance 1e-2
@@ -586,20 +591,20 @@ Scripts to run formal verification, starting with `--max_length 3`:
 
 ```bash
 # Verify quote_close circuit at length 3
-python scripts/verify_circuit.py \
+python scripts/gpt2/verify.py \
   --circuit_path artifacts/circuits_sweep/quote_close_t0.02/circuit.json \
   --task quote_close \
   --output_dir artifacts/verification/quote_close \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
   --max_length 3 \
   --timeout_ms 60000
 
 # Verify bracket_type circuit at length 3
-python scripts/verify_circuit.py \
+python scripts/gpt2/verify.py \
   --circuit_path artifacts/circuits_sweep/bracket_type_t0.2/circuit.json \
   --task bracket_type \
   --output_dir artifacts/verification/bracket_type \
-  --model_path artifacts/step2c-band-norm-sparsemax/checkpoint-240000 \
+  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
   --max_length 3 \
   --timeout_ms 60000
 ```

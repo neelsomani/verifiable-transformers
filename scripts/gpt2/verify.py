@@ -25,8 +25,8 @@ import torch
 from transformers import GPT2Tokenizer
 
 # Import SMT verification modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from scripts.smt_verify import (
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from scripts.smt import (
     verify_functional_equivalence,
     verify_content_invariance,
     verify_edge_necessity,
@@ -34,8 +34,8 @@ from scripts.smt_verify import (
     generate_quote_close_sequences,
     generate_bracket_type_sequences,
 )
-from scripts.smt_verify.model_weights import load_model_weights
-from scripts.smt_verify.helpers import parse_circuit_edges, get_candidate_tokens
+from scripts.gpt2.model_weights import load_model_weights
+from scripts.smt.utils import parse_circuit_edges, get_candidate_tokens
 
 
 def load_circuit(circuit_path: str) -> Dict[str, Any]:

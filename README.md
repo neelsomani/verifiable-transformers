@@ -150,7 +150,49 @@ If your environment already provides PyTorch (for example, RunPod images), insta
 
 ## Quickstart
 
-Small E2E verifiable Transformer model on selected tasks to be implemented.
+### Small End-to-End Verifiable Transformer
+
+Train a minimal SMT-representable Transformer on three symbolic tasks:
+
+1. **quote_close**: Match opening quotes (' or ")
+2. **bracket_type**: Match opening brackets ([ or {)
+3. **add_mod_5**: Addition modulo 5 (0-4)
+
+**Key features:**
+- Custom 32-token vocabulary (exhaustive finite domains)
+- Only SMT-representable components (BandNorm + sparsemax + LeakyReLU)
+- ~11K parameters (tractable for SMT encoding)
+- Multitask model with task-specific circuit extraction
+
+**Train the model:**
+```bash
+python scripts/small/train.py \
+  --output_dir artifacts/small \
+  --batch_size 64 \
+  --max_steps 5000
+```
+
+Training stops automatically when all three tasks achieve 100% candidate accuracy.
+
+**Extract task-specific circuits:**
+```bash
+# Extract circuit for each task
+for task in quote_close bracket_type add_mod_5; do
+  python scripts/small/extract.py \
+    --model_path artifacts/small/checkpoint-final \
+    --task $task \
+    --threshold_sweep \
+    --output_dir artifacts/small_circuits/$task
+done
+```
+
+**Properties to verify:**
+
+| Task | Properties |
+|------|-----------|
+| quote_close | Functional correctness, content invariance, quote sensitivity, edge necessity, continuous robustness |
+| bracket_type | Functional correctness, content invariance, delimiter sensitivity, edge necessity, continuous robustness |
+| add_mod_5 | Functional correctness, commutativity, edge necessity, continuous robustness |
 
 ## Scalability Appendix
 

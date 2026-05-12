@@ -1,4 +1,7 @@
-"""SMT-based formal verification for verifiable transformers."""
+"""Core SMT encoders and verification utilities.
+
+Reusable components for SMT-based formal verification of Transformers.
+"""
 
 from .encoders import (
     encode_leaky_relu,
@@ -18,15 +21,14 @@ from .properties import (
     verify_structural_constraint,
     verify_continuous_robustness,
 )
-from .bounded_domain import (
+from .domain import (
     generate_bounded_sequences,
     generate_quote_close_sequences,
     generate_bracket_type_sequences,
     generate_induction_sequences,
     enumerate_small_domain,
 )
-from .model_weights import load_model_weights
-from .helpers import (
+from .utils import (
     parse_circuit_edges,
     get_norm_params,
     get_candidate_tokens,
@@ -53,7 +55,6 @@ __all__ = [
     "generate_bracket_type_sequences",
     "generate_induction_sequences",
     "enumerate_small_domain",
-    "load_model_weights",
     "parse_circuit_edges",
     "get_norm_params",
     "get_candidate_tokens",

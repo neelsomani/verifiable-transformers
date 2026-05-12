@@ -13,9 +13,9 @@ import argparse
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from z3 import *
-from scripts.smt_verify import encode_circuit_forward
-from scripts.smt_verify.model_weights import load_model_weights
-from scripts.smt_verify.helpers import parse_circuit_edges
+from scripts.smt import encode_circuit_forward
+from scripts.gpt2.model_weights import load_model_weights
+from scripts.smt.utils import parse_circuit_edges
 import json
 import time
 
