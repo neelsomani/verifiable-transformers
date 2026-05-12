@@ -1,6 +1,7 @@
 """Property verification using SMT solvers."""
 
 from z3 import *
+import time
 from typing import List, Dict, Any, Set, Tuple, Callable, Optional
 from .circuit import encode_circuit_forward
 from .domain import generate_bounded_sequences
@@ -48,6 +49,9 @@ def verify_functional_equivalence(
 
         # Encode circuit forward pass
         try:
+            print(f"  seq {i}: encoding...", flush=True)
+            t0 = time.time()
+
             circuit_logits = encode_circuit_forward(
                 input_tokens,
                 circuit_edges,
@@ -55,6 +59,12 @@ def verify_functional_equivalence(
                 candidate_tokens,
                 solver,
                 f"seq_{i}",
+            )
+
+            print(
+                f"  seq {i}: encoded in {time.time() - t0:.2f}s, "
+                f"assertions={len(solver.assertions())}",
+                flush=True,
             )
 
             # Get expected token from reference program
@@ -81,7 +91,10 @@ def verify_functional_equivalence(
             solver.add(Or(violations))
 
             # Check satisfiability
+            print(f"  seq {i}: checking...", flush=True)
+            t1 = time.time()
             result = solver.check()
+            print(f"  seq {i}: result={result} in {time.time() - t1:.2f}s", flush=True)
 
             if result == unsat:
                 # Property holds: expected token has highest logit

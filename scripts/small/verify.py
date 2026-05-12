@@ -452,6 +452,12 @@ def parse_args() -> argparse.Namespace:
         default=1e-3,
         help="Reported tolerance for sanity-check candidate logit differences",
     )
+    parser.add_argument(
+        "--max_inputs",
+        type=int,
+        default=None,
+        help="Limit verification to the first N eval examples for debugging",
+    )
     return parser.parse_args()
 
 
@@ -465,6 +471,8 @@ def main() -> None:
     candidate_info = get_small_candidate_tokens(args.task)
     candidate_tokens = candidate_info["candidates"]
     test_sequences = load_small_test_sequences(args.task)
+    if args.max_inputs is not None:
+        test_sequences = test_sequences[:args.max_inputs]
 
     print("Small SMT Circuit Verification")
     print("=" * 60)
