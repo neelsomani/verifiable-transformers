@@ -255,9 +255,10 @@ def gpt2_forward_with_sparsemax(
     else:
         query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
 
-    query = self._split_heads(query, self.num_heads, self.head_dim)
-    key = self._split_heads(key, self.num_heads, self.head_dim)
-    value = self._split_heads(value, self.num_heads, self.head_dim)
+    # Transformers 4.49 no longer exposes _split_heads; reshape inline.
+    query = query.view(*query.shape[:-1], self.num_heads, self.head_dim).transpose(1, 2)
+    key = key.view(*key.shape[:-1], self.num_heads, self.head_dim).transpose(1, 2)
+    value = value.view(*value.shape[:-1], self.num_heads, self.head_dim).transpose(1, 2)
 
     if layer_past is not None:
         past_key, past_value = layer_past
@@ -274,7 +275,9 @@ def gpt2_forward_with_sparsemax(
         self, query, key, value, attention_mask, head_mask
     )
 
-    attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
+    # Merge heads inline: [batch, heads, seq, head_dim] -> [batch, seq, embed_dim].
+    attn_output = attn_output.transpose(1, 2).contiguous()
+    attn_output = attn_output.view(*attn_output.shape[:-2], self.embed_dim)
     attn_output = self.c_proj(attn_output)
     attn_output = self.resid_dropout(attn_output)
 
@@ -334,7 +337,12 @@ def create_small_model(config: SmallVerifiableConfig) -> GPT2LMHeadModel:
     # Register custom activation if needed
     if config.activation_variant == "leaky_relu":
         from transformers.activations import ACT2FN
-        ACT2FN["leaky_relu"] = LeakyReLU(config.leaky_relu_negative_slope)
+
+        class ConfiguredLeakyReLU(LeakyReLU):
+            def __init__(self, **kwargs):
+                super().__init__(config.leaky_relu_negative_slope)
+
+        ACT2FN["leaky_relu"] = ConfiguredLeakyReLU
 
     # Create model
     model = GPT2LMHeadModel(gpt2_config)
