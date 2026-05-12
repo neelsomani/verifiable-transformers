@@ -135,13 +135,16 @@ class SignedL1BandNorm(nn.Module):
         fallback = fallback.view(*([1] * (y.dim() - 1)), -1).expand_as(y)
 
         active = torch.where(use_fallback.expand_as(active), fallback, active)
-        active_count = active.sum(dim=-1, keepdim=True)
+        active_count = active.sum(dim=-1, keepdim=True).clamp_min(1.0)
 
         # Distribute deficit equally over active coordinates
         delta = deficit / active_count
         return y + delta * active
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        orig_dtype = hidden_states.dtype
+        hidden_states = hidden_states.float()
+
         # Center
         x_mean = hidden_states.mean(dim=-1, keepdim=True)
         x = hidden_states - x_mean
@@ -169,33 +172,44 @@ class SignedL1BandNorm(nn.Module):
 
         # Apply learned affine
         if self.gamma is not None:
-            y = y * self.gamma + self.beta
+            y = y * self.gamma.float() + self.beta.float()
 
-        return y
+        if not torch.isfinite(y).all():
+            raise RuntimeError("SignedL1BandNorm produced non-finite values")
+
+        return y.to(orig_dtype)
 
 
 def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
     """Sparsemax activation with fp32 numerical stability."""
     dtype = logits.dtype
-    logits_fp32 = logits.float()
+    z = logits.float()
 
-    # Sort descending
-    sorted_logits, _ = torch.sort(logits_fp32, dim=dim, descending=True)
+    # Replace any existing infs before sort/cumsum.
+    z = torch.where(torch.isfinite(z), z, torch.full_like(z, -1e4))
 
-    # Compute cumulative sum and range
-    cumsum = torch.cumsum(sorted_logits, dim=dim)
-    size = sorted_logits.size(dim)
-    arange = torch.arange(1, size + 1, device=logits.device, dtype=logits_fp32.dtype)
+    # Sparsemax is translation-invariant; this prevents large-value cumsum issues.
+    z = z - z.max(dim=dim, keepdim=True).values
 
-    # Compute support threshold
-    support_mask = sorted_logits > (cumsum - 1.0) / arange
-    k = support_mask.long().sum(dim=dim, keepdim=True)
-    k = torch.clamp(k, min=1, max=size)
+    sorted_z, _ = torch.sort(z, dim=dim, descending=True)
+    cumsum = torch.cumsum(sorted_z, dim=dim)
 
-    tau = (cumsum.gather(dim, k - 1) - 1.0) / k.float()
+    size = z.size(dim)
+    r = torch.arange(1, size + 1, device=z.device, dtype=z.dtype)
+    view_shape = [1] * z.dim()
+    view_shape[dim] = size
+    r = r.view(view_shape)
 
-    # Compute output
-    return torch.clamp(logits_fp32 - tau, min=0.0).to(dtype)
+    support = 1 + r * sorted_z > cumsum
+    k = support.long().sum(dim=dim, keepdim=True).clamp(min=1)
+
+    tau = (cumsum.gather(dim, k - 1) - 1.0) / k.to(z.dtype)
+    out = torch.clamp(z - tau, min=0.0)
+
+    if not torch.isfinite(out).all():
+        raise RuntimeError("sparsemax produced non-finite values")
+
+    return out.to(dtype)
 
 
 _sparsemax_call_count = 0
@@ -218,9 +232,13 @@ def sparsemax_attention_forward(module, query, key, value, attention_mask, head_
     # Causal mask
     query_length, key_length = query.size(-2), key.size(-2)
     causal_mask = module.bias[:, :, key_length - query_length : key_length, :key_length]
-    mask_value = torch.finfo(attn_weights.dtype).min
-    mask_value = torch.full([], mask_value, dtype=attn_weights.dtype, device=attn_weights.device)
-    attn_weights = torch.where(causal_mask, attn_weights.to(attn_weights.dtype), mask_value)
+    mask_value = torch.full(
+        [],
+        -1e4,
+        dtype=attn_weights.dtype,
+        device=attn_weights.device,
+    )
+    attn_weights = torch.where(causal_mask, attn_weights, mask_value)
 
     # Apply attention mask if provided
     if attention_mask is not None:
@@ -415,7 +433,14 @@ class FinalTokenTrainer(Trainer):
         outputs = model(input_ids=input_ids)
         logits = outputs.logits[:, -1, :]  # Final prompt position logits
 
+        if not torch.isfinite(logits).all():
+            raise RuntimeError("Non-finite logits during training")
+
         loss = F.cross_entropy(logits, targets)
+
+        if not torch.isfinite(loss):
+            raise RuntimeError("Non-finite loss during training")
+
         return (loss, outputs) if return_outputs else loss
 
 
@@ -458,6 +483,9 @@ def evaluate_task(
                 # Forward pass
                 outputs = model(input_ids)
                 logits = outputs.logits[0, -1, :]  # Last position logits
+
+                if not torch.isfinite(logits).all():
+                    raise RuntimeError(f"Non-finite logits during evaluation for task {task_name}")
 
                 # Full vocab prediction
                 pred_full = logits.argmax().item()
@@ -693,7 +721,9 @@ def main():
         save_total_limit=3,
         seed=args.seed,
         data_seed=args.seed,
-        bf16=torch.cuda.is_available() and torch.cuda.is_bf16_supported(),
+        bf16=False,
+        fp16=False,
+        max_grad_norm=1.0,
         report_to=[],
         remove_unused_columns=False,
         dataloader_num_workers=0,
