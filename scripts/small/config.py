@@ -111,7 +111,7 @@ def get_default_config() -> SmallVerifiableConfig:
 
     This configuration is designed to be:
     - Small enough for SMT encoding
-    - Large enough to learn the three tasks
+    - Large enough to learn the two syntax tasks
     - Uses only SMT-representable components
     """
     return SmallVerifiableConfig(

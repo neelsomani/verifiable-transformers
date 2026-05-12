@@ -117,10 +117,9 @@ def get_small_candidate_tokens(task: str) -> Dict[str, List[int]]:
     Small model uses a custom 32-token vocabulary (see scripts/small/vocab.py):
     - quote_close: tokens 9 (') and 10 (")
     - bracket_type: tokens 13 (]) and 14 (})
-    - add_mod_5: tokens 17-21 (digits 0-4)
 
     Args:
-        task: Task name (quote_close, bracket_type, add_mod_5)
+        task: Task name (quote_close, bracket_type)
 
     Returns:
         Dict with "candidates" and "names" lists
@@ -134,11 +133,6 @@ def get_small_candidate_tokens(task: str) -> Dict[str, List[int]]:
         return {
             "candidates": [13, 14],  # RIGHT_BRACKET, RIGHT_BRACE
             "names": ["right_bracket", "right_brace"],
-        }
-    elif task == "add_mod_5":
-        return {
-            "candidates": [17, 18, 19, 20, 21],  # DIGIT_0 through DIGIT_4
-            "names": ["0", "1", "2", "3", "4"],
         }
     else:
         raise ValueError(f"Unknown small model task: {task}")

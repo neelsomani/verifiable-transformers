@@ -6,6 +6,7 @@ __pycache__/
 
 dump_verification_code.sh
 *.txt
+dump_code.py
 
 # C extensions
 *.so

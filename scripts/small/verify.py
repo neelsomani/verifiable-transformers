@@ -267,12 +267,6 @@ def run_property(
         )
 
     if property_name == "content_invariance":
-        if circuit["task"] == "add_mod_5":
-            return {
-                "property": "projected_content_invariance",
-                "status": "SKIPPED",
-                "message": "content_invariance is not meaningful for add_mod_5; use functional_equivalence instead",
-            }
         return verify_content_invariance(
             circuit,
             test_sequences,
@@ -312,7 +306,7 @@ def parse_args() -> argparse.Namespace:
         "--task",
         type=str,
         required=True,
-        choices=["quote_close", "bracket_type", "add_mod_5"],
+        choices=["quote_close", "bracket_type"],
         help="Small-model task to verify",
     )
     parser.add_argument(

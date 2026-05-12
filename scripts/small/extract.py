@@ -307,7 +307,7 @@ def evaluate_circuit(
 
     Args:
         model: The model to evaluate
-        task_name: Task name ("quote_close", "bracket_type", "add_mod_5")
+        task_name: Task name ("quote_close", "bracket_type")
         circuit_edges: Set of edges to keep (all others are ablated)
         graph: Circuit graph
         device: Device to run on
@@ -671,7 +671,7 @@ def parse_args():
         "--task",
         type=str,
         required=True,
-        choices=["quote_close", "bracket_type", "add_mod_5"],
+        choices=["quote_close", "bracket_type"],
         help="Task to extract circuit for",
     )
     parser.add_argument(

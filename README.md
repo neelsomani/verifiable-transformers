@@ -153,11 +153,10 @@ If your environment already provides PyTorch (for example, RunPod images), insta
 
 ### Small End-to-End Verifiable Transformer
 
-Train a minimal SMT-representable Transformer on three symbolic tasks:
+Train a minimal SMT-representable Transformer on two symbolic tasks:
 
 1. **quote_close**: Match opening quotes (' or ")
 2. **bracket_type**: Match opening brackets ([ or {)
-3. **add_mod_5**: Addition modulo 5 (0-4)
 
 **Key features:**
 - Custom 32-token vocabulary (exhaustive finite domains)
@@ -173,12 +172,12 @@ python scripts/small/train.py \
   --max_steps 5000
 ```
 
-Training stops automatically when all three tasks achieve 100% candidate accuracy.
+Training stops automatically when both tasks achieve 100% candidate accuracy.
 
 **Extract task-specific circuits:**
 ```bash
 # Extract circuit for each task
-for task in quote_close bracket_type add_mod_5; do
+for task in quote_close bracket_type; do
   python scripts/small/extract.py \
     --model_path artifacts/small/checkpoint-final \
     --task $task \
@@ -198,7 +197,7 @@ This writes the model weights and SMT metadata in the format consumed by `script
 
 **Verify extracted circuits with an SMT-vs-PyTorch sanity check:**
 ```bash
-for task in quote_close bracket_type add_mod_5; do
+for task in quote_close bracket_type; do
   python scripts/small/verify.py \
     --task $task \
     --sanity_check \
@@ -221,7 +220,6 @@ artifacts/small_circuits/<task>/verification/verification_results.json
 |------|-----------|
 | quote_close | Functional correctness, content invariance, quote sensitivity, edge necessity, continuous robustness |
 | bracket_type | Functional correctness, content invariance, delimiter sensitivity, edge necessity, continuous robustness |
-| add_mod_5 | Functional correctness, edge necessity, continuous robustness |
 
 ## Scalability Appendix
 

@@ -1,10 +1,9 @@
 """
 Dataset generation for the small verifiable Transformer.
 
-Generates exhaustive training data for three symbolic tasks:
+Generates exhaustive training data for two symbolic tasks:
 1. quote_close: Match opening quote (' or ")
 2. bracket_type: Match opening bracket ([ or {)
-3. add_mod_5: Addition modulo 5
 """
 
 import itertools
@@ -22,16 +21,15 @@ class SmallVerifiableDataset(Dataset):
     Generates all possible examples for each task:
     - quote_close: 2 * 4^3 = 128 examples
     - bracket_type: 2 * 4^3 = 128 examples
-    - add_mod_5: 5 * 5 = 25 examples
 
-    Total: 281 examples
+    Total: 256 examples
     """
 
     def __init__(self, task_sampling: str = "balanced"):
         """
         Args:
             task_sampling: How to sample tasks during training
-                - "balanced": Equal probability per task (1/3 each)
+                - "balanced": Equal probability per task (1/2 each)
                 - "proportional": Sample proportional to dataset size
                 - "all": Include all examples once per epoch
         """
@@ -40,26 +38,19 @@ class SmallVerifiableDataset(Dataset):
         # Generate exhaustive examples for each task
         self.quote_examples = self._generate_quote_examples()
         self.bracket_examples = self._generate_bracket_examples()
-        self.add_examples = self._generate_add_examples()
 
         # Combine all examples
-        self.all_examples = (
-            self.quote_examples +
-            self.bracket_examples +
-            self.add_examples
-        )
+        self.all_examples = self.quote_examples + self.bracket_examples
 
         # Store per-task examples for evaluation
         self.task_examples = {
             "quote_close": self.quote_examples,
             "bracket_type": self.bracket_examples,
-            "add_mod_5": self.add_examples,
         }
 
         print(f"Dataset created:")
         print(f"  quote_close: {len(self.quote_examples)} examples")
         print(f"  bracket_type: {len(self.bracket_examples)} examples")
-        print(f"  add_mod_5: {len(self.add_examples)} examples")
         print(f"  total: {len(self.all_examples)} examples")
         print(f"  task_sampling: {task_sampling}")
 
@@ -129,54 +120,15 @@ class SmallVerifiableDataset(Dataset):
 
         return examples
 
-    def _generate_add_examples(self) -> List[Dict]:
-        """
-        Generate all add_mod_5 examples.
-
-        Pattern: BOS TASK_ADD digit_a PLUS digit_b EQ -> digit_((a+b) mod 5)
-        where digit_a, digit_b are in {0, 1, 2, 3, 4}
-        """
-        examples = []
-
-        for a in range(5):
-            for b in range(5):
-                a_token = vocab.value_to_digit(a)
-                b_token = vocab.value_to_digit(b)
-                result = (a + b) % 5
-                result_token = vocab.value_to_digit(result)
-
-                input_ids = [
-                    vocab.BOS,
-                    vocab.TASK_ADD,
-                    a_token,
-                    vocab.PLUS,
-                    b_token,
-                    vocab.EQ
-                ]
-                target = result_token
-
-                examples.append({
-                    "input_ids": input_ids,
-                    "target": target,
-                    "task": "add_mod_5",
-                    "task_token": vocab.TASK_ADD,
-                    "operand_a": a,
-                    "operand_b": b,
-                    "result": result,
-                })
-
-        return examples
-
     def __len__(self) -> int:
         if self.task_sampling == "all":
             return len(self.all_examples)
         else:
             # For balanced/proportional sampling, we define epoch length
-            # as 3x the largest task (to ensure good coverage)
-            return 3 * max(
+            # as 2x the largest task (to ensure good coverage)
+            return 2 * max(
                 len(self.quote_examples),
                 len(self.bracket_examples),
-                len(self.add_examples)
             )
 
     def __getitem__(self, idx: int) -> Dict:
@@ -192,7 +144,7 @@ class SmallVerifiableDataset(Dataset):
         elif self.task_sampling == "balanced":
             # Randomly select a task with equal probability
             import random
-            task_name = random.choice(["quote_close", "bracket_type", "add_mod_5"])
+            task_name = random.choice(["quote_close", "bracket_type"])
             task_examples = self.task_examples[task_name]
             example = random.choice(task_examples)
         else:  # proportional
@@ -216,7 +168,7 @@ def get_eval_dataset(task_name: str) -> List[Dict]:
     Get exhaustive evaluation dataset for a specific task.
 
     Args:
-        task_name: One of "quote_close", "bracket_type", "add_mod_5"
+        task_name: One of "quote_close", "bracket_type"
 
     Returns:
         List of examples with input_ids and target
@@ -250,7 +202,7 @@ if __name__ == "__main__":
     dataset = SmallVerifiableDataset(task_sampling="balanced")
 
     # Print a few examples from each task
-    for task_name in ["quote_close", "bracket_type", "add_mod_5"]:
+    for task_name in ["quote_close", "bracket_type"]:
         examples = dataset.task_examples[task_name]
         print(f"\n{task_name} examples (first 3):")
         for i, ex in enumerate(examples[:3]):

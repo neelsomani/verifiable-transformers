@@ -2,10 +2,9 @@
 """
 Training script for small verifiable Transformer.
 
-Trains one multitask model on three symbolic tasks:
+Trains one multitask model on two symbolic tasks:
 - quote_close: Match opening quotes
 - bracket_type: Match opening brackets
-- add_mod_5: Addition modulo 5
 
 The model uses SMT-representable components for formal verification.
 """
@@ -551,7 +550,7 @@ class TaskEvaluationCallback(TrainerCallback):
             metrics = {}
             all_perfect = True
 
-            for task_name in ["quote_close", "bracket_type", "add_mod_5"]:
+            for task_name in ["quote_close", "bracket_type"]:
                 task_metrics = evaluate_task(model, task_name, device)
                 metrics[task_name] = task_metrics
 
@@ -758,7 +757,7 @@ def main():
     print("\nFinal evaluation...")
     device = next(model.parameters()).device
     final_metrics = {}
-    for task_name in ["quote_close", "bracket_type", "add_mod_5"]:
+    for task_name in ["quote_close", "bracket_type"]:
         task_metrics = evaluate_task(model, task_name, device)
         final_metrics[task_name] = task_metrics
         print(f"\n{task_name}:")
