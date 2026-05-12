@@ -144,8 +144,8 @@ def encode_signed_l1_band_norm(
     Algorithm:
     1. Center: c = x - mean(x)
     2. Split: p = ReLU(c), n = ReLU(-c)
-    3. Low-mass lift: additive lift if mass < half_low
-    4. High-mass projection: L1 ball projection if mass > half_high
+    3. High-mass projection: L1 ball projection if mass > half_high
+    4. Low-mass lift: additive lift if mass < half_low
     5. Recombine: z = p - n
     6. Recenter: z = z - mean(z)
     7. Affine: output = gamma * z + beta
@@ -174,13 +174,13 @@ def encode_signed_l1_band_norm(
     p = [If(c[i] > 0, c[i], RealVal(0)) for i in range(d)]
     n = [If(c[i] < 0, -c[i], RealVal(0)) for i in range(d)]
 
-    # Step 3: Low-mass additive lift
-    p_lifted = encode_additive_lift(p, half_low, pos_fallback, solver, f"{ctx_prefix}_p_lift")
-    n_lifted = encode_additive_lift(n, half_low, neg_fallback, solver, f"{ctx_prefix}_n_lift")
+    # Step 3: High-mass projection
+    p_projected = encode_nonnegative_l1_projection(p, half_high, solver, f"{ctx_prefix}_p_proj")
+    n_projected = encode_nonnegative_l1_projection(n, half_high, solver, f"{ctx_prefix}_n_proj")
 
-    # Step 4: High-mass projection
-    p_normalized = encode_nonnegative_l1_projection(p_lifted, half_high, solver, f"{ctx_prefix}_p_proj")
-    n_normalized = encode_nonnegative_l1_projection(n_lifted, half_high, solver, f"{ctx_prefix}_n_proj")
+    # Step 4: Low-mass additive lift
+    p_normalized = encode_additive_lift(p_projected, half_low, pos_fallback, solver, f"{ctx_prefix}_p_lift")
+    n_normalized = encode_additive_lift(n_projected, half_low, neg_fallback, solver, f"{ctx_prefix}_n_lift")
 
     # Step 5: Recombine
     z = [p_normalized[i] - n_normalized[i] for i in range(d)]

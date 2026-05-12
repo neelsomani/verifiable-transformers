@@ -195,7 +195,7 @@ python scripts/small/extract_weights.py \
 
 This writes the model weights and SMT metadata in the format consumed by `scripts/smt/circuit.py`.
 
-**Verify extracted circuits with an SMT-vs-PyTorch sanity check:**
+**Validate extracted circuits and run SMT verification:**
 ```bash
 for task in quote_close bracket_type; do
   python scripts/small/verify.py \
@@ -208,7 +208,7 @@ for task in quote_close bracket_type; do
 done
 ```
 
-The sanity check compares candidate logits from the PyTorch circuit implementation against the Z3 SMT encoder on sampled examples before running formal properties. Do not trust verification results unless this check passes. Results are written to:
+The `--sanity_check` step is a cheap exhaustive PyTorch validation of the extracted circuit over the task domain. It confirms that `controlled_forward()` with the retained circuit edges still solves the task before any SMT properties run. Results are written to:
 
 ```text
 artifacts/small_circuits/<task>/verification/verification_results.json

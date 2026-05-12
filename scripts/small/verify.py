@@ -109,7 +109,80 @@ def get_smt_candidate_logits(
     }
 
 
-def run_sanity_check(
+def run_pytorch_circuit_validation(
+    task: str,
+    checkpoint_path: str,
+    circuit: Dict[str, Any],
+    candidate_tokens: List[int],
+    test_sequences: List[tuple[List[int], int]],
+) -> Dict[str, Any]:
+    """Validate extracted circuit behavior against the exhaustive task domain."""
+    import torch
+
+    from scripts.small.extract import CircuitGraph, controlled_forward, load_model
+    from scripts.small.extract_weights import load_small_config
+
+    circuit_edges = parse_circuit_edges(circuit)
+    config = load_small_config(checkpoint_path)
+    graph = CircuitGraph(config.n_layers)
+    device = torch.device("cpu")
+    pytorch_model = load_model(checkpoint_path, config, device)
+
+    failures = []
+
+    print("\nPyTorch circuit validation")
+    print("=" * 60)
+    print(f"Checkpoint: {checkpoint_path}")
+    print(f"Examples: {len(test_sequences)} exhaustive eval examples")
+
+    for idx, (input_tokens, expected_token) in enumerate(test_sequences):
+        input_ids = torch.tensor([input_tokens], dtype=torch.long, device=device)
+
+        with torch.no_grad():
+            logits = controlled_forward(
+                pytorch_model,
+                input_ids,
+                circuit_edges,
+                graph,
+            )[0, -1, :]
+
+        if not torch.isfinite(logits).all():
+            failures.append({
+                "input": input_tokens,
+                "expected": expected_token,
+                "message": "non-finite logits",
+            })
+            continue
+
+        candidate_logits = {tok: float(logits[tok].item()) for tok in candidate_tokens}
+        predicted_token = max(candidate_tokens, key=lambda tok: candidate_logits[tok])
+
+        if predicted_token != expected_token:
+            failures.append({
+                "input": input_tokens,
+                "expected": expected_token,
+                "predicted": predicted_token,
+                "candidate_logits": candidate_logits,
+            })
+
+        if (idx + 1) % 50 == 0:
+            print(f"  Checked {idx + 1}/{len(test_sequences)}")
+
+    status = "PASSED" if not failures else "FAILED"
+    print(f"Validation status: {status}")
+    if failures:
+        print(f"Failures: {len(failures)}")
+
+    return {
+        "property": "pytorch_circuit_validation",
+        "status": status,
+        "examples_checked": len(test_sequences),
+        "num_failures": len(failures),
+        "failures": failures[:10],
+    }
+
+
+def run_smt_sanity_check(
     task: str,
     checkpoint_path: str,
     circuit: Dict[str, Any],
@@ -360,7 +433,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sanity_check",
         action="store_true",
-        help="Run SMT-vs-PyTorch sanity check before formal properties",
+        help="Run exhaustive PyTorch circuit validation before formal properties",
+    )
+    parser.add_argument(
+        "--smt_sanity_check",
+        action="store_true",
+        help="Run expensive SMT-vs-PyTorch forward comparison before formal properties",
     )
     parser.add_argument(
         "--sanity_examples",
@@ -401,7 +479,41 @@ def main() -> None:
     results = []
     if args.sanity_check:
         try:
-            sanity_result = run_sanity_check(
+            sanity_result = run_pytorch_circuit_validation(
+                args.task,
+                args.checkpoint,
+                circuit,
+                candidate_tokens,
+                test_sequences,
+            )
+        except Exception as e:
+            sanity_result = {
+                "property": "pytorch_circuit_validation",
+                "status": "ERROR",
+                "message": str(e),
+            }
+
+        results.append(sanity_result)
+        if sanity_result.get("status") != "PASSED":
+            os.makedirs(args.output_dir, exist_ok=True)
+            output_path = os.path.join(args.output_dir, "verification_results.json")
+            with open(output_path, "w") as f:
+                json.dump({
+                    "task": args.task,
+                    "circuit_path": circuit_path,
+                    "weights_path": args.weights_path,
+                    "checkpoint": args.checkpoint,
+                    "num_inputs": len(test_sequences),
+                    "candidate_tokens": candidate_tokens,
+                    "candidate_names": candidate_info["names"],
+                    "properties": results,
+                }, f, indent=2)
+            print(f"\nPyTorch circuit validation failed; results written to: {output_path}")
+            sys.exit(1)
+
+    if args.smt_sanity_check:
+        try:
+            sanity_result = run_smt_sanity_check(
                 args.task,
                 args.checkpoint,
                 circuit,
