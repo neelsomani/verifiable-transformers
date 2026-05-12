@@ -4,10 +4,12 @@ from typing import Set, Tuple, Dict, Any, List
 
 
 def parse_circuit_edges(circuit: Dict[str, Any]) -> Set[Tuple[str, str]]:
-    """Parse edges from circuit JSON, handling both dict and list formats.
+    """Parse edges from circuit JSON, handling multiple formats.
 
     Extracted circuits write edges as:
-        ["emb", "attn_0"]  or  {"from": "emb", "to": "attn_0"}
+        ["emb", "attn_0"]  (list format)
+        {"from": "emb", "to": "attn_0"}  (GPT-2 dict format)
+        {"source": "emb", "target": "attn_0"}  (small model dict format)
 
     Args:
         circuit: Circuit dict with "edges" field
@@ -20,8 +22,14 @@ def parse_circuit_edges(circuit: Dict[str, Any]) -> Set[Tuple[str, str]]:
 
     for e in edges:
         if isinstance(e, dict):
-            # Dict format: {"from": "emb", "to": "attn_0"}
-            parsed.add((e["from"], e["to"]))
+            if "from" in e and "to" in e:
+                # GPT-2 format: {"from": "emb", "to": "attn_0"}
+                parsed.add((e["from"], e["to"]))
+            elif "source" in e and "target" in e:
+                # Small model format: {"source": "emb", "target": "attn_0"}
+                parsed.add((e["source"], e["target"]))
+            else:
+                raise ValueError(f"Invalid edge dict format: {e}")
         elif isinstance(e, (list, tuple)) and len(e) == 2:
             # List format: ["emb", "attn_0"]
             parsed.add((e[0], e[1]))
@@ -52,7 +60,7 @@ def get_norm_params(norm_module):
 
 
 def get_candidate_tokens(task: str, tokenizer=None) -> Dict[str, List[int]]:
-    """Get candidate output tokens for each task.
+    """Get candidate output tokens for each task (GPT-2 tasks).
 
     For tractability, we only encode logits for candidate tokens,
     not the full vocabulary (50K+ tokens).
@@ -62,7 +70,7 @@ def get_candidate_tokens(task: str, tokenizer=None) -> Dict[str, List[int]]:
         tokenizer: GPT-2 tokenizer (optional, uses default token IDs if None)
 
     Returns:
-        Dict with "correct" and "incorrect" token ID lists
+        Dict with "candidates" and "names" lists
     """
     if task == "quote_close":
         if tokenizer:
@@ -101,6 +109,39 @@ def get_candidate_tokens(task: str, tokenizer=None) -> Dict[str, List[int]]:
 
     else:
         raise ValueError(f"Unknown task: {task}")
+
+
+def get_small_candidate_tokens(task: str) -> Dict[str, List[int]]:
+    """Get candidate output tokens for small verifiable model tasks.
+
+    Small model uses a custom 32-token vocabulary (see scripts/small/vocab.py):
+    - quote_close: tokens 9 (') and 10 (")
+    - bracket_type: tokens 13 (]) and 14 (})
+    - add_mod_5: tokens 17-21 (digits 0-4)
+
+    Args:
+        task: Task name (quote_close, bracket_type, add_mod_5)
+
+    Returns:
+        Dict with "candidates" and "names" lists
+    """
+    if task == "quote_close":
+        return {
+            "candidates": [9, 10],  # SINGLE_QUOTE, DOUBLE_QUOTE
+            "names": ["single_quote", "double_quote"],
+        }
+    elif task == "bracket_type":
+        return {
+            "candidates": [13, 14],  # RIGHT_BRACKET, RIGHT_BRACE
+            "names": ["right_bracket", "right_brace"],
+        }
+    elif task == "add_mod_5":
+        return {
+            "candidates": [17, 18, 19, 20, 21],  # DIGIT_0 through DIGIT_4
+            "names": ["0", "1", "2", "3", "4"],
+        }
+    else:
+        raise ValueError(f"Unknown small model task: {task}")
 
 
 def get_bandnorm_params(hidden_size: int) -> Dict[str, float]:

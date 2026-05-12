@@ -106,6 +106,31 @@ class SignedL1BandNorm(nn.Module):
         result = torch.where(needs_projection, z, y)
         return result
 
+    def _additive_lift(self, y: torch.Tensor, mass: torch.Tensor, target: float, fallback: torch.Tensor):
+        """
+        Additive lift over active coordinates to reach target mass.
+
+        This is SMT-friendlier than proportional mass rescaling: the denominator
+        is the active coordinate count rather than the input mass.
+        """
+        deficit = torch.relu(target - mass)
+
+        # Active coordinates (nonzero)
+        active = (y > 0).to(y.dtype)
+        active_count = active.sum(dim=-1, keepdim=True)
+
+        # Use fallback pattern if no active coordinates
+        use_fallback = active_count < 1e-8
+        fallback = fallback.to(dtype=y.dtype, device=y.device)
+        fallback = fallback.view(*([1] * (y.dim() - 1)), -1).expand_as(y)
+
+        active = torch.where(use_fallback.expand_as(active), fallback, active)
+        active_count = active.sum(dim=-1, keepdim=True)
+
+        # Distribute deficit equally over active coordinates
+        delta = deficit / active_count
+        return y + delta * active
+
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         # Center
         x_mean = hidden_states.mean(dim=-1, keepdim=True)
@@ -115,32 +140,22 @@ class SignedL1BandNorm(nn.Module):
         pos = torch.relu(x)
         neg = torch.relu(-x)
 
-        # Compute positive and negative L1 mass
-        pos_mass = pos.sum(dim=-1, keepdim=True)
-        neg_mass = neg.sum(dim=-1, keepdim=True)
-
-        # Project each half separately
+        # Project each half separately onto L1 ball
         pos_proj = self._project_nonnegative_l1_ball(pos, self.half_high)
         neg_proj = self._project_nonnegative_l1_ball(neg, self.half_high)
 
-        # Expand from low to high if mass is too small
-        pos_deficit = torch.relu(self.half_low - pos_mass)
-        neg_deficit = torch.relu(self.half_low - neg_mass)
+        # Additive lift if mass is too low
+        pos_mass = pos_proj.sum(dim=-1, keepdim=True)
+        neg_mass = neg_proj.sum(dim=-1, keepdim=True)
 
-        pos_is_zero = (pos_mass < 1e-8)
-        neg_is_zero = (neg_mass < 1e-8)
-
-        pos_dir = torch.where(pos_is_zero.expand_as(pos), self.pos_fallback, pos)
-        neg_dir = torch.where(neg_is_zero.expand_as(neg), self.neg_fallback, neg)
-
-        pos_dir_norm = pos_dir / (pos_dir.sum(dim=-1, keepdim=True) + 1e-8)
-        neg_dir_norm = neg_dir / (neg_dir.sum(dim=-1, keepdim=True) + 1e-8)
-
-        pos_expanded = pos_proj + pos_deficit * pos_dir_norm
-        neg_expanded = neg_proj + neg_deficit * neg_dir_norm
+        pos_expanded = self._additive_lift(pos_proj, pos_mass, self.half_low, self.pos_fallback)
+        neg_expanded = self._additive_lift(neg_proj, neg_mass, self.half_low, self.neg_fallback)
 
         # Recombine
         y = pos_expanded - neg_expanded
+
+        # Recenter to match SMT encoder
+        y = y - y.mean(dim=-1, keepdim=True)
 
         # Apply learned affine
         if self.gamma is not None:
@@ -170,8 +185,7 @@ def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
     tau = (cumsum.gather(dim, k - 1) - 1.0) / k.float()
 
     # Compute output
-    z = logits_fp32 - tau
-    return torch.clamp(z - tau, min=0.0).to(dtype)
+    return torch.clamp(logits_fp32 - tau, min=0.0).to(dtype)
 
 
 _sparsemax_call_count = 0
@@ -314,6 +328,7 @@ def create_small_model(config: SmallVerifiableConfig) -> GPT2LMHeadModel:
         bos_token_id=config.bos_token_id,
         eos_token_id=config.eos_token_id,
         use_cache=False,
+        tie_word_embeddings=config.tie_embeddings,
     )
 
     # Register custom activation if needed
@@ -358,6 +373,35 @@ def create_small_model(config: SmallVerifiableConfig) -> GPT2LMHeadModel:
 
 
 # ============================================================================
+# Custom Trainer
+# ============================================================================
+
+
+class FinalTokenTrainer(Trainer):
+    """
+    Custom trainer that computes loss on the final prompt position.
+
+    GPT2LMHeadModel shifts labels internally, which causes a mismatch:
+    - With labels[-1] = target, the model trains position t-1 to predict position t
+    - But we want to train the full prompt (position t) to predict the next token
+
+    This trainer computes loss directly on final-position logits without label shifting.
+    """
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        import torch.nn.functional as F
+
+        targets = inputs.pop("targets")
+        input_ids = inputs["input_ids"]
+
+        outputs = model(input_ids=input_ids)
+        logits = outputs.logits[:, -1, :]  # Final prompt position logits
+
+        loss = F.cross_entropy(logits, targets)
+        return (loss, outputs) if return_outputs else loss
+
+
+# ============================================================================
 # Evaluation
 # ============================================================================
 
@@ -376,72 +420,79 @@ def evaluate_task(
     - mean_candidate_margin: Average logit margin between correct and incorrect candidates
     - confusion: Confusion table for candidates
     """
+    was_training = model.training
     model.eval()
 
-    examples = get_eval_dataset(task_name)
-    candidates = list(vocab.get_candidates(vocab.TASK_NAME_TO_TOKEN[task_name]))
+    try:
+        examples = get_eval_dataset(task_name)
+        candidates = sorted(vocab.get_candidates(vocab.TASK_NAME_TO_TOKEN[task_name]))
 
-    correct_full = 0
-    correct_candidate = 0
-    margins = []
-    confusion = {c: {c2: 0 for c2 in candidates} for c in candidates}
+        correct_full = 0
+        correct_candidate = 0
+        margins = []
+        confusion = {c: {c2: 0 for c2 in candidates} for c in candidates}
 
-    with torch.no_grad():
-        for example in examples:
-            input_ids = torch.tensor(example["input_ids"], dtype=torch.long, device=device).unsqueeze(0)
-            target = example["target"]
+        with torch.no_grad():
+            for example in examples:
+                input_ids = torch.tensor(example["input_ids"], dtype=torch.long, device=device).unsqueeze(0)
+                target = example["target"]
 
-            # Forward pass
-            outputs = model(input_ids)
-            logits = outputs.logits[0, -1, :]  # Last position logits
+                # Forward pass
+                outputs = model(input_ids)
+                logits = outputs.logits[0, -1, :]  # Last position logits
 
-            # Full vocab prediction
-            pred_full = logits.argmax().item()
-            if pred_full == target:
-                correct_full += 1
+                # Full vocab prediction
+                pred_full = logits.argmax().item()
+                if pred_full == target:
+                    correct_full += 1
 
-            # Candidate prediction
-            candidate_logits = logits[candidates]
-            pred_candidate_idx = candidate_logits.argmax().item()
-            pred_candidate = candidates[pred_candidate_idx]
+                # Candidate prediction
+                candidate_logits = logits[candidates]
+                pred_candidate_idx = candidate_logits.argmax().item()
+                pred_candidate = candidates[pred_candidate_idx]
 
-            if pred_candidate == target:
-                correct_candidate += 1
+                if pred_candidate == target:
+                    correct_candidate += 1
 
-            # Confusion matrix
-            if target in candidates:
-                confusion[target][pred_candidate] += 1
+                # Confusion matrix
+                if target in candidates:
+                    confusion[target][pred_candidate] += 1
 
-            # Margin: correct logit - max incorrect logit
-            if target in candidates:
-                target_logit = logits[target]
-                incorrect_candidates = [c for c in candidates if c != target]
-                if incorrect_candidates:
-                    max_incorrect_logit = logits[incorrect_candidates].max()
-                    margin = (target_logit - max_incorrect_logit).item()
-                    margins.append(margin)
+                # Margin: correct logit - max incorrect logit
+                if target in candidates:
+                    target_logit = logits[target]
+                    incorrect_candidates = [c for c in candidates if c != target]
+                    if incorrect_candidates:
+                        max_incorrect_logit = logits[incorrect_candidates].max()
+                        margin = (target_logit - max_incorrect_logit).item()
+                        margins.append(margin)
 
-    n = len(examples)
-    accuracy = correct_full / n if n > 0 else 0.0
-    candidate_accuracy = correct_candidate / n if n > 0 else 0.0
-    mean_margin = sum(margins) / len(margins) if margins else 0.0
+        n = len(examples)
+        accuracy = correct_full / n if n > 0 else 0.0
+        candidate_accuracy = correct_candidate / n if n > 0 else 0.0
+        mean_margin = sum(margins) / len(margins) if margins else 0.0
 
-    return {
-        "task": task_name,
-        "n_examples": n,
-        "accuracy": accuracy,
-        "candidate_accuracy": candidate_accuracy,
-        "mean_candidate_margin": mean_margin,
-        "confusion": confusion,
-    }
+        return {
+            "task": task_name,
+            "n_examples": n,
+            "accuracy": accuracy,
+            "candidate_accuracy": candidate_accuracy,
+            "mean_candidate_margin": mean_margin,
+            "confusion": confusion,
+        }
+    finally:
+        if was_training:
+            model.train()
 
 
 class TaskEvaluationCallback(TrainerCallback):
     """Callback to evaluate per-task metrics during training."""
 
-    def __init__(self, eval_every_n_steps: int = 100):
+    def __init__(self, eval_every_n_steps: int = 100, output_dir: str = None):
         self.eval_every_n_steps = eval_every_n_steps
+        self.output_dir = output_dir
         self.metrics_history = []
+        self.best_checkpoint_saved = False
 
     def on_step_end(self, args, state, control, model=None, **kwargs):
         if state.global_step % self.eval_every_n_steps == 0:
@@ -470,10 +521,21 @@ class TaskEvaluationCallback(TrainerCallback):
             metrics["all_tasks_perfect"] = all_perfect
             self.metrics_history.append(metrics)
 
-            if all_perfect:
+            if all_perfect and not self.best_checkpoint_saved:
                 print(f"\n{'='*60}")
                 print("✓ All tasks achieved perfect candidate accuracy!")
+                print("Saving best checkpoint...")
+
+                # Save best checkpoint
+                if self.output_dir:
+                    import os
+                    from transformers import Trainer
+                    best_dir = os.path.join(self.output_dir, "checkpoint-best")
+                    model.save_pretrained(best_dir)
+                    print(f"Best checkpoint saved to: {best_dir}")
+
                 print(f"{'='*60}\n")
+                self.best_checkpoint_saved = True
                 control.should_training_stop = True
 
         return control
@@ -620,10 +682,13 @@ def main():
     )
 
     # Create callback
-    eval_callback = TaskEvaluationCallback(eval_every_n_steps=args.eval_every)
+    eval_callback = TaskEvaluationCallback(
+        eval_every_n_steps=args.eval_every,
+        output_dir=args.output_dir,
+    )
 
-    # Create trainer
-    trainer = Trainer(
+    # Create trainer (use FinalTokenTrainer for correct loss computation)
+    trainer = FinalTokenTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,

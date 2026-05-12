@@ -32,6 +32,7 @@ from .utils import (
     parse_circuit_edges,
     get_norm_params,
     get_candidate_tokens,
+    get_small_candidate_tokens,
     get_bandnorm_params,
 )
 
@@ -58,5 +59,6 @@ __all__ = [
     "parse_circuit_edges",
     "get_norm_params",
     "get_candidate_tokens",
+    "get_small_candidate_tokens",
     "get_bandnorm_params",
 ]

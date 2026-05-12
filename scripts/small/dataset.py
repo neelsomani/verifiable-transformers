@@ -203,13 +203,9 @@ class SmallVerifiableDataset(Dataset):
         input_ids = torch.tensor(example["input_ids"], dtype=torch.long)
         target = torch.tensor(example["target"], dtype=torch.long)
 
-        # Create labels: -100 for all positions except the last
-        labels = torch.full((len(input_ids),), -100, dtype=torch.long)
-        labels[-1] = target
-
         return {
             "input_ids": input_ids,
-            "labels": labels,
+            "target": target,
             "task": example["task"],
             "task_token": example["task_token"],
         }
@@ -234,17 +230,15 @@ def collate_fn(batch: List[Dict]) -> Dict:
     Collate function for DataLoader.
 
     All sequences have the same length (6 tokens), so no padding needed.
+    Only returns model-consumed tensors (input_ids, targets).
+    Task metadata is stripped before feeding into the model.
     """
     input_ids = torch.stack([item["input_ids"] for item in batch])
-    labels = torch.stack([item["labels"] for item in batch])
-    tasks = [item["task"] for item in batch]
-    task_tokens = torch.tensor([item["task_token"] for item in batch], dtype=torch.long)
+    targets = torch.stack([item["target"] for item in batch])
 
     return {
         "input_ids": input_ids,
-        "labels": labels,
-        "tasks": tasks,
-        "task_tokens": task_tokens,
+        "targets": targets,
     }
 
 
@@ -270,8 +264,6 @@ if __name__ == "__main__":
     for i in range(5):
         item = dataset[i]
         input_str = vocab.tokens_to_str(item["input_ids"].tolist())
-        # Find the target (labels != -100)
-        target_idx = (item["labels"] != -100).nonzero(as_tuple=True)[0][0]
-        target = item["labels"][target_idx].item()
+        target = item["target"].item()
         target_str = vocab.token_to_str(target)
         print(f"  {item['task']}: {input_str} -> {target_str}")

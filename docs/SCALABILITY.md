@@ -609,4 +609,4 @@ python scripts/gpt2/verify.py \
   --timeout_ms 60000
 ```
 
-The verification script checks all projected properties: functional equivalence, content invariance, edge necessity, and continuous robustness (certified at ε=0.01). Properties are verified over the exhaustive bounded domain with `content_tokens=[10, 11]`. See the formal definitions table at the top of this document for property specifications.
+The verification script checks all projected properties: functional equivalence, content invariance, edge necessity, and continuous robustness (certified at ε=0.01). Properties are verified over the exhaustive bounded domain with `content_tokens=[10, 11]`.

@@ -56,7 +56,8 @@ Given an input vector `x`, BandNorm:
    - if mass is too small, add a bounded lift over active coordinates
    - if mass is too large, project onto an L1 ball using thresholding
 4. recombines the signed vector: `z = p' - n'`
-5. applies a learned affine map: `output = gamma * z + beta`
+5. recenters: `z = z - mean(z)`
+6. applies a learned affine map: `output = gamma * z + beta`
 
 This keeps the role of normalization — centering and scale control — while using only affine operations, comparisons, max/threshold logic, and projection-style primitives. (See [docs/SCALABILITY.md](docs/SCALABILITY.md) for the process that came to this construction.)
 
@@ -186,13 +187,41 @@ for task in quote_close bracket_type add_mod_5; do
 done
 ```
 
+**Export SMT-compatible weights:**
+```bash
+python scripts/small/extract_weights.py \
+  --checkpoint artifacts/small/checkpoint-final \
+  --output artifacts/small/smt_weights.json
+```
+
+This writes the model weights and SMT metadata in the format consumed by `scripts/smt/circuit.py`.
+
+**Verify extracted circuits with an SMT-vs-PyTorch sanity check:**
+```bash
+for task in quote_close bracket_type add_mod_5; do
+  python scripts/small/verify.py \
+    --task $task \
+    --sanity_check \
+    --checkpoint artifacts/small/checkpoint-final \
+    --weights_path artifacts/small/smt_weights.json \
+    --circuit_path artifacts/small_circuits/$task/circuit.json \
+    --output_dir artifacts/small_circuits/$task/verification
+done
+```
+
+The sanity check compares candidate logits from the PyTorch circuit implementation against the Z3 SMT encoder on sampled examples before running formal properties. Do not trust verification results unless this check passes. Results are written to:
+
+```text
+artifacts/small_circuits/<task>/verification/verification_results.json
+```
+
 **Properties to verify:**
 
 | Task | Properties |
 |------|-----------|
 | quote_close | Functional correctness, content invariance, quote sensitivity, edge necessity, continuous robustness |
 | bracket_type | Functional correctness, content invariance, delimiter sensitivity, edge necessity, continuous robustness |
-| add_mod_5 | Functional correctness, commutativity, edge necessity, continuous robustness |
+| add_mod_5 | Functional correctness, edge necessity, continuous robustness |
 
 ## Scalability Appendix
 

@@ -65,11 +65,13 @@ def verify_functional_equivalence(
                 print(f"  Warning: expected token {expected_token} not in candidates")
                 continue
 
-            # Add constraint: exists candidate token with higher logit than expected
+            # Add constraint: exists candidate token tied with or above expected.
+            # UNSAT then proves the expected token strictly beats every other
+            # candidate, so projected decisions are not silently verified on ties.
             violations = []
             for tok in candidate_tokens:
                 if tok != expected_token and tok in circuit_logits:
-                    violations.append(circuit_logits[tok] > circuit_logits[expected_token])
+                    violations.append(circuit_logits[tok] >= circuit_logits[expected_token])
 
             if not violations:
                 # No other candidates, trivially verified
@@ -280,8 +282,8 @@ def verify_edge_necessity(
     Returns:
         Verification result dict
     """
-    edges = [(e["from"], e["to"]) if isinstance(e, dict) else (e[0], e[1]) for e in circuit["edges"]]
     circuit_edges = parse_circuit_edges(circuit)
+    edges = sorted(circuit_edges)
 
     unnecessary_edges = []
     necessary_edges = []

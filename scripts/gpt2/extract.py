@@ -1089,7 +1089,7 @@ def find_circuit(
         if child == "emb":
             continue  # Skip embedding node
 
-        incoming = graph.incoming_edges[child]
+        incoming = sorted(graph.incoming_edges[child])
         if verbose:
             print(f"\nProcessing node: {child} ({len(incoming)} incoming edges)")
 
