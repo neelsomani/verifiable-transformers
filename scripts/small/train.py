@@ -17,6 +17,16 @@ import sys
 from types import MethodType
 from typing import Dict, List
 
+# Keep this tiny custom model on one GPU by default. HuggingFace Trainer will
+# otherwise use implicit DataParallel when multiple GPUs are visible, which can
+# put patched GPT-2 modules and inputs on different CUDA devices.
+if (
+    "CUDA_VISIBLE_DEVICES" not in os.environ
+    and "LOCAL_RANK" not in os.environ
+    and "RANK" not in os.environ
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
