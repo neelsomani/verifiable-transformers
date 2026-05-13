@@ -1,0 +1,137 @@
+[
+  {
+    "edge": [
+      "attn_0",
+      "logits"
+    ],
+    "delta": 0.0006552136037498713,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_1",
+      "logits"
+    ],
+    "delta": 0.0017815043684095144,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "logits"
+    ],
+    "delta": 0.0001783827319741249,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "logits"
+    ],
+    "delta": 3.95317065063864,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "mlp_1",
+      "logits"
+    ],
+    "delta": 2.6830583745613694,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "attn_0",
+      "mlp_1"
+    ],
+    "delta": -0.000993318622931838,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_1",
+      "mlp_1"
+    ],
+    "delta": 0.43632334540598094,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "emb",
+      "mlp_1"
+    ],
+    "delta": 0.00017835013568401337,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "mlp_1"
+    ],
+    "delta": 0.004668432986363769,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_0",
+      "attn_1"
+    ],
+    "delta": -3.114156424999237e-05,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "attn_1"
+    ],
+    "delta": -1.8877442926168442e-05,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "attn_1"
+    ],
+    "delta": 3.03114906931296,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "attn_0",
+      "mlp_0"
+    ],
+    "delta": 4.699324289802462,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "emb",
+      "mlp_0"
+    ],
+    "delta": 0.00129217142239213,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "attn_0"
+    ],
+    "delta": 2.538529135286808,
+    "agreement": 0.5,
+    "decision": "kept"
+  }
+]

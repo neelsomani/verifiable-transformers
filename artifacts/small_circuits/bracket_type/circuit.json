@@ -1,0 +1,43 @@
+{
+  "task": "bracket_type",
+  "n_layers": 2,
+  "nodes": [
+    "emb",
+    "attn_0",
+    "mlp_0",
+    "attn_1",
+    "mlp_1",
+    "logits"
+  ],
+  "edges": [
+    {
+      "source": "attn_0",
+      "target": "mlp_0"
+    },
+    {
+      "source": "attn_1",
+      "target": "mlp_1"
+    },
+    {
+      "source": "emb",
+      "target": "attn_0"
+    },
+    {
+      "source": "mlp_0",
+      "target": "attn_1"
+    },
+    {
+      "source": "mlp_0",
+      "target": "logits"
+    },
+    {
+      "source": "mlp_1",
+      "target": "logits"
+    }
+  ],
+  "num_edges": 6,
+  "ablation": "zero",
+  "metric": "candidate_kl",
+  "min_agreement": 1.0,
+  "threshold": 0.005
+}

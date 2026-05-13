@@ -1,0 +1,31 @@
+{
+  "task": "quote_close",
+  "n_layers": 2,
+  "nodes": [
+    "emb",
+    "attn_0",
+    "mlp_0",
+    "attn_1",
+    "mlp_1",
+    "logits"
+  ],
+  "edges": [
+    {
+      "source": "attn_0",
+      "target": "mlp_0"
+    },
+    {
+      "source": "emb",
+      "target": "attn_0"
+    },
+    {
+      "source": "mlp_0",
+      "target": "logits"
+    }
+  ],
+  "num_edges": 3,
+  "ablation": "zero",
+  "metric": "candidate_kl",
+  "min_agreement": 1.0,
+  "threshold": 0.05
+}

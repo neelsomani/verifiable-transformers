@@ -1,0 +1,1144 @@
+[
+  {
+    "threshold": 0.001,
+    "n_edges": 7,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.002068229950964451
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "nodes": [
+        "emb",
+        "attn_0",
+        "mlp_0",
+        "attn_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_1",
+          "target": "logits"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 7,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.001
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0",
+          "logits"
+        ],
+        "delta": 0.0006552136037498713,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "logits"
+        ],
+        "delta": 0.0017815043684095144,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": -5.967356264591217e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 4.836728602414951,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.17952249920926988,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_1"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "mlp_1"
+        ],
+        "delta": 0.0004998268559575081,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": 0.00030634901486337185,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.3083424335345626,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "attn_1"
+        ],
+        "delta": 0.0002490035258233547,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1"
+        ],
+        "delta": 3.2000476494431496e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1"
+        ],
+        "delta": 0.6952715304214507,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_0"
+        ],
+        "delta": 5.297601738246158,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.0003855100367218256,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0"
+        ],
+        "delta": 2.3445203816518188,
+        "agreement": 0.5,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.002,
+    "n_edges": 7,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.0026008053682744503
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "nodes": [
+        "emb",
+        "attn_0",
+        "mlp_0",
+        "attn_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 7,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.002
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0",
+          "logits"
+        ],
+        "delta": 0.0006552136037498713,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "logits"
+        ],
+        "delta": 0.0017815043684095144,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": 0.0001783827319741249,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.95317065063864,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 2.6830583745613694,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_1"
+        ],
+        "delta": -0.000993318622931838,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "mlp_1"
+        ],
+        "delta": 0.43632334540598094,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": 0.00017835013568401337,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.004668432986363769,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "attn_1"
+        ],
+        "delta": 0.00029256963171064854,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1"
+        ],
+        "delta": 4.408974200487137e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1"
+        ],
+        "delta": 0.5987413278780878,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_0"
+        ],
+        "delta": 5.106564914342016,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.0004640137776732445,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0"
+        ],
+        "delta": 2.898816450033337,
+        "agreement": 0.5,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.005,
+    "n_edges": 6,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.007710717618465424
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "nodes": [
+        "emb",
+        "attn_0",
+        "mlp_0",
+        "attn_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 6,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.005
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0",
+          "logits"
+        ],
+        "delta": 0.0006552136037498713,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "logits"
+        ],
+        "delta": 0.0017815043684095144,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": 0.0001783827319741249,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.95317065063864,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 2.6830583745613694,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_1"
+        ],
+        "delta": -0.000993318622931838,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "mlp_1"
+        ],
+        "delta": 0.43632334540598094,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": 0.00017835013568401337,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.004668432986363769,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "attn_1"
+        ],
+        "delta": -3.114156424999237e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1"
+        ],
+        "delta": -1.8877442926168442e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1"
+        ],
+        "delta": 3.03114906931296,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_0"
+        ],
+        "delta": 4.699324289802462,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.00129217142239213,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0"
+        ],
+        "delta": 2.538529135286808,
+        "agreement": 0.5,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.01,
+    "n_edges": 6,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.007710717618465424
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "nodes": [
+        "emb",
+        "attn_0",
+        "mlp_0",
+        "attn_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 6,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.01
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0",
+          "logits"
+        ],
+        "delta": 0.0006552136037498713,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "logits"
+        ],
+        "delta": 0.0017815043684095144,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": 0.0001783827319741249,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.95317065063864,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 2.6830583745613694,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_1"
+        ],
+        "delta": -0.000993318622931838,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "mlp_1"
+        ],
+        "delta": 0.43632334540598094,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": 0.00017835013568401337,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.004668432986363769,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "attn_1"
+        ],
+        "delta": -3.114156424999237e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1"
+        ],
+        "delta": -1.8877442926168442e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1"
+        ],
+        "delta": 3.03114906931296,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_0"
+        ],
+        "delta": 4.699324289802462,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.00129217142239213,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0"
+        ],
+        "delta": 2.538529135286808,
+        "agreement": 0.5,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.02,
+    "n_edges": 6,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.007710717618465424
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "nodes": [
+        "emb",
+        "attn_0",
+        "mlp_0",
+        "attn_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 6,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.02
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0",
+          "logits"
+        ],
+        "delta": 0.0006552136037498713,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "logits"
+        ],
+        "delta": 0.0017815043684095144,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": 0.0001783827319741249,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.95317065063864,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 2.6830583745613694,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_1"
+        ],
+        "delta": -0.000993318622931838,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "mlp_1"
+        ],
+        "delta": 0.43632334540598094,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": 0.00017835013568401337,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.004668432986363769,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "attn_1"
+        ],
+        "delta": -3.114156424999237e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1"
+        ],
+        "delta": -1.8877442926168442e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1"
+        ],
+        "delta": 3.03114906931296,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_0"
+        ],
+        "delta": 4.699324289802462,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.00129217142239213,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0"
+        ],
+        "delta": 2.538529135286808,
+        "agreement": 0.5,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.05,
+    "n_edges": 6,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.007710717618465424
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "nodes": [
+        "emb",
+        "attn_0",
+        "mlp_0",
+        "attn_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 6,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.05
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0",
+          "logits"
+        ],
+        "delta": 0.0006552136037498713,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "logits"
+        ],
+        "delta": 0.0017815043684095144,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": 0.0001783827319741249,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.95317065063864,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 2.6830583745613694,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_1"
+        ],
+        "delta": -0.000993318622931838,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1",
+          "mlp_1"
+        ],
+        "delta": 0.43632334540598094,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": 0.00017835013568401337,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.004668432986363769,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "attn_1"
+        ],
+        "delta": -3.114156424999237e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1"
+        ],
+        "delta": -1.8877442926168442e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1"
+        ],
+        "delta": 3.03114906931296,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0",
+          "mlp_0"
+        ],
+        "delta": 4.699324289802462,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.00129217142239213,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0"
+        ],
+        "delta": 2.538529135286808,
+        "agreement": 0.5,
+        "decision": "kept"
+      }
+    ]
+  }
+]

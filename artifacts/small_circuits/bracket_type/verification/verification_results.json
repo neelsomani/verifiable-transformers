@@ -1,0 +1,46 @@
+{
+  "task": "bracket_type",
+  "circuit_path": "artifacts/small_circuits/bracket_type/circuit.json",
+  "weights_path": "artifacts/small/smt_weights.json",
+  "checkpoint": "artifacts/small/checkpoint-final",
+  "num_inputs": 128,
+  "candidate_tokens": [
+    13,
+    14
+  ],
+  "candidate_names": [
+    "right_bracket",
+    "right_brace"
+  ],
+  "properties": [
+    {
+      "property": "pytorch_circuit_validation",
+      "status": "PASSED",
+      "examples_checked": 128,
+      "num_failures": 0,
+      "failures": []
+    },
+    {
+      "property": "projected_functional_equivalence",
+      "status": "VERIFIED",
+      "verified_count": 128,
+      "timeout_count": 0,
+      "error_count": 0,
+      "total_sequences": 128,
+      "counterexamples": [],
+      "num_counterexamples": 0
+    },
+    {
+      "property": "projected_edge_necessity",
+      "status": "VERIFIED",
+      "total_edges": 6,
+      "necessary_edges": 6,
+      "unnecessary_edges_found": 0,
+      "unresolved_edges_found": 0,
+      "timeout_count": 0,
+      "error_count": 0,
+      "unnecessary_edges": [],
+      "unresolved_edges": []
+    }
+  ]
+}

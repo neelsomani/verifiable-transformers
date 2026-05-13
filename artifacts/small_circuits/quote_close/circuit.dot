@@ -1,0 +1,6 @@
+digraph circuit {
+  rankdir=LR;
+  "attn_0" -> "mlp_0";
+  "emb" -> "attn_0";
+  "mlp_0" -> "logits";
+}
