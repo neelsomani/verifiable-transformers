@@ -8,7 +8,9 @@ from .encoders import (
     encode_sparsemax,
     encode_multihead_attention_sparsemax,
     encode_mlp,
+    encode_mlp_with_trace,
     z3_real,
+    encode_signed_l1_band_norm_with_trace,
 )
 
 
@@ -24,6 +26,7 @@ def encode_circuit_forward(
     candidate_tokens: List[int],
     solver: Solver,
     ctx_prefix: str,
+    trace: Dict[str, Any] = None,
 ) -> Dict[int, ArithRef]:
     """Encode circuit forward pass with edge masking using SMT.
 
@@ -82,6 +85,7 @@ def encode_circuit_forward(
                 n_heads,
                 solver,
                 f"{ctx_prefix}_L{layer}_attn",
+                trace,
             )
             node_outputs[attn_node] = attn_output
         else:
@@ -96,6 +100,7 @@ def encode_circuit_forward(
                 model_weights,
                 solver,
                 f"{ctx_prefix}_L{layer}_mlp",
+                trace,
             )
             node_outputs[mlp_node] = mlp_output
         else:
@@ -110,6 +115,7 @@ def encode_circuit_forward(
         candidate_tokens,
         solver,
         f"{ctx_prefix}_logits",
+        trace,
     )
 
     return logits
@@ -156,6 +162,7 @@ def encode_attention_layer(
     n_heads: int,
     solver: Solver,
     ctx_prefix: str,
+    trace: Dict[str, Any] = None,
 ) -> List[List[ArithRef]]:
     """Encode attention block with BandNorm and sparsemax.
 
@@ -205,17 +212,32 @@ def encode_attention_layer(
 
         normed = []
         for pos in range(seq_len):
-            normed_pos = encode_signed_l1_band_norm(
-                residual[pos],
-                norm_gamma,
-                norm_beta,
-                half_low,
-                half_high,
-                pos_fallback,
-                neg_fallback,
-                solver,
-                f"{ctx_prefix}_norm_p{pos}",
-            )
+            norm_ctx = f"{ctx_prefix}_norm_p{pos}"
+            if trace is not None:
+                normed_pos = encode_signed_l1_band_norm_with_trace(
+                    residual[pos],
+                    norm_gamma,
+                    norm_beta,
+                    half_low,
+                    half_high,
+                    pos_fallback,
+                    neg_fallback,
+                    trace["bandnorm"][norm_ctx],
+                    solver,
+                    norm_ctx,
+                )
+            else:
+                normed_pos = encode_signed_l1_band_norm(
+                    residual[pos],
+                    norm_gamma,
+                    norm_beta,
+                    half_low,
+                    half_high,
+                    pos_fallback,
+                    neg_fallback,
+                    solver,
+                    norm_ctx,
+                )
             normed.append(normed_pos)
     else:
         # Simple pass-through for now (LayerNorm approximation)
@@ -269,6 +291,7 @@ def encode_attention_layer(
             n_heads,
             solver,
             f"{ctx_prefix}_p{pos}",
+            trace,
         )
         attn_output.append(attn_pos)
 
@@ -291,6 +314,7 @@ def encode_mlp_layer(
     model_weights: Dict[str, Any],
     solver: Solver,
     ctx_prefix: str,
+    trace: Dict[str, Any] = None,
 ) -> List[List[ArithRef]]:
     """Encode MLP block with BandNorm and LeakyReLU.
 
@@ -338,17 +362,32 @@ def encode_mlp_layer(
 
         normed = []
         for pos in range(seq_len):
-            normed_pos = encode_signed_l1_band_norm(
-                residual[pos],
-                norm_gamma,
-                norm_beta,
-                half_low,
-                half_high,
-                pos_fallback,
-                neg_fallback,
-                solver,
-                f"{ctx_prefix}_norm_p{pos}",
-            )
+            norm_ctx = f"{ctx_prefix}_norm_p{pos}"
+            if trace is not None:
+                normed_pos = encode_signed_l1_band_norm_with_trace(
+                    residual[pos],
+                    norm_gamma,
+                    norm_beta,
+                    half_low,
+                    half_high,
+                    pos_fallback,
+                    neg_fallback,
+                    trace["bandnorm"][norm_ctx],
+                    solver,
+                    norm_ctx,
+                )
+            else:
+                normed_pos = encode_signed_l1_band_norm(
+                    residual[pos],
+                    norm_gamma,
+                    norm_beta,
+                    half_low,
+                    half_high,
+                    pos_fallback,
+                    neg_fallback,
+                    solver,
+                    norm_ctx,
+                )
             normed.append(normed_pos)
     else:
         norm_gamma = model_weights[f"mlp_{layer}_norm_gamma"]
@@ -367,7 +406,20 @@ def encode_mlp_layer(
 
     output = []
     for pos in range(seq_len):
-        out_pos = encode_mlp(normed[pos], W_up, b_up, W_down, b_down)
+        mlp_ctx = f"{ctx_prefix}_p{pos}"
+        if trace is not None:
+            out_pos = encode_mlp_with_trace(
+                normed[pos],
+                W_up,
+                b_up,
+                W_down,
+                b_down,
+                trace["leaky_relu"],
+                solver,
+                mlp_ctx,
+            )
+        else:
+            out_pos = encode_mlp(normed[pos], W_up, b_up, W_down, b_down)
         output.append(out_pos)
 
     return output
@@ -381,6 +433,7 @@ def encode_logits_layer_candidates(
     candidate_tokens: List[int],
     solver: Solver,
     ctx_prefix: str,
+    trace: Dict[str, Any] = None,
 ) -> Dict[int, ArithRef]:
     """Encode final logits computation for candidate tokens only.
 
@@ -424,17 +477,32 @@ def encode_logits_layer_candidates(
         pos_fallback = [1.0 if i % 2 == 0 else 0.0 for i in range(d_model)]
         neg_fallback = [0.0 if i % 2 == 0 else 1.0 for i in range(d_model)]
 
-        normed = encode_signed_l1_band_norm(
-            residual_last,
-            norm_gamma,
-            norm_beta,
-            half_low,
-            half_high,
-            pos_fallback,
-            neg_fallback,
-            solver,
-            f"{ctx_prefix}_norm",
-        )
+        norm_ctx = f"{ctx_prefix}_norm"
+        if trace is not None:
+            normed = encode_signed_l1_band_norm_with_trace(
+                residual_last,
+                norm_gamma,
+                norm_beta,
+                half_low,
+                half_high,
+                pos_fallback,
+                neg_fallback,
+                trace["bandnorm"][norm_ctx],
+                solver,
+                norm_ctx,
+            )
+        else:
+            normed = encode_signed_l1_band_norm(
+                residual_last,
+                norm_gamma,
+                norm_beta,
+                half_low,
+                half_high,
+                pos_fallback,
+                neg_fallback,
+                solver,
+                norm_ctx,
+            )
     else:
         norm_gamma = model_weights["final_norm_gamma"]
         norm_beta = model_weights["final_norm_beta"]

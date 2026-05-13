@@ -26,7 +26,7 @@ def z3_real(value) -> ArithRef:
 def encode_leaky_relu(x: ArithRef, alpha: float = 0.01) -> ArithRef:
     """Encode LeakyReLU as piecewise-linear SMT constraint.
 
-    LeakyReLU(x) = x if x > 0 else alpha * x
+    LeakyReLU(x) = x if x >= 0 else alpha * x
 
     Args:
         x: Input Z3 variable
@@ -35,7 +35,23 @@ def encode_leaky_relu(x: ArithRef, alpha: float = 0.01) -> ArithRef:
     Returns:
         Z3 expression for LeakyReLU(x)
     """
-    return If(x > 0, x, z3_real(alpha) * x)
+    return If(x >= 0, x, z3_real(alpha) * x)
+
+
+def encode_leaky_relu_with_trace(
+    x: ArithRef,
+    is_nonnegative: bool,
+    solver: Solver,
+    ctx_prefix: str,
+    alpha: float = 0.01,
+) -> ArithRef:
+    """Encode LeakyReLU on a certified sign branch."""
+    if is_nonnegative:
+        solver.add(x >= 0)
+        return x
+
+    solver.add(x < 0)
+    return z3_real(alpha) * x
 
 
 def encode_nonnegative_l1_projection(
@@ -236,6 +252,247 @@ def encode_sparsemax(
     return output
 
 
+def encode_sparsemax_with_support(
+    logits: List[ArithRef],
+    support: List[int],
+    solver: Solver,
+    ctx_prefix: str,
+) -> List[ArithRef]:
+    """Encode sparsemax on a certified support branch."""
+    n = len(logits)
+    support = sorted(support)
+    if not support:
+        raise ValueError(f"Empty sparsemax support for {ctx_prefix}")
+
+    support_set = set(support)
+    k = len(support)
+    tau = (Sum([logits[i] for i in support]) - z3_real(1.0)) / k
+
+    output = []
+    for i in range(n):
+        if i in support_set:
+            out_i = logits[i] - tau
+            solver.add(logits[i] > tau)
+        else:
+            out_i = RealVal(0)
+            solver.add(logits[i] <= tau)
+        output.append(out_i)
+
+    solver.add(Sum(output) == z3_real(1.0))
+    return output
+
+
+def encode_nonnegative_l1_projection_with_trace(
+    y: List[ArithRef],
+    radius: float,
+    trace: dict,
+    solver: Solver,
+    ctx_prefix: str,
+) -> List[ArithRef]:
+    """Encode nonnegative L1 projection on a certified branch."""
+    radius_z3 = z3_real(radius)
+    mass = Sum(y)
+
+    if not trace["needed"]:
+        solver.add(mass <= radius_z3)
+        return y
+
+    support = sorted(trace["support"])
+    if not support:
+        raise ValueError(f"Empty projection support for {ctx_prefix}")
+
+    support_set = set(support)
+    tau = (Sum([y[i] for i in support]) - radius_z3) / len(support)
+    solver.add(mass > radius_z3)
+
+    projected = []
+    for i in range(len(y)):
+        if i in support_set:
+            solver.add(y[i] > tau)
+            projected.append(y[i] - tau)
+        else:
+            solver.add(y[i] <= tau)
+            projected.append(RealVal(0))
+
+    return projected
+
+
+def encode_additive_lift_with_trace(
+    y: List[ArithRef],
+    target: float,
+    fallback_mask: List[float],
+    trace: dict,
+    solver: Solver,
+    ctx_prefix: str,
+) -> List[ArithRef]:
+    """Encode additive lift on a certified branch."""
+    target_z3 = z3_real(target)
+    mass = Sum(y)
+
+    if not trace["needed"]:
+        solver.add(mass >= target_z3)
+        return y
+
+    active = sorted(trace["active"])
+    if not active:
+        raise ValueError(f"Empty additive-lift active set for {ctx_prefix}")
+
+    active_set = set(active)
+    solver.add(mass < target_z3)
+
+    if trace.get("fallback", False):
+        for i in range(len(y)):
+            solver.add(y[i] <= 0)
+            expected = 1.0 if i in active_set else 0.0
+            if float(fallback_mask[i]) != expected:
+                raise ValueError(f"Fallback mask mismatch for {ctx_prefix}[{i}]")
+    else:
+        for i in range(len(y)):
+            if i in active_set:
+                solver.add(y[i] > 0)
+            else:
+                solver.add(y[i] <= 0)
+
+    delta = (target_z3 - mass) / len(active)
+    return [y[i] + delta if i in active_set else y[i] for i in range(len(y))]
+
+
+def projection_guard_conditions(y: List[ArithRef], radius: float, trace: dict) -> List[BoolRef]:
+    radius_z3 = z3_real(radius)
+    mass = Sum(y)
+    conditions = []
+
+    if not trace["needed"]:
+        conditions.append(mass <= radius_z3)
+        return conditions
+
+    support = sorted(trace["support"])
+    support_set = set(support)
+    tau = (Sum([y[i] for i in support]) - radius_z3) / len(support)
+    conditions.append(mass > radius_z3)
+    for i in range(len(y)):
+        conditions.append(y[i] > tau if i in support_set else y[i] <= tau)
+    return conditions
+
+
+def lift_guard_conditions(y: List[ArithRef], target: float, trace: dict) -> List[BoolRef]:
+    target_z3 = z3_real(target)
+    mass = Sum(y)
+    conditions = []
+
+    if not trace["needed"]:
+        conditions.append(mass >= target_z3)
+        return conditions
+
+    active = set(trace["active"])
+    conditions.append(mass < target_z3)
+    if trace.get("fallback", False):
+        conditions.extend([coord <= 0 for coord in y])
+    else:
+        for i in range(len(y)):
+            conditions.append(y[i] > 0 if i in active else y[i] <= 0)
+    return conditions
+
+
+def signed_l1_band_norm_guard_conditions(
+    x: List[ArithRef],
+    half_low: float,
+    half_high: float,
+    trace: dict,
+) -> List[BoolRef]:
+    """Return branch guard conditions for a traced Signed L1 BandNorm cell."""
+    d = len(x)
+    mean_x = Sum(x) / d
+    c = [x[i] - mean_x for i in range(d)]
+
+    p = []
+    n = []
+    conditions = []
+    for i, sign in enumerate(trace["signs"]):
+        if sign > 0:
+            conditions.append(c[i] > 0)
+            p.append(c[i])
+            n.append(RealVal(0))
+        elif sign < 0:
+            conditions.append(c[i] < 0)
+            p.append(RealVal(0))
+            n.append(-c[i])
+        else:
+            conditions.append(c[i] == 0)
+            p.append(RealVal(0))
+            n.append(RealVal(0))
+
+    conditions.extend(projection_guard_conditions(p, half_high, trace["pos_projection"]))
+    conditions.extend(projection_guard_conditions(n, half_high, trace["neg_projection"]))
+
+    p_projected = encode_nonnegative_l1_projection_with_trace(
+        p, half_high, trace["pos_projection"], Solver(), "guard_p_proj"
+    )
+    n_projected = encode_nonnegative_l1_projection_with_trace(
+        n, half_high, trace["neg_projection"], Solver(), "guard_n_proj"
+    )
+    conditions.extend(lift_guard_conditions(p_projected, half_low, trace["pos_lift"]))
+    conditions.extend(lift_guard_conditions(n_projected, half_low, trace["neg_lift"]))
+
+    return conditions
+
+
+def encode_signed_l1_band_norm_with_trace(
+    x: List[ArithRef],
+    gamma: List[float],
+    beta: List[float],
+    half_low: float,
+    half_high: float,
+    pos_fallback: List[float],
+    neg_fallback: List[float],
+    trace: dict,
+    solver: Solver,
+    ctx_prefix: str,
+) -> List[ArithRef]:
+    """Encode Signed L1 BandNorm on certified sign/projection/lift branches."""
+    d = len(x)
+
+    mean_x = Sum(x) / d
+    c = [x[i] - mean_x for i in range(d)]
+
+    p = []
+    n = []
+    signs = trace["signs"]
+    for i, sign in enumerate(signs):
+        if sign > 0:
+            solver.add(c[i] > 0)
+            p.append(c[i])
+            n.append(RealVal(0))
+        elif sign < 0:
+            solver.add(c[i] < 0)
+            p.append(RealVal(0))
+            n.append(-c[i])
+        else:
+            solver.add(c[i] == 0)
+            p.append(RealVal(0))
+            n.append(RealVal(0))
+
+    p_projected = encode_nonnegative_l1_projection_with_trace(
+        p, half_high, trace["pos_projection"], solver, f"{ctx_prefix}_p_proj"
+    )
+    n_projected = encode_nonnegative_l1_projection_with_trace(
+        n, half_high, trace["neg_projection"], solver, f"{ctx_prefix}_n_proj"
+    )
+
+    p_normalized = encode_additive_lift_with_trace(
+        p_projected, half_low, pos_fallback, trace["pos_lift"], solver, f"{ctx_prefix}_p_lift"
+    )
+    n_normalized = encode_additive_lift_with_trace(
+        n_projected, half_low, neg_fallback, trace["neg_lift"], solver, f"{ctx_prefix}_n_lift"
+    )
+
+    z = [p_normalized[i] - n_normalized[i] for i in range(d)]
+    mean_z = Sum(z) / d
+    z_recentered = [z[i] - mean_z for i in range(d)]
+
+    return [z3_real(gamma[i]) * z_recentered[i] + z3_real(beta[i]) for i in range(d)]
+
+
 def encode_multihead_attention_sparsemax(
     query: List[ArithRef],
     keys: List[List[ArithRef]],
@@ -243,6 +500,7 @@ def encode_multihead_attention_sparsemax(
     n_heads: int,
     solver: Solver,
     ctx_prefix: str,
+    trace: dict = None,
 ) -> List[ArithRef]:
     """Encode multi-head attention with sparsemax weighting.
 
@@ -285,7 +543,16 @@ def encode_multihead_attention_sparsemax(
             scores.append(score)
 
         # Apply sparsemax to get attention weights
-        weights = encode_sparsemax(scores, solver, f"{ctx_prefix}_h{h}")
+        sparsemax_ctx = f"{ctx_prefix}_h{h}"
+        if trace is not None:
+            weights = encode_sparsemax_with_support(
+                scores,
+                trace["sparsemax"][sparsemax_ctx],
+                solver,
+                sparsemax_ctx,
+            )
+        else:
+            weights = encode_sparsemax(scores, solver, sparsemax_ctx)
 
         # Weighted sum of values
         output_h = []
@@ -327,6 +594,34 @@ def encode_mlp(
         hidden.append(encode_leaky_relu(h_i))
 
     # Down-projection
+    output = []
+    for i in range(d_model):
+        out_i = Sum([z3_real(W_down[i][j]) * hidden[j] for j in range(d_ff)]) + z3_real(b_down[i])
+        output.append(out_i)
+
+    return output
+
+
+def encode_mlp_with_trace(
+    x: List[ArithRef],
+    W_up: List[List[float]],
+    b_up: List[float],
+    W_down: List[List[float]],
+    b_down: List[float],
+    trace: dict,
+    solver: Solver,
+    ctx_prefix: str,
+) -> List[ArithRef]:
+    """Encode MLP using certified LeakyReLU sign branches."""
+    d_model = len(x)
+    d_ff = len(b_up)
+
+    hidden = []
+    for i in range(d_ff):
+        h_i = Sum([z3_real(W_up[i][j]) * x[j] for j in range(d_model)]) + z3_real(b_up[i])
+        is_nonnegative = trace[f"{ctx_prefix}_hidden_{i}"]
+        hidden.append(encode_leaky_relu_with_trace(h_i, is_nonnegative, solver, f"{ctx_prefix}_hidden_{i}"))
+
     output = []
     for i in range(d_model):
         out_i = Sum([z3_real(W_down[i][j]) * hidden[j] for j in range(d_ff)]) + z3_real(b_down[i])

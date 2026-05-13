@@ -29,6 +29,7 @@ from scripts.smt import (
     verify_functional_equivalence,
 )
 from scripts.smt.utils import parse_circuit_edges
+from scripts.smt.trace import trace_circuit_forward
 
 
 DEFAULT_WEIGHTS_PATH = "artifacts/small_verifiable/smt_weights.json"
@@ -95,6 +96,7 @@ def get_smt_candidate_logits(
         candidate_tokens,
         solver,
         ctx_prefix,
+        trace=trace_circuit_forward(input_tokens, circuit_edges, model_weights, ctx_prefix),
     )
 
     result = solver.check()

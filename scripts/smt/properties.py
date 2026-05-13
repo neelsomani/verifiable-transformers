@@ -6,7 +6,13 @@ from typing import List, Dict, Any, Set, Tuple, Callable, Optional
 from .circuit import encode_circuit_forward
 from .domain import generate_bounded_sequences
 from .utils import parse_circuit_edges, get_candidate_tokens
-from .encoders import encode_signed_l1_band_norm, z3_real
+from .encoders import (
+    encode_signed_l1_band_norm,
+    encode_signed_l1_band_norm_with_trace,
+    signed_l1_band_norm_guard_conditions,
+    z3_real,
+)
+from .trace import trace_circuit_forward
 
 
 def verify_functional_equivalence(
@@ -59,6 +65,7 @@ def verify_functional_equivalence(
                 candidate_tokens,
                 solver,
                 f"seq_{i}",
+                trace=trace_circuit_forward(input_tokens, circuit_edges, model_weights, f"seq_{i}"),
             )
 
             print(
@@ -83,18 +90,33 @@ def verify_functional_equivalence(
                 if tok != expected_token and tok in circuit_logits:
                     violations.append(circuit_logits[tok] >= circuit_logits[expected_token])
 
+            print(f"  seq {i}: validating base constraints...", flush=True)
+            base_result = solver.check()
+            print(f"  seq {i}: base result={base_result}", flush=True)
+
+            if base_result == unsat:
+                print(f"  ERROR: trace certificate invalid on sequence {i}", flush=True)
+                error_count += 1
+                continue
+            if base_result != sat:
+                print(f"  UNKNOWN: base trace constraints timed out on sequence {i}", flush=True)
+                timeout_count += 1
+                continue
+
             if not violations:
-                # No other candidates, trivially verified
+                # No other candidates, trivially verified after certificate validation.
                 verified_count += 1
                 continue
 
+            solver.push()
             solver.add(Or(violations))
 
             # Check satisfiability
-            print(f"  seq {i}: checking...", flush=True)
+            print(f"  seq {i}: checking violation...", flush=True)
             t1 = time.time()
             result = solver.check()
-            print(f"  seq {i}: result={result} in {time.time() - t1:.2f}s", flush=True)
+            print(f"  seq {i}: violation result={result} in {time.time() - t1:.2f}s", flush=True)
+            solver.pop()
 
             if result == unsat:
                 # Property holds: expected token has highest logit
@@ -200,10 +222,22 @@ def verify_content_invariance(
                 try:
                     # Encode both sequences
                     logits1 = encode_circuit_forward(
-                        seq1, circuit_edges, model_weights, candidate_tokens, solver, f"feat{feature}_a{a}"
+                        seq1,
+                        circuit_edges,
+                        model_weights,
+                        candidate_tokens,
+                        solver,
+                        f"feat{feature}_a{a}",
+                        trace=trace_circuit_forward(seq1, circuit_edges, model_weights, f"feat{feature}_a{a}"),
                     )
                     logits2 = encode_circuit_forward(
-                        seq2, circuit_edges, model_weights, candidate_tokens, solver, f"feat{feature}_b{b}"
+                        seq2,
+                        circuit_edges,
+                        model_weights,
+                        candidate_tokens,
+                        solver,
+                        f"feat{feature}_b{b}",
+                        trace=trace_circuit_forward(seq2, circuit_edges, model_weights, f"feat{feature}_b{b}"),
                     )
 
                     # Add constraint: decisions (argmax) differ
@@ -223,13 +257,24 @@ def verify_content_invariance(
                                     And(logits1[tok1] <= logits1[tok2], logits2[tok1] > logits2[tok2])
                                 )
 
+                    base_result = solver.check()
+                    if base_result == unsat:
+                        print(f"  ERROR: trace certificate invalid for feature {feature}, pair ({a}, {b})")
+                        error_count += 1
+                        continue
+                    if base_result != sat:
+                        timeout_count += 1
+                        continue
+
                     if not ordering_violations:
                         verified_pairs += 1
                         continue
 
+                    solver.push()
                     solver.add(Or(ordering_violations))
 
                     result = solver.check()
+                    solver.pop()
 
                     if result == unsat:
                         # Property holds: decisions are identical
@@ -332,6 +377,7 @@ def verify_edge_necessity(
                     candidate_tokens,
                     solver,
                     f"full_e{edge_idx}",
+                    trace=trace_circuit_forward(input_tokens, circuit_edges, model_weights, f"full_e{edge_idx}"),
                 )
 
                 # Encode ablated circuit
@@ -342,6 +388,7 @@ def verify_edge_necessity(
                     candidate_tokens,
                     solver,
                     f"ablated_e{edge_idx}",
+                    trace=trace_circuit_forward(input_tokens, ablated_edges, model_weights, f"ablated_e{edge_idx}"),
                 )
 
                 # Add constraint: decisions (argmax) differ
@@ -363,12 +410,25 @@ def verify_edge_necessity(
                                     logits_ablated[tok1] > logits_ablated[tok2])
                             )
 
+                base_result = solver.check()
+                if base_result == unsat:
+                    print(f"  ERROR: full/ablated trace certificate invalid for edge {edge}")
+                    error_count += 1
+                    had_timeout_or_error = True
+                    break
+                if base_result != sat:
+                    timeout_count += 1
+                    had_timeout_or_error = True
+                    continue
+
                 if not ordering_violations:
                     continue
 
+                solver.push()
                 solver.add(Or(ordering_violations))
 
                 result = solver.check()
+                solver.pop()
 
                 if result == sat:
                     # Decisions differ - edge is necessary
@@ -446,6 +506,8 @@ def verify_token_renaming_equivariance(
 
     counterexamples = []
     verified_count = 0
+    timeout_count = 0
+    error_count = 0
 
     # Use synthetic token set for tractability
     candidate_tokens = list(range(20, 30))
@@ -469,23 +531,46 @@ def verify_token_renaming_equivariance(
         try:
             # Encode original sequence
             logits_orig = encode_circuit_forward(
-                seq, circuit_edges, model_weights, candidate_tokens, solver, f"orig_{seq_idx}"
+                seq,
+                circuit_edges,
+                model_weights,
+                candidate_tokens,
+                solver,
+                f"orig_{seq_idx}",
+                trace=trace_circuit_forward(seq, circuit_edges, model_weights, f"orig_{seq_idx}"),
             )
 
             # Encode permuted sequence
             logits_perm = encode_circuit_forward(
-                seq_permuted, circuit_edges, model_weights, candidate_tokens, solver, f"perm_{seq_idx}"
+                seq_permuted,
+                circuit_edges,
+                model_weights,
+                candidate_tokens,
+                solver,
+                f"perm_{seq_idx}",
+                trace=trace_circuit_forward(seq_permuted, circuit_edges, model_weights, f"perm_{seq_idx}"),
             )
 
             # Check: logits_perm[20] should equal logits_orig[21]
             #        logits_perm[21] should equal logits_orig[20]
             if 20 in logits_orig and 21 in logits_orig and 20 in logits_perm and 21 in logits_perm:
+                base_result = solver.check()
+                if base_result == unsat:
+                    print(f"  ERROR: trace certificate invalid on sequence {seq_idx}")
+                    error_count += 1
+                    continue
+                if base_result != sat:
+                    timeout_count += 1
+                    continue
+
+                solver.push()
                 solver.add(Or(
                     logits_perm[20] != logits_orig[21],
                     logits_perm[21] != logits_orig[20],
                 ))
 
                 result = solver.check()
+                solver.pop()
 
                 if result == unsat:
                     verified_count += 1
@@ -493,18 +578,27 @@ def verify_token_renaming_equivariance(
                     counterexamples.append({"sequence": seq})
                     if len(counterexamples) >= 10:
                         break
+                else:
+                    timeout_count += 1
 
         except Exception as e:
             print(f"  Error on sequence {seq_idx}: {e}")
+            error_count += 1
             continue
 
-    success = len(counterexamples) == 0
-    status = "VERIFIED" if success else "FAILED"
+    if len(counterexamples) > 0:
+        status = "FAILED"
+    elif timeout_count > 0 or error_count > 0:
+        status = "UNKNOWN"
+    else:
+        status = "VERIFIED"
 
     return {
         "property": "token_renaming_equivariance",
         "status": status,
         "verified_count": verified_count,
+        "timeout_count": timeout_count,
+        "error_count": error_count,
         "counterexamples": counterexamples[:5],
         "num_counterexamples": len(counterexamples),
     }
@@ -552,13 +646,30 @@ def verify_structural_constraint(
         try:
             # Encode circuit
             logits = encode_circuit_forward(
-                input_tokens, circuit_edges, model_weights, candidate_tokens, solver, f"input_{i}"
+                input_tokens,
+                circuit_edges,
+                model_weights,
+                candidate_tokens,
+                solver,
+                f"input_{i}",
+                trace=trace_circuit_forward(input_tokens, circuit_edges, model_weights, f"input_{i}"),
             )
 
+            base_result = solver.check()
+            if base_result == unsat:
+                print(f"  ERROR: trace certificate invalid on input {i}")
+                error_count += 1
+                continue
+            if base_result != sat:
+                timeout_count += 1
+                continue
+
             # Add constraint and negate it (check if constraint can be violated)
+            solver.push()
             constraint_checker(logits, solver)
 
             result = solver.check()
+            solver.pop()
 
             if result == unsat:
                 # Constraint cannot be violated
@@ -620,19 +731,15 @@ def verify_continuous_robustness(
     Returns:
         Verification result dict
     """
-    from .circuit import encode_circuit_forward, get_residual_input
-
     circuit_edges = parse_circuit_edges(circuit)
 
-    violations = []
+    branch_unstable = []
+    decision_violations = []
     verified_count = 0
     timeout_count = 0
     error_count = 0
 
     d_model = model_weights["d_model"]
-    n_layers = model_weights["n_layers"]
-    norm_variant = model_weights.get("norm_variant", "layernorm")
-
     print(f"Verifying continuous robustness on {len(test_inputs)} inputs...")
     print(f"Perturbation radius: ε = {epsilon}\n")
 
@@ -640,154 +747,128 @@ def verify_continuous_robustness(
         if i % 10 == 0 and i > 0:
             print(f"  Progress: {i}/{len(test_inputs)}")
 
-        solver = Solver()
-        solver.set("timeout", timeout_ms)
-
         try:
-            # Encode circuit forward pass (get final residual via modified circuit encoding)
-            # We need to reimplement the final residual extraction inline here
-            seq_len = len(input_tokens)
+            trace = trace_circuit_forward(input_tokens, circuit_edges, model_weights, f"rob_{i}")
+            final_residual = [z3_real(v) for v in trace["final_residual"]]
+            final_trace = trace["bandnorm"][f"rob_{i}_logits_norm"]
 
-            # Get all node outputs
-            from .circuit import encode_attention_layer, encode_mlp_layer, zero_output
-
-            # Compute active nodes
-            active_nodes = {"emb", "logits"}
-            for node_from, node_to in circuit_edges:
-                active_nodes.add(node_from)
-                active_nodes.add(node_to)
-
-            # Node computation cache
-            node_outputs = {}
-
-            # Embedding
-            wte = model_weights["wte"]
-            wpe = model_weights["wpe"]
-            emb_output = []
-            for pos in range(seq_len):
-                tok = input_tokens[pos]
-                emb_pos = [z3_real(wte[tok][j]) + z3_real(wpe[pos][j]) for j in range(d_model)]
-                emb_output.append(emb_pos)
-            node_outputs["emb"] = emb_output
-
-            # Layer-by-layer forward pass
-            for layer in range(n_layers):
-                attn_node = f"attn_{layer}"
-                mlp_node = f"mlp_{layer}"
-
-                if attn_node in active_nodes:
-                    attn_output = encode_attention_layer(
-                        node_outputs,
-                        layer,
-                        circuit_edges,
-                        model_weights,
-                        model_weights["n_heads"],
-                        solver,
-                        f"rob_{i}_L{layer}_attn",
-                    )
-                    node_outputs[attn_node] = attn_output
-                else:
-                    node_outputs[attn_node] = zero_output(seq_len, d_model)
-
-                if mlp_node in active_nodes:
-                    mlp_output = encode_mlp_layer(
-                        node_outputs,
-                        layer,
-                        circuit_edges,
-                        model_weights,
-                        solver,
-                        f"rob_{i}_L{layer}_mlp",
-                    )
-                    node_outputs[mlp_node] = mlp_output
-                else:
-                    node_outputs[mlp_node] = zero_output(seq_len, d_model)
-
-            # Extract final residual at last position (before ln_f)
-            parent_nodes = ["emb"]
-            for layer in range(n_layers):
-                parent_nodes.extend([f"attn_{layer}", f"mlp_{layer}"])
-
-            residual_last = [RealVal(0) for _ in range(d_model)]
-            for parent in parent_nodes:
-                if (parent, "logits") in circuit_edges:
-                    parent_output = node_outputs[parent]
-                    for j in range(d_model):
-                        residual_last[j] = residual_last[j] + parent_output[seq_len - 1][j]
-
-            # Create symbolic perturbation η with ||η||_∞ ≤ ε
-            eta = [Real(f"rob_{i}_eta_{j}") for j in range(d_model)]
-            for j in range(d_model):
-                solver.add(eta[j] >= -z3_real(epsilon))
-                solver.add(eta[j] <= z3_real(epsilon))
-
-            # Perturbed residual
-            perturbed_residual = [residual_last[j] + eta[j] for j in range(d_model)]
-
-            # Apply ln_f to both residuals
-            def apply_final_norm(residual, ctx):
-                if norm_variant == "signed_l1_band_norm":
-                    norm_gamma = model_weights["final_norm_gamma"]
-                    norm_beta = model_weights["final_norm_beta"]
-                    half_low = model_weights["half_low"]
-                    half_high = model_weights["half_high"]
-                    pos_fallback = [1.0 if k % 2 == 0 else 0.0 for k in range(d_model)]
-                    neg_fallback = [0.0 if k % 2 == 0 else 1.0 for k in range(d_model)]
-                    return encode_signed_l1_band_norm(
-                        residual, norm_gamma, norm_beta,
-                        half_low, half_high,
-                        pos_fallback, neg_fallback,
-                        solver, ctx,
-                    )
-                else:
-                    norm_gamma = model_weights["final_norm_gamma"]
-                    norm_beta = model_weights["final_norm_beta"]
-                    return [residual[k] * z3_real(norm_gamma[k]) + z3_real(norm_beta[k]) for k in range(d_model)]
-
-            normed_original = apply_final_norm(residual_last, f"rob_{i}_norm_orig")
-            normed_perturbed = apply_final_norm(perturbed_residual, f"rob_{i}_norm_pert")
-
-            # Compute logits for both
+            norm_gamma = model_weights["final_norm_gamma"]
+            norm_beta = model_weights["final_norm_beta"]
+            half_low = model_weights["half_low"]
+            half_high = model_weights["half_high"]
+            pos_fallback = [1.0 if k % 2 == 0 else 0.0 for k in range(d_model)]
+            neg_fallback = [0.0 if k % 2 == 0 else 1.0 for k in range(d_model)]
             lm_head = model_weights["lm_head"]
-            logits_original = {tok: Sum([z3_real(lm_head[tok][j]) * normed_original[j] for j in range(d_model)])
-                              for tok in candidate_tokens}
-            logits_perturbed = {tok: Sum([z3_real(lm_head[tok][j]) * normed_perturbed[j] for j in range(d_model)])
-                               for tok in candidate_tokens}
 
-            # Check if decisions differ
-            ordering_violations = []
+            # Check 1: final BandNorm branch is stable throughout the epsilon ball.
+            stability_solver = Solver()
+            stability_solver.set("timeout", timeout_ms)
+            eta = [Real(f"rob_{i}_stable_eta_{j}") for j in range(d_model)]
+            for j in range(d_model):
+                stability_solver.add(eta[j] >= -z3_real(epsilon))
+                stability_solver.add(eta[j] <= z3_real(epsilon))
+            perturbed_residual = [final_residual[j] + eta[j] for j in range(d_model)]
+            guards = signed_l1_band_norm_guard_conditions(
+                perturbed_residual,
+                half_low,
+                half_high,
+                final_trace,
+            )
+            stability_solver.add(Or([Not(g) for g in guards]))
+            stability_result = stability_solver.check()
+
+            if stability_result == sat:
+                branch_unstable.append({
+                    "input": input_tokens,
+                    "branch_instability_found": True,
+                })
+                continue
+            if stability_result != unsat:
+                timeout_count += 1
+                continue
+
+            # Check 2: under the stable certified branch, no candidate decision flips.
+            decision_solver = Solver()
+            decision_solver.set("timeout", timeout_ms)
+            eta = [Real(f"rob_{i}_decision_eta_{j}") for j in range(d_model)]
+            for j in range(d_model):
+                decision_solver.add(eta[j] >= -z3_real(epsilon))
+                decision_solver.add(eta[j] <= z3_real(epsilon))
+            perturbed_residual = [final_residual[j] + eta[j] for j in range(d_model)]
+
+            normed_original = encode_signed_l1_band_norm_with_trace(
+                final_residual,
+                norm_gamma,
+                norm_beta,
+                half_low,
+                half_high,
+                pos_fallback,
+                neg_fallback,
+                final_trace,
+                decision_solver,
+                f"rob_{i}_norm_orig",
+            )
+            normed_perturbed = encode_signed_l1_band_norm_with_trace(
+                perturbed_residual,
+                norm_gamma,
+                norm_beta,
+                half_low,
+                half_high,
+                pos_fallback,
+                neg_fallback,
+                final_trace,
+                decision_solver,
+                f"rob_{i}_norm_pert",
+            )
+
+            logits_original = {
+                tok: Sum([z3_real(lm_head[tok][j]) * normed_original[j] for j in range(d_model)])
+                for tok in candidate_tokens
+            }
+            logits_perturbed = {
+                tok: Sum([z3_real(lm_head[tok][j]) * normed_perturbed[j] for j in range(d_model)])
+                for tok in candidate_tokens
+            }
+
+            decision_flips = []
             for tok1 in candidate_tokens:
                 for tok2 in candidate_tokens:
                     if tok1 != tok2:
-                        # Original prefers tok1, perturbed prefers tok2
-                        ordering_violations.append(
+                        decision_flips.append(
                             And(logits_original[tok1] > logits_original[tok2],
                                 logits_perturbed[tok1] <= logits_perturbed[tok2])
                         )
-                        # Or vice versa
-                        ordering_violations.append(
+                        decision_flips.append(
                             And(logits_original[tok1] <= logits_original[tok2],
                                 logits_perturbed[tok1] > logits_perturbed[tok2])
                         )
 
-            if not ordering_violations:
+            if not decision_flips:
                 verified_count += 1
                 continue
 
-            solver.add(Or(ordering_violations))
+            base_result = decision_solver.check()
+            if base_result == unsat:
+                print(f"  ERROR: robustness trace certificate invalid on input {i}")
+                error_count += 1
+                continue
+            if base_result != sat:
+                timeout_count += 1
+                continue
 
-            result = solver.check()
+            decision_solver.push()
+            decision_solver.add(Or(decision_flips))
+            decision_result = decision_solver.check()
+            decision_solver.pop()
 
-            if result == unsat:
-                # No perturbation can change the decision
+            if decision_result == unsat:
                 verified_count += 1
-            elif result == sat:
-                # Found a perturbation that changes decision
-                model = solver.model()
-                violations.append({
+            elif decision_result == sat:
+                decision_violations.append({
                     "input": input_tokens,
-                    "perturbation_found": True,
+                    "decision_flip_found": True,
                 })
-                if len(violations) >= 10:
+                if len(decision_violations) >= 10:
                     break
             else:
                 timeout_count += 1
@@ -797,8 +878,10 @@ def verify_continuous_robustness(
             error_count += 1
             continue
 
-    if len(violations) > 0:
+    if len(decision_violations) > 0:
         status = "FAILED"
+    elif len(branch_unstable) > 0:
+        status = "UNKNOWN_BRANCH_UNSTABLE"
     elif timeout_count > 0 or error_count > 0:
         status = "UNKNOWN"
     else:
@@ -811,6 +894,10 @@ def verify_continuous_robustness(
         "timeout_count": timeout_count,
         "error_count": error_count,
         "certified_epsilon": epsilon,
-        "violations": violations[:5],
-        "num_violations": len(violations),
+        "violations": decision_violations[:5],
+        "num_violations": len(decision_violations),
+        "decision_violations": decision_violations[:5],
+        "num_decision_violations": len(decision_violations),
+        "branch_unstable": branch_unstable[:5],
+        "num_branch_unstable": len(branch_unstable),
     }

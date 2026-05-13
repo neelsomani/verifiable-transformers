@@ -214,12 +214,29 @@ The `--sanity_check` step is a cheap exhaustive PyTorch validation of the extrac
 artifacts/small_circuits/<task>/verification/verification_results.json
 ```
 
+SMT verification uses branch-certified sparsemax, BandNorm, and LeakyReLU encodings by default. The verifier first checks that each traced branch certificate is satisfiable, then checks the requested property; an invalid certificate is reported as an error or unknown result, not as a proof.
+
+By default, `verify.py` runs `functional_equivalence` and `edge_necessity`. To run every implemented property, pass the full property list:
+
+```bash
+for task in quote_close bracket_type; do
+  python scripts/small/verify.py \
+    --task $task \
+    --sanity_check \
+    --checkpoint artifacts/small/checkpoint-final \
+    --weights_path artifacts/small/smt_weights.json \
+    --circuit_path artifacts/small_circuits/$task/circuit.json \
+    --output_dir artifacts/small_circuits/$task/verification \
+    --properties functional_equivalence content_invariance edge_necessity continuous_robustness
+done
+```
+
 **Properties to verify:**
 
 | Task | Properties |
 |------|-----------|
-| quote_close | Functional correctness, content invariance, quote sensitivity, edge necessity, continuous robustness |
-| bracket_type | Functional correctness, content invariance, delimiter sensitivity, edge necessity, continuous robustness |
+| quote_close | Functional equivalence, content invariance, edge necessity, continuous robustness |
+| bracket_type | Functional equivalence, content invariance, edge necessity, continuous robustness |
 
 ## Scalability Appendix
 
