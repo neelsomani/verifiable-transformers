@@ -41,6 +41,20 @@
       "error_count": 0,
       "unnecessary_edges": [],
       "unresolved_edges": []
+    },
+    {
+      "property": "projected_continuous_robustness",
+      "status": "VERIFIED",
+      "verified_count": 128,
+      "timeout_count": 0,
+      "error_count": 0,
+      "certified_epsilon": 0.01,
+      "violations": [],
+      "num_violations": 0,
+      "decision_violations": [],
+      "num_decision_violations": 0,
+      "branch_unstable": [],
+      "num_branch_unstable": 0
     }
   ]
 }

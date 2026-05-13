@@ -2,43 +2,45 @@
 
 We design a Transformer variant whose forward pass is built from SMT-representable primitives, enabling exact formal reasoning for sufficiently small circuits and bounded domains. Once the full model is SMT-representable, we formally check properties like:
 
-* whether the model is exactly equivalent to a given symbolic program on all sequences of length ≤ n,
-* whether particular connections are necessary for the model’s behavior (edge necessity)
-* whether the model obeys structural constraints (like local attention), and
-* impossibility results on circuits (e.g., counts above k collapse to the same internal state)
+* whether a circuit's task decision is exactly equivalent to a given symbolic program on every sequence in the finite task domain,
+* whether particular retained connections are necessary for a circuit's task behavior,
+* whether a circuit is invariant to task-irrelevant input changes, and
+* whether a circuit's task decision is robust to bounded perturbations of the final residual.
 
 The core idea is to make the architecture formally representable so that, when the hidden-state width and circuit size are tractable, these properties can be proven or refuted over an entire bounded domain rather than merely tested on examples.
 
-There are two parts of the Transformer architecture that are traditionally difficult to SMT encode. First, the attention mechanism. Starting from the Deep Sets characterization of permutation-invariant functions, we re-derive the [structural form of attention](https://www.neelsomaniblog.com/p/a-minimal-route-to-transformer-attention) and show that it naturally decomposes into three learnable components: an aggregator ρ, a relevance scoring function u, and a content map v. We then characterize the verifiable subset of this space: all attention mechanisms whose computation can be expressed using only affine maps, piecewise-linear transformations, thresholding, and Top-k style selection - primitives that admit exact SMT encodings. Second, we apply a similar approach to the LayerNorm. (A third non-verifiable component, the GELU activation function, is easier to address.)
+There are two parts of the Transformer architecture that are traditionally difficult to SMT encode. First, the attention mechanism. Starting from the Deep Sets characterization of permutation-invariant functions, we re-derive the [structural form of attention](https://www.neelsomaniblog.com/p/a-minimal-route-to-transformer-attention) and show that it naturally decomposes into three learnable components: an aggregator ρ, a relevance scoring function u, and a content map v. We then characterize the verifiable subset of this space: all attention mechanisms whose computation can be expressed using only affine maps, piecewise-linear transformations, thresholding, and Top-k style selection - primitives that admit exact SMT encodings. Second, we replace LayerNorm with an SMT-representable normalization operator. (A third non-verifiable component, the GELU activation function, is easier to address.)
 
-We show, end-to-end, that a Transformer can be trained and then formally analyzed at the circuit level. In this work, we focus on extracting circuits for Python syntax tasks:
+We show, end-to-end, that a Transformer can be trained and then formally analyzed at the circuit level. In this work, we focus on symbolic syntax-like tasks:
 
 * **Quote closing**: Distinguishing single quote `'` vs double quote `"` continuation
 * **Bracket type**: Distinguishing `]` vs `}` for list vs dict closing
 
-These tasks allow us to demonstrate proofs of bounded correctness, structural properties of the circuit, and impossibility/generalization limits. At GPT-2 scale, the architecture remains SMT-representable, but naive full-width SMT encoding is not yet tractable; formal proofs are intended for sufficiently small models or sufficiently sparse circuits. This work suggests a new direction for interpretable and certifiable sequence modeling.
+These tasks allow us to demonstrate proofs of bounded correctness, edge necessity, task-relevant invariance, and robustness. At GPT-2 scale, the architecture remains SMT-representable, but naive full-width SMT encoding is not yet tractable; formal proofs are intended for sufficiently small models or sufficiently sparse circuits. This work suggests a new direction for interpretable and certifiable sequence modeling.
 
 ## Formal Definitions
 
 **Notation:**
-- $M$ = verifiable Transformer
 - $P$ = symbolic reference program
-- $\Sigma$ = token alphabet
-- $\Sigma^{\leq n} := \bigcup_{\ell=1}^{n} \Sigma^{\ell}$ = all sequences of length at most $n$
-- $y_M(x)$ = output for model $M$ on input $x$
-- $C$ = algorithmic circuit of $M$
-- $C \setminus e$ = circuit with connection $e$ removed
-- $\varphi_M(x)$ = output projection of $M$
+- $D_\text{task}$ = finite exhaustive task domain
+- $T$ = task-specific candidate token set, e.g. `{', "}` for quote closing or `{], }}` for bracket type
+- $F_T(x)$ = logits of model or circuit $F$ restricted to candidate set $T$
+- $d_T(F,x) := \arg\max_{t \in T} F_t(x)$ = task decision of $F$
+- $C_E$ = extracted circuit with retained edge set $E$
+- $C_{E\setminus\{e\}}$ = circuit after removing retained edge $e$
+- $r_E(x)$ = final residual of circuit $C_E$ before final normalization
+- $G_T(r)$ = task decision after applying final normalization and unembedding to residual $r$
 
-For a bounded domain $\Sigma^{\leq n}$, we verify the following properties:
+For each task, we define a finite exhaustive task domain $D_\text{task}$ and a task-specific candidate token set $T$. The verifier proves claims about the task decision $d_T$, not equality of all vocabulary logits. This is the relevant notion for these symbolic tasks: quote closing only needs to decide between `'` and `"`, and bracket type only needs to decide between `]` and `}`. In the small-model experiments, $D_\text{task}$ is exhausted rather than sampled.
 
 | Property | Informal Description | Formal Definition |
 |----------|---------------------|-------------------|
-| **Functional Equivalence** | The model is equivalent to a specific symbolic program on all inputs of length ≤ n. For a code generation model trained on simple transformations (e.g. string manipulation), we can prove that for all inputs ≤ n, the model is equivalent to a reference implementation. If the property fails, the solver returns a concrete counterexample. | $\forall x \in \Sigma^{\leq n}, \quad y_M(x) = P(x)$ |
-| **Edge Necessity** | Every retained edge is behaviorally necessary on the bounded domain: for each edge, there exists an input where removing that edge changes the circuit's projected output. This does not prove that ACDC found the globally smallest possible circuit; it proves that no retained edge is obviously redundant under the checked criterion. | $\forall e \in E(C), \quad \exists x \in \Sigma^{\leq n} \text{ such that } C(x) \neq (C \setminus e)(x)$ |
-| **Structural Invariants** | The model obeys structural constraints (e.g. local attention). We can guarantee that sensitive information (e.g. earlier tokens containing secrets) cannot influence outputs beyond a fixed window. | $\forall x \in \Sigma^{\leq n}, \quad S(M, x)$ where $S$ encodes locality, sparsity, monotonicity, causality, etc. |
-| **Impossibility Results** | The model produces identical outputs for two classes of inputs. We can prove that for all inputs ≤ n, the model cannot distinguish between two programs that differ only in variable renaming (e.g. renaming x to y throughout). This establishes that the model has learned a representation invariant to variable identity. | $\forall x, x' \in \Sigma^{\leq n}, \quad R(x, x') \Rightarrow \varphi_M(x) = \varphi_M(x')$ where $R$ identifies input pairs the model cannot distinguish |
-| **Continuous Robustness** | The circuit's projected decision is stable under continuous perturbations to its internal state, such as quantization or bounded activation noise. For every input in a bounded domain and every perturbation $\eta$ to the circuit's final residual satisfying $\|\eta\|_\infty \le \epsilon$, the projected decision remains unchanged. | Let $r_E(x)$ be the final residual of circuit $C_E$. Let $G_T(r)$ be the token in candidate set $T$ with highest logit after final normalization and unembedding. We verify: $\forall x \in \Sigma^{\leq n},\ \forall \eta \in \mathbb{R}^{d},\ \|\eta\|_\infty \le \epsilon \Rightarrow G_T(r_E(x)+\eta)=G_T(r_E(x))$. If functional correctness is also verified, then $G_T(r_E(x)+\eta)=P(x)$. |
+| **Functional Equivalence** | The circuit's task decision agrees with the symbolic reference program on every input in the finite task domain. If the property fails, the solver returns a concrete counterexample. | $\forall x \in D_\text{task}, \quad d_T(C_E,x)=P(x)$ |
+| **Edge Necessity** | Every retained edge is behaviorally necessary for the task: for each retained edge, there exists an input where removing that edge changes the circuit's task decision. This does not prove that ACDC found the globally smallest possible circuit; it proves that no retained edge is redundant under this criterion. | $\forall e \in E,\quad \exists x \in D_\text{task}\ \text{such that}\ d_T(C_E,x)\neq d_T(C_{E\setminus\{e\}},x)$ |
+| **Invariance / Indistinguishability** | The circuit is provably insensitive to task-irrelevant variation. For example, in quote closing, changing filler/content tokens cannot change the task decision when the opening quote type is fixed. Equivalently, through the task output, the circuit cannot distinguish inputs related by $R$. | $\forall x,x'\in D_\text{task},\quad R(x,x')\Rightarrow d_T(C_E,x)=d_T(C_E,x')$ |
+| **Continuous Robustness** | The circuit's task decision is stable under bounded perturbations to its final residual, such as bounded final-activation noise or quantization error at that interface. For every input in the task domain and every perturbation $\eta$ satisfying $\|\eta\|_\infty \le \epsilon$, the task decision remains unchanged. | $\forall x\in D_\text{task},\ \forall \eta\in\mathbb{R}^{d},\ \|\eta\|_\infty\le\epsilon \Rightarrow G_T(r_E(x)+\eta)=G_T(r_E(x))$. If functional equivalence is also verified, then $G_T(r_E(x)+\eta)=P(x)$. |
+
+The robustness check is branch-certified. For each input, the verifier first proves that the traced final BandNorm branch remains stable throughout the $\epsilon$-ball. It then proves that no task-decision flip is possible within that branch. If branch stability cannot be certified, the verifier reports an unknown result rather than a proof.
 
 ## Architecture
 
@@ -53,8 +55,8 @@ Given an input vector `x`, BandNorm:
 1. centers the vector: `c = x - mean(x)`
 2. splits positive and negative mass: `p = max(c, 0)` and `n = max(-c, 0)`
 3. controls the L1 mass of each side:
-   - if mass is too small, add a bounded lift over active coordinates
    - if mass is too large, project onto an L1 ball using thresholding
+   - if mass is too small after projection, add a bounded lift over active coordinates
 4. recombines the signed vector: `z = p' - n'`
 5. recenters: `z = z - mean(z)`
 6. applies a learned affine map: `output = gamma * z + beta`
@@ -84,7 +86,7 @@ Sparsemax is piecewise-linear and can produce exact zeros, so attention weights 
 
 ### LeakyReLU MLP
 
-GPT-2 normally uses GELU in the MLP block. GELU is not piecewise-linear, so we replace it with **LeakyReLU**:
+GPT-2 normally uses GELU in the MLP block. GELU is not piecewise-linear, so we replace it with LeakyReLU:
 
 ```text
 LeakyReLU(x) = x        if x >= 0
@@ -161,7 +163,7 @@ Train a minimal SMT-representable Transformer on two symbolic tasks:
 **Key features:**
 - Custom 32-token vocabulary (exhaustive finite domains)
 - Only SMT-representable components (BandNorm + sparsemax + LeakyReLU)
-- ~11K parameters (tractable for SMT encoding)
+- ~8K parameters (tractable for SMT encoding)
 - Multitask model with task-specific circuit extraction
 
 **Train the model:**
@@ -231,63 +233,19 @@ for task in quote_close bracket_type; do
 done
 ```
 
-If all goes well, you'll see results like:
-
-```
-{
-  "task": "quote_close",
-  "circuit_path": "artifacts/small_circuits/quote_close/circuit.json",
-  "weights_path": "artifacts/small/smt_weights.json",
-  "checkpoint": "artifacts/small/checkpoint-final",
-  "num_inputs": 128,
-  "candidate_tokens": [
-    9,
-    10
-  ],
-  "candidate_names": [
-    "single_quote",
-    "double_quote"
-  ],
-  "properties": [
-    {
-      "property": "pytorch_circuit_validation",
-      "status": "PASSED",
-      "examples_checked": 128,
-      "num_failures": 0,
-      "failures": []
-    },
-    {
-      "property": "projected_functional_equivalence",
-      "status": "VERIFIED",
-      "verified_count": 128,
-      "timeout_count": 0,
-      "error_count": 0,
-      "total_sequences": 128,
-      "counterexamples": [],
-      "num_counterexamples": 0
-    },
-    {
-      "property": "projected_edge_necessity",
-      "status": "VERIFIED",
-      "total_edges": 3,
-      "necessary_edges": 3,
-      "unnecessary_edges_found": 0,
-      "unresolved_edges_found": 0,
-      "timeout_count": 0,
-      "error_count": 0,
-      "unnecessary_edges": [],
-      "unresolved_edges": []
-    }
-  ]
-}
-```
-
 **Properties to verify:**
 
 | Task | Properties |
 |------|-----------|
 | quote_close | Functional equivalence, content invariance, edge necessity, continuous robustness |
 | bracket_type | Functional equivalence, content invariance, edge necessity, continuous robustness |
+
+**Results:**
+
+| Task | Inputs | Circuit Edges | PyTorch Circuit Validation | Functional Equivalence | Content Invariance | Edge Necessity | Continuous Robustness |
+|------|-------:|--------------:|-----------------------------|------------------------|--------------------|----------------|-----------------------|
+| quote_close | 128 | 3 | PASSED | VERIFIED | VERIFIED | VERIFIED | VERIFIED |
+| bracket_type | 128 | 6 | PASSED | VERIFIED | VERIFIED | VERIFIED | VERIFIED |
 
 ## Scalability Appendix
 
