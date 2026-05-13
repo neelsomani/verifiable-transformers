@@ -201,15 +201,45 @@ def verify_content_invariance(
     timeout_count = 0
     error_count = 0
 
-    print(f"Verifying content invariance across {len(feature_groups)} feature groups...")
+    total_pairs = sum(
+        len(sequences) * (len(sequences) - 1) // 2
+        for sequences in feature_groups.values()
+        if len(sequences) >= 2
+    )
+    checked_pairs = 0
+    progress_interval = 25
+
+    print(
+        f"Verifying content invariance across {len(feature_groups)} feature groups "
+        f"({total_pairs} pairs)..."
+    )
 
     for feature, sequences in feature_groups.items():
         if len(sequences) < 2:
             continue
 
+        feature_total_pairs = len(sequences) * (len(sequences) - 1) // 2
+        feature_checked_pairs = 0
+        feature_t0 = time.time()
+        print(
+            f"  feature {feature}: checking {feature_total_pairs} pairs "
+            f"from {len(sequences)} sequences...",
+            flush=True,
+        )
+
         # Check all pairs within this feature group
         for a in range(len(sequences)):
             for b in range(a + 1, len(sequences)):
+                feature_checked_pairs += 1
+                checked_pairs += 1
+
+                if feature_checked_pairs == 1 or feature_checked_pairs % progress_interval == 0:
+                    print(
+                        f"  feature {feature}: pair {feature_checked_pairs}/{feature_total_pairs} "
+                        f"(total {checked_pairs}/{total_pairs})...",
+                        flush=True,
+                    )
+
                 seq1, _ = sequences[a]
                 seq2, _ = sequences[b]
 
@@ -298,6 +328,12 @@ def verify_content_invariance(
             # Break outer loop if we have enough counterexamples
             if len(counterexamples) >= 10:
                 break
+
+        print(
+            f"  feature {feature}: checked {feature_checked_pairs}/{feature_total_pairs} pairs "
+            f"in {time.time() - feature_t0:.2f}s",
+            flush=True,
+        )
 
         # Break feature loop if we have enough counterexamples
         if len(counterexamples) >= 10:
