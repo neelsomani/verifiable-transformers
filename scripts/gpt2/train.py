@@ -553,7 +553,26 @@ def gpt2_forward_with_sparsemax(
 
 
 def apply_model_variants(model, norm_variant: str, attn_variant: str, activation_variant: str = "gelu") -> None:
-    if norm_variant == "dyt":
+    if norm_variant == "none":
+        hidden_size = model.config.n_embd
+        for block in model.transformer.h:
+            block.ln_1 = torch.nn.Identity()
+            block.ln_2 = torch.nn.Identity()
+        model.transformer.ln_f = torch.nn.Identity()
+        if model.lm_head.bias is None:
+            replacement = torch.nn.Linear(
+                hidden_size,
+                model.config.vocab_size,
+                bias=True,
+                device=model.lm_head.weight.device,
+                dtype=model.lm_head.weight.dtype,
+            )
+            with torch.no_grad():
+                replacement.weight.copy_(model.lm_head.weight)
+                replacement.bias.zero_()
+            model.lm_head = replacement
+        model.config.tie_word_embeddings = False
+    elif norm_variant == "dyt":
         hidden_size = model.config.n_embd
         for block in model.transformer.h:
             block.ln_1 = DyTNorm(hidden_size=hidden_size)
@@ -602,8 +621,9 @@ def apply_model_variants(model, norm_variant: str, attn_variant: str, activation
         )
 
     # Monkey-patch attention for sparsemax (transformers 4.49 approach)
-    if attn_variant == "sparsemax":
-        for block in model.transformer.h:
+    for block in model.transformer.h:
+        block.attn._verifiable_attention_variant = attn_variant
+        if attn_variant == "sparsemax":
             block.attn.forward = MethodType(gpt2_forward_with_sparsemax, block.attn)
 
     # Note: activation_variant is handled via config.activation_function before model creation
@@ -1161,7 +1181,7 @@ def parse_args() -> argparse.Namespace:
         "--norm_variant",
         type=str,
         default=None,
-        choices=["layernorm", "dyt", "verifiable_pwl_norm_v1", "verifiable_pwl_norm_v2", "verifiable_pwl_norm_v3", "signed_l1_band_norm"],
+        choices=["layernorm", "none", "dyt", "verifiable_pwl_norm_v1", "verifiable_pwl_norm_v2", "verifiable_pwl_norm_v3", "signed_l1_band_norm"],
         help="Normalization variant. Defaults to config value or layernorm.",
     )
     parser.add_argument(
@@ -1248,6 +1268,8 @@ def count_params(model) -> int:
 
 
 def write_run_status(output_dir: str, status: str, stage: str, extra: dict = None) -> None:
+    if int(os.environ.get("RANK", "0")) != 0:
+        return
     payload = {
         "status": status,
         "stage": stage,
@@ -1482,18 +1504,19 @@ def main() -> None:
 
         model_num_params = count_params(model)
         print(f"Model params: {model_num_params:,}")
-        with open(os.path.join(args.output_dir, "model_info.json"), "w", encoding="utf-8") as handle:
-            json.dump(
-                {
-                    "model_name": model_name,
-                    "num_parameters": model_num_params,
-                    "norm_variant": norm_variant,
-                    "attn_variant": attn_variant,
-                    "activation_variant": activation_variant,
-                },
-                handle,
-                indent=2,
-            )
+        if int(os.environ.get("RANK", "0")) == 0:
+            with open(os.path.join(args.output_dir, "model_info.json"), "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "model_name": model_name,
+                        "num_parameters": model_num_params,
+                        "norm_variant": norm_variant,
+                        "attn_variant": attn_variant,
+                        "activation_variant": activation_variant,
+                    },
+                    handle,
+                    indent=2,
+                )
         if cfg.get("gradient_checkpointing", False):
             model.gradient_checkpointing_enable()
 
@@ -1742,7 +1765,8 @@ def main() -> None:
 
         train_result = trainer.train(resume_from_checkpoint=resume_checkpoint)
         trainer.save_model()
-        tokenizer.save_pretrained(args.output_dir)
+        if rank == 0:
+            tokenizer.save_pretrained(args.output_dir)
 
         metrics = train_result.metrics
         trainer.log_metrics("train", metrics)

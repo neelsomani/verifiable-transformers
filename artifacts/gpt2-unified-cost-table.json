@@ -1,0 +1,70 @@
+{
+  "documented_source": "docs/SCALABILITY.md",
+  "currency": {
+    "primary": "OpenWebText validation loss delta",
+    "secondary": "OpenWebText validation perplexity delta",
+    "external_validation": "WikiText-103 validation perplexity delta"
+  },
+  "rows": [
+    {
+      "component": "baseline",
+      "owt_eval_loss": 3.134,
+      "owt_loss_delta": 0.0,
+      "owt_eval_perplexity": 22.96565869668021,
+      "owt_perplexity_delta": 0.0,
+      "relative_owt_perplexity_increase": 0.0,
+      "wikitext_perplexity": 52.982,
+      "wikitext_perplexity_delta": 0.0,
+      "replacement_fraction": null,
+      "status": "measured"
+    },
+    {
+      "component": "sparsemax",
+      "owt_eval_loss": 3.1973,
+      "owt_loss_delta": 0.0633,
+      "owt_eval_perplexity": 24.466381706225047,
+      "owt_perplexity_delta": 1.500723009544835,
+      "relative_owt_perplexity_increase": 0.06534639521407559,
+      "wikitext_perplexity": 55.7227,
+      "wikitext_perplexity_delta": 2.7407,
+      "replacement_fraction": null,
+      "status": "measured"
+    },
+    {
+      "component": "bandnorm+sparsemax+leaky_relu",
+      "owt_eval_loss": 3.33,
+      "owt_loss_delta": 0.196,
+      "owt_eval_perplexity": 27.938341703236507,
+      "owt_perplexity_delta": 4.972683006556295,
+      "relative_owt_perplexity_increase": 0.21652690533431618,
+      "wikitext_perplexity": 62.11,
+      "wikitext_perplexity_delta": 9.128,
+      "replacement_fraction": null,
+      "status": "measured"
+    },
+    {
+      "component": "layernorm_removal",
+      "owt_eval_loss": null,
+      "owt_loss_delta": null,
+      "owt_eval_perplexity": null,
+      "owt_perplexity_delta": null,
+      "relative_owt_perplexity_increase": null,
+      "wikitext_perplexity": null,
+      "wikitext_perplexity_delta": null,
+      "replacement_fraction": null,
+      "status": "pending_A4"
+    },
+    {
+      "component": "program_heads",
+      "owt_eval_loss": null,
+      "owt_loss_delta": null,
+      "owt_eval_perplexity": null,
+      "owt_perplexity_delta": null,
+      "relative_owt_perplexity_increase": null,
+      "wikitext_perplexity": null,
+      "wikitext_perplexity_delta": null,
+      "replacement_fraction": null,
+      "status": "pending_C4"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+component,owt_eval_loss,owt_loss_delta,owt_eval_perplexity,owt_perplexity_delta,relative_owt_perplexity_increase,wikitext_perplexity,wikitext_perplexity_delta,replacement_fraction,status
+baseline,3.134,0.0,22.96565869668021,0.0,0.0,52.982,0.0,,measured
+sparsemax,3.1973,0.0633,24.466381706225047,1.500723009544835,0.06534639521407559,55.7227,2.7407,,measured
+bandnorm+sparsemax+leaky_relu,3.33,0.196,27.938341703236507,4.972683006556295,0.21652690533431618,62.11,9.128,,measured
+layernorm_removal,,,,,,,,,pending_A4
+program_heads,,,,,,,,,pending_C4

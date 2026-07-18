@@ -22,6 +22,10 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
 # Import model variant loading
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from scripts.gpt2.train import apply_model_variants
+from scripts.circuits import (
+    CircuitGraph as PerHeadCircuitGraph,
+    controlled_forward as per_head_controlled_forward,
+)
 
 
 @dataclass
@@ -45,15 +49,6 @@ class BehaviorMetrics:
     mean_rank_of_correct_token: float
     viability: str  # "none", "viable", or "strong"
     token_ids: Dict[str, int]  # Maps token text to token ID
-
-
-@dataclass
-class CircuitGraph:
-    """Computational graph for circuit extraction."""
-    nodes: List[str]  # Topological order
-    all_edges: Set[Tuple[str, str]]
-    incoming_edges: Dict[str, List[Tuple[str, str]]]  # child -> [(parent, child), ...]
-    n_layers: int
 
 
 def generate_quote_close_examples(n: int) -> List[BehaviorExample]:
@@ -198,6 +193,16 @@ def load_model_with_variants(model_path: str, device: str):
         activation_variant=activation_variant
     )
 
+    programs_path = os.path.join(model_path, "programs.json")
+    if os.path.exists(programs_path):
+        from scripts.programs import install_program_heads, load_programs
+
+        programs = load_programs(programs_path)
+        install_program_heads(
+            model, programs, attention_variant=attn_variant
+        )
+        print(f"Installed {len(programs)} program heads from {programs_path}")
+
     # Load weights
     weights_path = os.path.join(model_path, "pytorch_model.bin")
     if not os.path.exists(weights_path):
@@ -213,7 +218,13 @@ def load_model_with_variants(model_path: str, device: str):
             except ImportError:
                 raise ImportError("safetensors not installed")
 
-        model.load_state_dict(state_dict, strict=False)
+        incompatible = model.load_state_dict(state_dict, strict=False)
+        if incompatible.missing_keys or incompatible.unexpected_keys:
+            raise RuntimeError(
+                "Checkpoint architecture mismatch: "
+                f"missing={incompatible.missing_keys}, "
+                f"unexpected={incompatible.unexpected_keys}"
+            )
         print(f"Loaded weights from {weights_path}")
     else:
         raise FileNotFoundError(f"Could not find model weights in {model_path}")
@@ -346,7 +357,7 @@ def scan_behaviors(
 
     print(f"Loading model from {model_path}...")
     model = load_model_with_variants(model_path, device)
-    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained(model_path)
     tokenizer.pad_token = tokenizer.eos_token
 
     print(f"\nScanning {len(BEHAVIOR_GENERATORS)} behaviors with {n_examples} examples each...")
@@ -452,7 +463,7 @@ def write_behavior_scan_report(
 # Circuit Extraction
 # ============================================================================
 
-def build_circuit_graph(n_layers: int) -> CircuitGraph:
+def build_circuit_graph(n_layers: int, n_heads: int) -> PerHeadCircuitGraph:
     """Build computational graph for circuit extraction.
 
     Nodes: emb, attn_0, mlp_0, ..., attn_{n_layers-1}, mlp_{n_layers-1}, logits
@@ -462,161 +473,38 @@ def build_circuit_graph(n_layers: int) -> CircuitGraph:
     - mlp_i reads from: emb, attn_0, mlp_0, ..., attn_i
     - logits reads from: all nodes
     """
-    nodes = ["emb"]
-    for i in range(n_layers):
-        nodes.append(f"attn_{i}")
-        nodes.append(f"mlp_{i}")
-    nodes.append("logits")
-
-    all_edges = set()
-    incoming_edges = {node: [] for node in nodes}
-
-    # Build edges following residual stream flow
-    for i in range(n_layers):
-        attn_node = f"attn_{i}"
-        mlp_node = f"mlp_{i}"
-
-        # attn_i reads from all previous components
-        parents_for_attn = ["emb"]
-        for j in range(i):
-            parents_for_attn.extend([f"attn_{j}", f"mlp_{j}"])
-
-        for parent in parents_for_attn:
-            edge = (parent, attn_node)
-            all_edges.add(edge)
-            incoming_edges[attn_node].append(edge)
-
-        # mlp_i reads from all previous components + current attn
-        parents_for_mlp = parents_for_attn + [attn_node]
-        for parent in parents_for_mlp:
-            edge = (parent, mlp_node)
-            all_edges.add(edge)
-            incoming_edges[mlp_node].append(edge)
-
-    # logits reads from all components
-    parents_for_logits = ["emb"]
-    for i in range(n_layers):
-        parents_for_logits.extend([f"attn_{i}", f"mlp_{i}"])
-
-    for parent in parents_for_logits:
-        edge = (parent, "logits")
-        all_edges.add(edge)
-        incoming_edges["logits"].append(edge)
-
-    return CircuitGraph(
-        nodes=nodes,
-        all_edges=all_edges,
-        incoming_edges=incoming_edges,
-        n_layers=n_layers
+    return PerHeadCircuitGraph(
+        n_layers=n_layers,
+        n_heads=n_heads,
+        per_head=True,
     )
 
 
+# Keep the public call signature stable while using the shared per-head core.
 def controlled_forward(
     model: GPT2LMHeadModel,
     input_ids: torch.Tensor,
     attention_mask: torch.Tensor,
     edges_to_keep: Set[Tuple[str, str]],
-    graph: CircuitGraph,
+    graph: PerHeadCircuitGraph,
     ablation_cache: Optional[Dict[str, torch.Tensor]] = None,
     ablation_mode: str = "zero",
     return_node_outputs: bool = False,
     return_final_resid: bool = False,
 ):
-    """Controlled forward pass with edge ablation.
-
-    Args:
-        model: GPT2 model
-        input_ids: [B, T]
-        attention_mask: [B, T], 1 for real tokens, 0 for padding
-        edges_to_keep: Set of (parent, child) edges to use clean activations
-        graph: Circuit graph
-        ablation_cache: Unused (kept for compatibility)
-        ablation_mode: "zero" (only mode supported)
-        return_node_outputs: If True, return node activations
-        return_final_resid: If True, return final residual before ln_f
-
-    Returns:
-        logits: [B, T, vocab]
-        node_outputs: Dict[str, Tensor] if return_node_outputs, else None
-        final_resid: [B, T, D] if return_final_resid, else None
-    """
-    device = input_ids.device
-    B, T = input_ids.shape
-
-    node_outputs = {}
-
-    # Compute embedding
-    position_ids = torch.arange(T, device=device).unsqueeze(0).expand(B, T)
-    token_embeds = model.transformer.wte(input_ids)
-    pos_embeds = model.transformer.wpe(position_ids)
-    emb = model.transformer.drop(token_embeds + pos_embeds)
-    node_outputs["emb"] = emb
-
-    # Build extended attention mask for GPT2
-    # GPT2 expects [B, 1, 1, T] with -inf for padding
-    if attention_mask is not None:
-        extended_mask = (1.0 - attention_mask[:, None, None, :].float()) * torch.finfo(emb.dtype).min
-    else:
-        extended_mask = None
-
-    # Process each layer
-    for i in range(graph.n_layers):
-        block = model.transformer.h[i]
-        attn_node = f"attn_{i}"
-        mlp_node = f"mlp_{i}"
-
-        # Build residual input for attention
-        attn_parents = [p for p, c in graph.incoming_edges[attn_node]]
-        resid_for_attn = torch.zeros_like(emb)
-        for parent in attn_parents:
-            if (parent, attn_node) in edges_to_keep:
-                resid_for_attn = resid_for_attn + node_outputs[parent]
-            # else: zero ablation (deleted edges contribute 0)
-
-        # Compute attention output
-        x_norm = block.ln_1(resid_for_attn)
-        attn_out = block.attn(
-            x_norm,
-            attention_mask=extended_mask,
-            head_mask=None,
-            layer_past=None,
-            use_cache=False,
-            output_attentions=False,
-        )[0]
-        node_outputs[attn_node] = attn_out
-
-        # Build residual input for MLP
-        mlp_parents = [p for p, c in graph.incoming_edges[mlp_node]]
-        resid_for_mlp = torch.zeros_like(emb)
-        for parent in mlp_parents:
-            if (parent, mlp_node) in edges_to_keep:
-                resid_for_mlp = resid_for_mlp + node_outputs[parent]
-            # else: zero ablation (deleted edges contribute 0)
-
-        # Compute MLP output
-        x_norm = block.ln_2(resid_for_mlp)
-        mlp_out = block.mlp(x_norm)
-        node_outputs[mlp_node] = mlp_out
-
-    # Build final residual for logits
-    logit_parents = [p for p, c in graph.incoming_edges["logits"]]
-    final_resid = torch.zeros_like(emb)
-    for parent in logit_parents:
-        if (parent, "logits") in edges_to_keep:
-            final_resid = final_resid + node_outputs[parent]
-        # else: zero ablation (deleted edges contribute 0)
-
-    # Final layer norm and logits
-    hidden = model.transformer.ln_f(final_resid)
-    logits = model.lm_head(hidden)
-
-    if return_node_outputs and return_final_resid:
-        return logits, node_outputs, final_resid
-    elif return_node_outputs:
-        return logits, node_outputs
-    elif return_final_resid:
-        return logits, final_resid
-    return logits
+    if ablation_mode != "zero":
+        raise ValueError("Per-head extraction currently supports zero ablation only")
+    if ablation_cache is not None:
+        raise ValueError("Mean ablation is not defined for per-head circuits")
+    return per_head_controlled_forward(
+        model=model,
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        edges_to_keep=edges_to_keep,
+        graph=graph,
+        return_node_outputs=return_node_outputs,
+        return_final_resid=return_final_resid,
+    )
 
 
 def select_last_real_logits(logits: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
@@ -640,7 +528,7 @@ def verify_controlled_forward_matches_native(
     model: GPT2LMHeadModel,
     input_ids: torch.Tensor,
     attention_mask: torch.Tensor,
-    graph: CircuitGraph,
+    graph: PerHeadCircuitGraph,
     atol: float = 1e-2,
 ):
     """Verify controlled_forward reproduces native model forward.
@@ -842,7 +730,7 @@ def compute_mean_cache(
     model: GPT2LMHeadModel,
     tokenizer: GPT2Tokenizer,
     prompts: List[str],
-    graph: CircuitGraph,
+    graph: PerHeadCircuitGraph,
     device: str,
     max_length: int = 1024,
     batch_size: int = 8,
@@ -1020,7 +908,7 @@ def find_circuit(
     model: GPT2LMHeadModel,
     tokenizer: GPT2Tokenizer,
     examples: List[BehaviorExample],
-    graph: CircuitGraph,
+    graph: PerHeadCircuitGraph,
     threshold: float,
     metric: str,
     task: str,
@@ -1161,7 +1049,7 @@ def trim_circuit(
     model: GPT2LMHeadModel,
     tokenizer: GPT2Tokenizer,
     examples: List[BehaviorExample],
-    graph: CircuitGraph,
+    graph: PerHeadCircuitGraph,
     edges_to_keep: Set[Tuple[str, str]],
     input_ids: torch.Tensor,
     attention_mask: torch.Tensor,
@@ -1246,20 +1134,9 @@ def trim_circuit(
 
 def cleanup_graph(
     edges: Set[Tuple[str, str]],
-    graph: CircuitGraph,
+    graph: PerHeadCircuitGraph,
 ) -> Set[Tuple[str, str]]:
-    """Remove edges not on any path from emb to logits."""
-    # Find nodes reachable from emb
-    reachable_from_emb = {"emb"}
-    changed = True
-    while changed:
-        changed = False
-        for parent, child in edges:
-            if parent in reachable_from_emb and child not in reachable_from_emb:
-                reachable_from_emb.add(child)
-                changed = True
-
-    # Find nodes that can reach logits
+    """Remove only nodes unable to influence logits, preserving bias-only paths."""
     can_reach_logits = {"logits"}
     changed = True
     while changed:
@@ -1269,11 +1146,60 @@ def cleanup_graph(
                 can_reach_logits.add(parent)
                 changed = True
 
-    # Keep only edges on paths from emb to logits
-    valid_nodes = reachable_from_emb & can_reach_logits
-    cleaned_edges = {(p, c) for p, c in edges if p in valid_nodes and c in valid_nodes}
+    cleaned_edges = {
+        (parent, child)
+        for parent, child in edges
+        if parent in can_reach_logits and child in can_reach_logits
+    }
 
     return cleaned_edges
+
+
+def projected_trim_circuit(
+    model,
+    graph,
+    edges,
+    input_ids,
+    attention_mask,
+    full_logits,
+    candidate_token_ids,
+    min_agreement,
+):
+    """Reach a fixed point under the formal projected-decision metric."""
+    trimmed = cleanup_graph(set(edges), graph)
+    log = []
+    changed = True
+    while changed:
+        changed = False
+        for edge in sorted(trimmed):
+            candidate = cleanup_graph(trimmed - {edge}, graph)
+            with torch.no_grad():
+                logits = controlled_forward(
+                    model,
+                    input_ids,
+                    attention_mask,
+                    candidate,
+                    graph,
+                    None,
+                    "zero",
+                )
+            agreement = compute_projected_agreement(
+                full_logits, logits, attention_mask, candidate_token_ids
+            )
+            removed = agreement >= min_agreement
+            log.append(
+                {
+                    "edge": list(edge),
+                    "agreement": agreement,
+                    "decision": "removed" if removed else "kept",
+                    "stage": "projected_trim",
+                }
+            )
+            if removed:
+                trimmed = candidate
+                changed = True
+                break
+    return trimmed, log
 
 
 def write_circuit_outputs(
@@ -1282,7 +1208,7 @@ def write_circuit_outputs(
     task: str,
     edges: Set[Tuple[str, str]],
     edge_log: List[Dict],
-    graph: CircuitGraph,
+    graph: PerHeadCircuitGraph,
     full_metrics: Dict,
     circuit_metrics: Dict,
     ablated_metrics: Dict,
@@ -1308,6 +1234,9 @@ def write_circuit_outputs(
         "ablation": ablation_mode,
         "trim_rounds": trim_rounds,
         "n_examples": n_examples,
+        "n_layers": graph.n_layers,
+        "n_heads": graph.n_heads,
+        "granularity": "head",
         "nodes": graph.nodes,
         "edges": [list(e) for e in sorted(edges)],
         "num_edges": len(edges),
@@ -1393,7 +1322,7 @@ def extract_circuit_for_task(
     # Load model
     print("Loading model...")
     model = load_model_with_variants(model_path, device)
-    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained(model_path)
     tokenizer.pad_token = tokenizer.eos_token
 
     # Get task examples
@@ -1406,7 +1335,7 @@ def extract_circuit_for_task(
 
     # Build graph
     n_layers = model.config.n_layer
-    graph = build_circuit_graph(n_layers)
+    graph = build_circuit_graph(n_layers, model.config.n_head)
     print(f"Built graph with {len(graph.nodes)} nodes and {len(graph.all_edges)} edges")
 
     # Zero ablation only (no cache needed)
@@ -1468,11 +1397,25 @@ def extract_circuit_for_task(
     edges_to_keep = cleanup_graph(edges_to_keep, graph)
     print(f"After cleanup: {len(edges_to_keep)} edges")
 
+    candidate_token_ids = get_candidate_token_ids(task, tokenizer)
+    print("\nTrimming edges unnecessary for projected agreement...")
+    edges_to_keep, projected_trim_log = projected_trim_circuit(
+        model,
+        graph,
+        edges_to_keep,
+        input_ids,
+        attention_mask,
+        full_logits,
+        candidate_token_ids,
+        min_agreement,
+    )
+    edge_log.extend(projected_trim_log)
+    print(f"After projected trim: {len(edges_to_keep)} edges")
+
     # Compute final metrics
     print("\nComputing final metrics...")
 
     # Get candidate token IDs for final metrics
-    candidate_token_ids = get_candidate_token_ids(task, tokenizer)
 
     with torch.no_grad():
         circuit_logits = controlled_forward(

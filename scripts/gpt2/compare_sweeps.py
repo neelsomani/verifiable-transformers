@@ -44,6 +44,8 @@ def load_sweep_results(sweep_dir: str, task: str) -> List[Dict[str, Any]]:
             "full_margin": data["scores"]["full"].get("mean_margin", data["scores"]["full"]["mean_logit_diff"]),
             "circuit_margin": data["scores"]["circuit"].get("mean_margin", data["scores"]["circuit"]["mean_logit_diff"]),
             "path": str(thresh_dir),
+            "n_layers": data.get("n_layers"),
+            "n_heads": data.get("n_heads", 1),
         })
 
     return sorted(results, key=lambda x: x["threshold"])
@@ -106,11 +108,26 @@ def main():
     best = recommend_threshold(results, args.task)
 
     if best:
+        n_layers = best.get("n_layers")
+        n_heads = best.get("n_heads")
+        total_edges = None
+        if n_layers is not None and n_heads is not None:
+            total_edges = sum(
+                n_heads * (1 + layer * (n_heads + 1))
+                + (1 + (layer + 1) * n_heads + layer)
+                for layer in range(n_layers)
+            ) + 1 + n_layers * (n_heads + 1)
         print(f"{'=' * 100}")
         print("RECOMMENDED THRESHOLD")
         print(f"{'=' * 100}\n")
         print(f"Threshold:           {best['threshold']:.4f}")
-        print(f"Edges:               {best['num_edges']} / 325 ({100 * best['num_edges'] / 325:.1f}%)")
+        if total_edges is None:
+            print(f"Edges:               {best['num_edges']}")
+        else:
+            print(
+                f"Edges:               {best['num_edges']} / {total_edges} "
+                f"({100 * best['num_edges'] / total_edges:.1f}%)"
+            )
         print(f"Projected Agreement: {best['projected_agreement']:.4f}")
         print(f"Circuit Cand Acc:    {best['circuit_candidate_accuracy']:.4f}")
         print(f"Full Cand Acc:       {best['full_candidate_accuracy']:.4f}")

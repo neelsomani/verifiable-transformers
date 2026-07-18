@@ -77,7 +77,7 @@ def verify_quote_close(
     print(f"{'#' * 80}\n")
 
     circuit = load_circuit(circuit_path)
-    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained(model_path)
 
     print(f"Circuit: {circuit_path}")
     print(f"Edges: {circuit['num_edges']}")
@@ -297,7 +297,7 @@ def verify_bracket_type(
     print(f"{'#' * 80}\n")
 
     circuit = load_circuit(circuit_path)
-    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained(model_path)
 
     print(f"Circuit: {circuit_path}")
     print(f"Edges: {circuit['num_edges']}")
@@ -528,7 +528,7 @@ def main():
     args = parser.parse_args()
 
     if args.task == "quote_close":
-        verify_quote_close(
+        results = verify_quote_close(
             args.circuit_path,
             args.output_dir,
             args.model_path,
@@ -536,13 +536,18 @@ def main():
             args.timeout_ms,
         )
     elif args.task == "bracket_type":
-        verify_bracket_type(
+        results = verify_bracket_type(
             args.circuit_path,
             args.output_dir,
             args.model_path,
             args.max_length,
             args.timeout_ms,
         )
+    success = len(results) == 4 and all(
+        result.get("status") == "VERIFIED" for result in results
+    )
+    if not success:
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":

@@ -30,8 +30,10 @@ from scripts.gpt2.extract import (
 
 def load_pytorch_model(model_path: str, model_info_path: str = None):
     """Load PyTorch model for reference."""
-    from scripts.gpt2.train import apply_model_variants
-    from transformers import GPT2Config
+    from scripts.gpt2.extract import load_model_with_variants
+
+    if model_info_path is None:
+        return load_model_with_variants(model_path, "cpu")
 
     # Load model_info.json
     if model_info_path is None:
@@ -93,7 +95,7 @@ def get_pytorch_logits(
     circuit_edges: set,
 ) -> torch.Tensor:
     """Get logits from PyTorch circuit using controlled_forward."""
-    graph = build_circuit_graph(model.config.n_layer)
+    graph = build_circuit_graph(model.config.n_layer, model.config.n_head)
 
     with torch.no_grad():
         logits = controlled_forward(
@@ -167,6 +169,7 @@ def test_encoder_sanity(
     candidate_tokens: List[int],
     test_sequences: List[List[int]],
     tolerance: float = 1e-3,
+    output_json: str = None,
 ):
     """Test SMT encoder against PyTorch on test sequences.
 
@@ -202,6 +205,7 @@ def test_encoder_sanity(
 
     # Test each sequence
     all_pass = True
+    sequence_results = []
     for i, input_tokens in enumerate(test_sequences):
         print(f"Test {i+1}/{len(test_sequences)}: {input_tokens}")
 
@@ -221,6 +225,13 @@ def test_encoder_sanity(
         except Exception as e:
             print(f"  ❌ FAILED: SMT encoding error: {e}\n")
             all_pass = False
+            sequence_results.append(
+                {
+                    "input_tokens": input_tokens,
+                    "status": "ERROR",
+                    "message": str(e),
+                }
+            )
             continue
 
         # Compare logits
@@ -251,15 +262,25 @@ def test_encoder_sanity(
             print()
             all_pass = False
         elif mismatches:
-            print(f"  ⚠️  Logit differences found but decision agrees: {pt_argmax}")
+            print(f"  ❌ Logit mismatch despite projected decision agreement: {pt_argmax}")
             print(f"     Max diff = {max_diff:.6f}")
             for tok, pt_val, smt_val, diff in mismatches:
                 print(f"     Token {tok}: PyTorch={pt_val:.6f}, SMT={smt_val:.6f}, diff={diff:.6f}")
             print()
-            # Don't fail if decision agrees
+            all_pass = False
         else:
             print(f"  ✓ Decision match: {pt_argmax}, max diff = {max_diff:.6f}")
             print()
+        sequence_results.append(
+            {
+                "input_tokens": input_tokens,
+                "status": "PASSED" if not decision_mismatch and not mismatches else "FAILED",
+                "pytorch_logits": pytorch_logits,
+                "smt_logits": smt_logits,
+                "max_abs_diff": max_diff,
+                "decision_match": not decision_mismatch,
+            }
+        )
 
     # Summary
     print(f"{'='*80}")
@@ -268,9 +289,24 @@ def test_encoder_sanity(
         print("SMT encoder projected decisions match PyTorch on tested sequences")
     else:
         print("❌ SOME TESTS FAILED")
-        print("SMT encoder decisions do not match PyTorch!")
+        print("SMT encoder logits do not match PyTorch within tolerance!")
         print("DO NOT TRUST VERIFICATION RESULTS UNTIL THIS IS FIXED")
     print(f"{'='*80}\n")
+
+    if output_json is not None:
+        os.makedirs(os.path.dirname(os.path.abspath(output_json)), exist_ok=True)
+        with open(output_json, "w") as handle:
+            json.dump(
+                {
+                    "model_path": model_path,
+                    "circuit_path": circuit_path,
+                    "tolerance": tolerance,
+                    "status": "PASSED" if all_pass else "FAILED",
+                    "sequences": sequence_results,
+                },
+                handle,
+                indent=2,
+            )
 
     return all_pass
 
@@ -286,11 +322,13 @@ def main():
                         help="Task to test")
     parser.add_argument("--tolerance", type=float, default=1e-3,
                         help="Maximum allowed logit difference")
+    parser.add_argument("--output_json", type=str, default=None,
+                        help="Optional machine-readable sanity-test artifact")
 
     args = parser.parse_args()
 
     # Setup tokenizer and test sequences
-    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
 
     if args.task == "quote_close":
         single_id = tokenizer.encode("'", add_special_tokens=False)[0]
@@ -329,6 +367,7 @@ def main():
         candidate_tokens,
         test_sequences,
         args.tolerance,
+        args.output_json,
     )
 
     sys.exit(0 if success else 1)

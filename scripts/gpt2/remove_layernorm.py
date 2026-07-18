@@ -1,0 +1,296 @@
+#!/usr/bin/env python3
+"""Distributed GPT-2 LayerNorm attenuation, fine-tuning, and exact folding."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import sys
+from datetime import datetime, timezone
+
+import torch
+from datasets import load_from_disk
+from transformers import (
+    AutoTokenizer,
+    Trainer,
+    TrainerCallback,
+    TrainingArguments,
+    default_data_collator,
+    set_seed,
+)
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from scripts.gpt2.extract import load_model_with_variants
+from scripts.gpt2.train import create_optimizer_with_weight_decay_exclusions
+from scripts.norm_removal import (
+    fold_attenuated_layernorms,
+    install_attenuated_layernorms,
+    update_attenuation_schedule,
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--processed_dataset_dir", required=True)
+    parser.add_argument("--output_dir", required=True)
+    parser.add_argument(
+        "--config", default="configs/gpt2_layernorm_removal.json"
+    )
+    parser.add_argument("--baseline_eval_loss", type=float, default=None)
+    parser.add_argument("--bandnorm_eval_loss", type=float, default=None)
+    parser.add_argument("--max_steps", type=int, default=None)
+    parser.add_argument("--max_train_samples", type=int, default=None)
+    parser.add_argument("--max_eval_samples", type=int, default=None)
+    return parser.parse_args()
+
+
+def load_json(path: str) -> dict:
+    with open(path) as handle:
+        return json.load(handle)
+
+
+class NormRemovalScheduleCallback(TrainerCallback):
+    def __init__(self, entries, cfg: dict, output_dir: str):
+        self.entries = entries
+        self.cfg = cfg
+        self.output_dir = output_dir
+        self.history = []
+
+    def _update(self, step: int) -> dict[str, float]:
+        return update_attenuation_schedule(
+            self.entries,
+            step,
+            calibration_steps=self.cfg["calibration_steps"],
+            transition_steps=self.cfg["transition_steps"],
+            gap_steps=self.cfg["gap_steps"],
+        )
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self._update(state.global_step)
+        return control
+
+    def on_step_begin(self, args, state, control, **kwargs):
+        self._update(state.global_step)
+        return control
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        schedule = self._update(state.global_step)
+        record = {
+            "step": state.global_step,
+            "schedule": schedule,
+            "fixed_std": {
+                entry.name: float(entry.module.fixed_std.item())
+                for entry in self.entries
+            },
+            "logs": dict(logs or {}),
+        }
+        self.history.append(record)
+        if state.is_world_process_zero:
+            os.makedirs(self.output_dir, exist_ok=True)
+            with open(
+                os.path.join(self.output_dir, "removal_schedule.json"), "w"
+            ) as handle:
+                json.dump(self.history, handle, indent=2)
+        return control
+
+
+def schedule_end(entries, cfg: dict) -> int:
+    return (
+        cfg["calibration_steps"]
+        + (len(entries) - 1) * cfg["gap_steps"]
+        + cfg["transition_steps"]
+    )
+
+
+def write_status(output_dir: str, stage: str, **extra) -> None:
+    if int(os.environ.get("RANK", "0")) != 0:
+        return
+    os.makedirs(output_dir, exist_ok=True)
+    payload = {
+        "stage": stage,
+        "updated_at_utc": datetime.now(timezone.utc).isoformat(),
+        **extra,
+    }
+    with open(os.path.join(output_dir, "run_status.json"), "w") as handle:
+        json.dump(payload, handle, indent=2)
+
+
+def main() -> None:
+    args = parse_args()
+    cfg = load_json(args.config)
+    set_seed(cfg["seed"])
+    os.makedirs(args.output_dir, exist_ok=True)
+    write_status(args.output_dir, "initializing", source_checkpoint=args.checkpoint)
+
+    model = load_model_with_variants(args.checkpoint, "cpu")
+    source_info_path = os.path.join(args.checkpoint, "model_info.json")
+    if not os.path.exists(source_info_path):
+        source_info_path = os.path.join(os.path.dirname(args.checkpoint), "model_info.json")
+    source_info = load_json(source_info_path)
+    expected = {
+        "norm_variant": "layernorm",
+        "attn_variant": "sparsemax",
+        "activation_variant": "leaky_relu",
+    }
+    for key, value in expected.items():
+        if source_info.get(key) != value:
+            raise ValueError(
+                f"A4 removal requires {key}={value!r}, got {source_info.get(key)!r}"
+            )
+
+    entries = install_attenuated_layernorms(
+        model, momentum=cfg["ema_momentum"]
+    )
+    end_step = schedule_end(entries, cfg)
+    max_steps = args.max_steps or cfg["max_steps"]
+    if max_steps < end_step:
+        raise ValueError(
+            f"max_steps={max_steps} ends before full attenuation at step {end_step}"
+        )
+    if cfg.get("gradient_checkpointing", False):
+        model.gradient_checkpointing_enable()
+
+    datasets = load_from_disk(args.processed_dataset_dir)
+    train_dataset = datasets["train"]
+    eval_dataset = datasets["validation"]
+    if args.max_train_samples is not None:
+        train_dataset = train_dataset.select(
+            range(min(args.max_train_samples, len(train_dataset)))
+        )
+    if args.max_eval_samples is not None:
+        eval_dataset = eval_dataset.select(
+            range(min(args.max_eval_samples, len(eval_dataset)))
+        )
+    tokenizer = AutoTokenizer.from_pretrained(args.checkpoint, use_fast=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    training_args = TrainingArguments(
+        output_dir=args.output_dir,
+        do_train=True,
+        do_eval=True,
+        per_device_train_batch_size=cfg["train_batch_size_per_device"],
+        per_device_eval_batch_size=cfg["eval_batch_size_per_device"],
+        gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
+        learning_rate=cfg["learning_rate"],
+        weight_decay=cfg["weight_decay"],
+        max_grad_norm=cfg["max_grad_norm"],
+        adam_beta1=cfg["adam_beta1"],
+        adam_beta2=cfg["adam_beta2"],
+        adam_epsilon=cfg["adam_epsilon"],
+        warmup_steps=cfg["warmup_steps"],
+        max_steps=max_steps,
+        lr_scheduler_type=cfg["lr_scheduler_type"],
+        eval_strategy="steps",
+        eval_steps=cfg["eval_steps"],
+        save_steps=cfg["save_steps"],
+        logging_steps=cfg["logging_steps"],
+        save_total_limit=cfg["save_total_limit"],
+        dataloader_num_workers=cfg["dataloader_num_workers"],
+        bf16=cfg["bf16"],
+        fp16=cfg["fp16"],
+        report_to="none",
+    )
+    callback = NormRemovalScheduleCallback(entries, cfg, args.output_dir)
+    optimizer = create_optimizer_with_weight_decay_exclusions(
+        model,
+        learning_rate=cfg["learning_rate"],
+        weight_decay=cfg["weight_decay"],
+        betas=(cfg["adam_beta1"], cfg["adam_beta2"]),
+        eps=cfg["adam_epsilon"],
+    )
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        processing_class=tokenizer,
+        data_collator=default_data_collator,
+        callbacks=[callback],
+        optimizers=(optimizer, None),
+    )
+
+    write_status(args.output_dir, "training", schedule_end=end_step, max_steps=max_steps)
+    trainer.train()
+    final_schedule = callback._update(max_steps)
+    if not all(value == 1.0 for value in final_schedule.values()):
+        raise RuntimeError("Training ended before every LayerNorm reached attenuation=1")
+
+    pre_fold_metrics = trainer.evaluate()
+    sample = next(iter(trainer.get_eval_dataloader()))["input_ids"][:1]
+    sample = sample.to(trainer.model.device)
+    trainer.model.eval()
+    with torch.no_grad():
+        before_fold = trainer.model(input_ids=sample).logits.float().cpu()
+    fold_attenuated_layernorms(trainer.model)
+    with torch.no_grad():
+        after_fold = trainer.model(input_ids=sample).logits.float().cpu()
+    fold_diff = float((before_fold - after_fold).abs().max().item())
+    if fold_diff > cfg["fold_tolerance"]:
+        raise RuntimeError(
+            f"Affine fold changed logits by {fold_diff}, tolerance={cfg['fold_tolerance']}"
+        )
+    post_fold_metrics = trainer.evaluate()
+    trainer.save_model(args.output_dir)
+    if trainer.is_world_process_zero():
+        tokenizer.save_pretrained(args.output_dir)
+
+    eval_loss = float(post_fold_metrics["eval_loss"])
+    baseline_eval_loss = args.baseline_eval_loss
+    if baseline_eval_loss is None:
+        source_eval_path = os.path.join(args.checkpoint, "eval_results.json")
+        if os.path.exists(source_eval_path):
+            baseline_eval_loss = float(load_json(source_eval_path)["eval_loss"])
+    result = {
+        "status": "passed",
+        "method": "sequential_fixed_std_attenuation_and_affine_folding",
+        "source_checkpoint": args.checkpoint,
+        "schedule_end": end_step,
+        "max_steps": max_steps,
+        "fold_max_abs_diff": fold_diff,
+        "pre_fold_eval_loss": float(pre_fold_metrics["eval_loss"]),
+        "post_fold_eval_loss": eval_loss,
+        "post_fold_perplexity": math.exp(eval_loss),
+        "baseline_eval_loss": baseline_eval_loss,
+        "bandnorm_eval_loss": args.bandnorm_eval_loss,
+        "bandnorm_loss_delta_gate": cfg["bandnorm_loss_delta_gate"],
+        "decision_rule": cfg["decision_rule"],
+    }
+    if baseline_eval_loss is not None:
+        result["removal_loss_delta"] = eval_loss - baseline_eval_loss
+        result["decision"] = (
+            "norm_free"
+            if result["removal_loss_delta"] < cfg["bandnorm_loss_delta_gate"]
+            else "bandnorm"
+        )
+    else:
+        result["decision"] = "pending_baseline_eval_loss"
+    if args.bandnorm_eval_loss is not None:
+        result["beats_measured_bandnorm"] = eval_loss < args.bandnorm_eval_loss
+
+    if trainer.is_world_process_zero():
+        with open(os.path.join(args.output_dir, "removal_metrics.json"), "w") as handle:
+            json.dump(result, handle, indent=2)
+        with open(os.path.join(args.output_dir, "model_info.json"), "w") as handle:
+            json.dump(
+                {
+                    "model_name": source_info["model_name"],
+                    "num_parameters": sum(p.numel() for p in trainer.model.parameters()),
+                    "norm_variant": "none",
+                    "attn_variant": "sparsemax",
+                    "activation_variant": "leaky_relu",
+                    "source_checkpoint": args.checkpoint,
+                },
+                handle,
+                indent=2,
+            )
+        write_status(args.output_dir, "completed", **result)
+        print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -12,6 +12,7 @@ MODEL_PATH="${2:-artifacts/band-norm-sparsemax/checkpoint-240000}"
 N_EXAMPLES="${3:-128}"
 METRIC="${4:-candidate_kl}"
 OUTPUT_BASE="${5:-artifacts/circuits_sweep}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 echo "=========================================="
 echo "THRESHOLD SWEEP FOR: $TASK"
@@ -29,12 +30,13 @@ for THRESH in 0.005 0.01 0.02 0.05 0.1 0.2; do
 
   OUTPUT_DIR="${OUTPUT_BASE}/${TASK}_t${THRESH}"
 
-  python scripts/gpt2/extract.py \
+  "$PYTHON_BIN" scripts/gpt2/extract.py \
     --model_path "$MODEL_PATH" \
     --extract_circuit "$TASK" \
     --n_examples "$N_EXAMPLES" \
     --threshold "$THRESH" \
     --metric "$METRIC" \
+    --min_agreement 1.0 \
     --trim_rounds 0 \
     --output_dir "$OUTPUT_DIR"
 

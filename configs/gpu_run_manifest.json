@@ -1,0 +1,65 @@
+{
+  "manifest_version": 1,
+  "status": "ready_for_8_gpu_execution",
+  "pre_gpu_results": {
+    "small_layernorm_removal": "passed",
+    "small_program_healing": "passed_after_ablation_aware_countermeasure",
+    "small_program_migration": "passed",
+    "full_gpt2_training_started": false
+  },
+  "shared": {
+    "gpu_count": 8,
+    "processed_dataset_dir": "SET_BEFORE_LAUNCH",
+    "extraction_domain_examples": 128,
+    "min_projected_agreement": 1.0
+  },
+  "preflight": "python scripts/gpt2/cluster_preflight.py --processed_dataset_dir $PROCESSED_DATASET_DIR --bandnorm_model $BANDNORM_MODEL --output artifacts/gpt2-cluster-preflight.json --expected_gpus 8 --minimum_free_gb 200",
+  "phase_a4": {
+    "gate": "A2 passed, so A4 must run.",
+    "train_standard_ln": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/train.py --config configs/sparsemax_leaky_layernorm.json --output_dir artifacts/gpt2-sparsemax-leaky-layernorm --processed_dataset_dir $PROCESSED_DATASET_DIR --evaluate_wikitext_at_end",
+    "remove_layernorm": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/remove_layernorm.py --checkpoint artifacts/gpt2-sparsemax-leaky-layernorm --processed_dataset_dir $PROCESSED_DATASET_DIR --output_dir artifacts/gpt2-norm-free",
+    "decision_rule": "Choose norm-free only if removal_loss_delta < 0.196; otherwise use the existing BandNorm sparsemax checkpoint.",
+    "decision_artifact": "artifacts/gpt2-norm-free/removal_metrics.json"
+  },
+  "phase_c": {
+    "select_base_model": "python scripts/gpt2/select_base_model.py --removal_metrics artifacts/gpt2-norm-free/removal_metrics.json --norm_free_model artifacts/gpt2-norm-free --bandnorm_model $BANDNORM_MODEL --output artifacts/gpt2-phase-c-base.json",
+    "base_model": "export BASE_MODEL=$(python -c 'import json; print(json.load(open(\"artifacts/gpt2-phase-c-base.json\"))[\"selected_model\"])'); never choose it manually.",
+    "measure_base_perplexity": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/evaluate_checkpoint.py --model_path $BASE_MODEL --processed_dataset_dir $PROCESSED_DATASET_DIR --output artifacts/gpt2-phase-c-reference-eval.json",
+    "base_perplexity": "export BASE_MODEL_EVAL_PPL=$(python -c 'import json; print(json.load(open(\"artifacts/gpt2-phase-c-reference-eval.json\"))[\"eval_perplexity\"])')",
+    "extract_quote_sweep": "PYTHON_BIN=python bash scripts/gpt2/sweep_thresholds.sh quote_close $BASE_MODEL 128 candidate_kl artifacts/gpt2-circuits/base",
+    "extract_bracket_sweep": "PYTHON_BIN=python bash scripts/gpt2/sweep_thresholds.sh bracket_type $BASE_MODEL 128 candidate_kl artifacts/gpt2-circuits/base",
+    "select_base_quote": "python scripts/gpt2/select_sweep_circuit.py --sweep_dir artifacts/gpt2-circuits/base --task quote_close --output_root artifacts/gpt2-circuits/base-selected",
+    "select_base_bracket": "python scripts/gpt2/select_sweep_circuit.py --sweep_dir artifacts/gpt2-circuits/base --task bracket_type --output_root artifacts/gpt2-circuits/base-selected",
+    "synthesize": "python scripts/gpt2/synthesize_programs.py --model_path $BASE_MODEL --circuit_root artifacts/gpt2-circuits/base-selected --output_dir artifacts/gpt2-programs --num_examples 128 --healable_agreement 1.0",
+    "heal": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/heal_programs.py --model_path $BASE_MODEL --programs artifacts/gpt2-programs/programs.json --processed_dataset_dir $PROCESSED_DATASET_DIR --output_dir artifacts/gpt2-program-healed --reference_eval_perplexity $BASE_MODEL_EVAL_PPL",
+    "reextract_quote_sweep": "PYTHON_BIN=python bash scripts/gpt2/sweep_thresholds.sh quote_close artifacts/gpt2-program-healed 128 candidate_kl artifacts/gpt2-circuits/healed",
+    "reextract_bracket_sweep": "PYTHON_BIN=python bash scripts/gpt2/sweep_thresholds.sh bracket_type artifacts/gpt2-program-healed 128 candidate_kl artifacts/gpt2-circuits/healed",
+    "select_healed_quote": "python scripts/gpt2/select_sweep_circuit.py --sweep_dir artifacts/gpt2-circuits/healed --task quote_close --output_root artifacts/gpt2-circuits/healed-selected --synthesis_results artifacts/gpt2-programs/synthesis_results.json",
+    "select_healed_bracket": "python scripts/gpt2/select_sweep_circuit.py --sweep_dir artifacts/gpt2-circuits/healed --task bracket_type --output_root artifacts/gpt2-circuits/healed-selected --synthesis_results artifacts/gpt2-programs/synthesis_results.json",
+    "migration_check": "python scripts/gpt2/check_program_migration.py --model_path artifacts/gpt2-program-healed --circuit_root artifacts/gpt2-circuits/healed-selected --output artifacts/gpt2-program-healed/migration_report.json --num_examples 128",
+    "ordinary_healed_selection": "If migration_check passes: export HEALED_MODEL=artifacts/gpt2-program-healed; export HEALED_CIRCUIT_ROOT=artifacts/gpt2-circuits/healed-selected",
+    "ablation_aware_heal_if_migration_fails": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/heal_programs.py --model_path $BASE_MODEL --programs artifacts/gpt2-programs/programs.json --processed_dataset_dir $PROCESSED_DATASET_DIR --output_dir artifacts/gpt2-program-healed-ablation-aware --reference_eval_perplexity $BASE_MODEL_EVAL_PPL --ablation_aware --circuit_root artifacts/gpt2-circuits/base-selected",
+    "ablation_reextract_quote_sweep": "PYTHON_BIN=python bash scripts/gpt2/sweep_thresholds.sh quote_close artifacts/gpt2-program-healed-ablation-aware 128 candidate_kl artifacts/gpt2-circuits/healed-ablation-aware",
+    "ablation_reextract_bracket_sweep": "PYTHON_BIN=python bash scripts/gpt2/sweep_thresholds.sh bracket_type artifacts/gpt2-program-healed-ablation-aware 128 candidate_kl artifacts/gpt2-circuits/healed-ablation-aware",
+    "ablation_select_quote": "python scripts/gpt2/select_sweep_circuit.py --sweep_dir artifacts/gpt2-circuits/healed-ablation-aware --task quote_close --output_root artifacts/gpt2-circuits/healed-ablation-aware-selected --synthesis_results artifacts/gpt2-programs/synthesis_results.json",
+    "ablation_select_bracket": "python scripts/gpt2/select_sweep_circuit.py --sweep_dir artifacts/gpt2-circuits/healed-ablation-aware --task bracket_type --output_root artifacts/gpt2-circuits/healed-ablation-aware-selected --synthesis_results artifacts/gpt2-programs/synthesis_results.json",
+    "ablation_migration_check": "python scripts/gpt2/check_program_migration.py --model_path artifacts/gpt2-program-healed-ablation-aware --circuit_root artifacts/gpt2-circuits/healed-ablation-aware-selected --output artifacts/gpt2-program-healed-ablation-aware/migration_report.json --num_examples 128",
+    "post_ablation_aware_action": "Only after ablation_migration_check passes: export HEALED_MODEL=artifacts/gpt2-program-healed-ablation-aware; export HEALED_CIRCUIT_ROOT=artifacts/gpt2-circuits/healed-ablation-aware-selected",
+    "smt_sanity_quote": "python scripts/gpt2/test_smt_encoder.py --model_path $HEALED_MODEL --circuit_path $HEALED_CIRCUIT_ROOT/quote_close/circuit.json --task quote_close --output_json $HEALED_MODEL/verification/quote_close/smt_sanity.json",
+    "smt_sanity_bracket": "python scripts/gpt2/test_smt_encoder.py --model_path $HEALED_MODEL --circuit_path $HEALED_CIRCUIT_ROOT/bracket_type/circuit.json --task bracket_type --output_json $HEALED_MODEL/verification/bracket_type/smt_sanity.json",
+    "verify_quote_scaling": "python scripts/gpt2/scale_verification.py --model_path $HEALED_MODEL --circuit_path $HEALED_CIRCUIT_ROOT/quote_close/circuit.json --task quote_close --start_length 3 --max_length 8 --output_root $HEALED_MODEL/verification/quote_close",
+    "verify_bracket_scaling": "python scripts/gpt2/scale_verification.py --model_path $HEALED_MODEL --circuit_path $HEALED_CIRCUIT_ROOT/bracket_type/circuit.json --task bracket_type --start_length 3 --max_length 8 --output_root $HEALED_MODEL/verification/bracket_type",
+    "build_unified_cost_table": "python scripts/gpt2/build_cost_table.py --program_metrics $HEALED_MODEL/healing_results.json --output_json artifacts/gpt2-unified-cost-table.json --output_csv artifacts/gpt2-unified-cost-table.csv",
+    "perplexity_budget": {
+      "relative_increase": 0.16,
+      "locked_before_run": true,
+      "artifact": "artifacts/gpt2-program-healed/healing_results.json"
+    }
+  },
+  "kill_and_fallback_criteria": {
+    "a4_removal_failure": "Use BandNorm and skip norm-free as the C base.",
+    "c3_partial_fit": "Replace fittable heads and retain resistant neural heads; record each counterexample.",
+    "c5_migration_failure": "Run ablation-aware healing before verification; do not claim migration success from circuit inclusion alone.",
+    "c6_solver_limit": "Record the largest proven length and all timeout/unknown outcomes without moving the goalpost."
+  }
+}
