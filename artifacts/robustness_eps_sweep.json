@@ -1,0 +1,429 @@
+{
+  "epsilon_confirmation": {
+    "original_table2": {
+      "quote_close": 0.01,
+      "bracket_type": 0.01
+    },
+    "matched": {
+      "quote_close": 0.01,
+      "bracket_type": 0.01
+    },
+    "equal": true,
+    "epsilon0": 0.01,
+    "original_sources": {
+      "quote_close": "artifacts/small_circuits/quote_close/verification/verification_results.json",
+      "bracket_type": "artifacts/small_circuits/bracket_type/verification/verification_results.json"
+    },
+    "matched_sources": {
+      "quote_close": "artifacts/small_band_norm_matched_circuits/quote_close/verification/verification_results.json",
+      "bracket_type": "artifacts/small_band_norm_matched_circuits/bracket_type/verification/verification_results.json"
+    }
+  },
+  "sweep_definition": [
+    "epsilon0/10",
+    "epsilon0/4",
+    "epsilon0/2",
+    "epsilon0"
+  ],
+  "classification_definition": {
+    "margin-thin": "At least one smaller radius is certified, but epsilon0 reaches a BandNorm branch boundary.",
+    "branch-adjacent": "The smallest tested positive radius already reaches a BandNorm branch boundary."
+  },
+  "runs": {
+    "bandnorm": {
+      "quote_close": {
+        "results": [
+          {
+            "epsilon": 0.001,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 64,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 64,
+            "branch_certificates_required": true,
+            "assertion_count": 12992,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 6784,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 6208
+              },
+              "norm_instances": 256
+            },
+            "solve_seconds": 1.5416059494018555,
+            "wall_time_seconds": 2.9202835420146585
+          },
+          {
+            "epsilon": 0.0025,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 0,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 128,
+            "branch_certificates_required": true,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 128,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4096
+              },
+              "norm_instances": 128
+            },
+            "solve_seconds": 0.1701641082763672,
+            "wall_time_seconds": 0.7218561249901541
+          },
+          {
+            "epsilon": 0.005,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 0,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 128,
+            "branch_certificates_required": true,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 128,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4096
+              },
+              "norm_instances": 128
+            },
+            "solve_seconds": 0.18415331840515137,
+            "wall_time_seconds": 0.7365670830185991
+          },
+          {
+            "epsilon": 0.01,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 0,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 128,
+            "branch_certificates_required": true,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 128,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4096
+              },
+              "norm_instances": 128
+            },
+            "solve_seconds": 0.16759562492370605,
+            "wall_time_seconds": 0.7159297499747481
+          }
+        ],
+        "classification": "branch-adjacent"
+      },
+      "bracket_type": {
+        "results": [
+          {
+            "epsilon": 0.001,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 64,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 64,
+            "branch_certificates_required": true,
+            "assertion_count": 12992,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 6784,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 6208
+              },
+              "norm_instances": 256
+            },
+            "solve_seconds": 1.472830057144165,
+            "wall_time_seconds": 2.8309382500010543
+          },
+          {
+            "epsilon": 0.0025,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 64,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 64,
+            "branch_certificates_required": true,
+            "assertion_count": 12992,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 6784,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 6208
+              },
+              "norm_instances": 256
+            },
+            "solve_seconds": 1.457026481628418,
+            "wall_time_seconds": 2.8028762500034645
+          },
+          {
+            "epsilon": 0.005,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 64,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 64,
+            "branch_certificates_required": true,
+            "assertion_count": 12992,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 6784,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 6208
+              },
+              "norm_instances": 256
+            },
+            "solve_seconds": 1.4690513610839844,
+            "wall_time_seconds": 2.8153045419894625
+          },
+          {
+            "epsilon": 0.01,
+            "status": "UNKNOWN_BRANCH_UNSTABLE",
+            "verified_count": 64,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 64,
+            "branch_certificates_required": true,
+            "assertion_count": 12992,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 6784,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 6208
+              },
+              "norm_instances": 256
+            },
+            "solve_seconds": 1.4692678451538086,
+            "wall_time_seconds": 2.809579541994026
+          }
+        ],
+        "classification": "branch-adjacent"
+      }
+    },
+    "norm_free": {
+      "quote_close": {
+        "results": [
+          {
+            "epsilon": 0.001,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.13055181503295898,
+            "wall_time_seconds": 0.6787597500078846
+          },
+          {
+            "epsilon": 0.0025,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.1294417381286621,
+            "wall_time_seconds": 0.6755529579822905
+          },
+          {
+            "epsilon": 0.005,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.13147974014282227,
+            "wall_time_seconds": 0.682814125000732
+          },
+          {
+            "epsilon": 0.01,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.13389921188354492,
+            "wall_time_seconds": 0.6879674579831772
+          }
+        ]
+      },
+      "bracket_type": {
+        "results": [
+          {
+            "epsilon": 0.001,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.1377420425415039,
+            "wall_time_seconds": 0.6872982920031063
+          },
+          {
+            "epsilon": 0.0025,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.13573145866394043,
+            "wall_time_seconds": 0.6813367910217494
+          },
+          {
+            "epsilon": 0.005,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.14062857627868652,
+            "wall_time_seconds": 0.6956669579958543
+          },
+          {
+            "epsilon": 0.01,
+            "status": "VERIFIED",
+            "verified_count": 128,
+            "timeout_count": 0,
+            "error_count": 0,
+            "num_decision_violations": 0,
+            "num_branch_unstable": 0,
+            "branch_certificates_required": false,
+            "assertion_count": 4224,
+            "assertion_attribution": {
+              "assertions": {
+                "norm": 0,
+                "attention": 0,
+                "mlp": 0,
+                "embedding/residual": 0,
+                "decision": 4224
+              },
+              "norm_instances": 0
+            },
+            "solve_seconds": 0.13782835006713867,
+            "wall_time_seconds": 0.6865367499995045
+          }
+        ]
+      }
+    }
+  },
+  "cause_classification": {
+    "quote_close": "branch-adjacent",
+    "bracket_type": "branch-adjacent"
+  },
+  "norm_free_contrast": "No branch classification applies: norm-free robustness has no norm branch certificate."
+}

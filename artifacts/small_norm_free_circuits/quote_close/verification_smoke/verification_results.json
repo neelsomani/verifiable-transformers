@@ -1,0 +1,62 @@
+{
+  "task": "quote_close",
+  "circuit_path": "artifacts/small_norm_free_circuits/quote_close/circuit.json",
+  "weights_path": "artifacts/small_norm_free/smt_weights.json",
+  "checkpoint": "artifacts/small_norm_free/checkpoint-final",
+  "num_inputs": 2,
+  "candidate_tokens": [
+    9,
+    10
+  ],
+  "candidate_names": [
+    "single_quote",
+    "double_quote"
+  ],
+  "properties": [
+    {
+      "property": "pytorch_circuit_validation",
+      "status": "PASSED",
+      "examples_checked": 2,
+      "num_failures": 0,
+      "failures": []
+    },
+    {
+      "property": "smt_pytorch_sanity",
+      "status": "PASSED",
+      "examples_checked": 2,
+      "max_logit_diff": 1.3504728286761747e-06,
+      "tolerance": 0.001,
+      "num_failures": 0,
+      "num_logit_failures": 0,
+      "failures": [],
+      "logit_failures": []
+    },
+    {
+      "property": "projected_functional_equivalence",
+      "status": "VERIFIED",
+      "verified_count": 2,
+      "timeout_count": 0,
+      "error_count": 0,
+      "total_sequences": 2,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "wall_time_seconds": 2.8647608750034124
+    },
+    {
+      "property": "projected_continuous_robustness",
+      "status": "VERIFIED",
+      "verified_count": 2,
+      "timeout_count": 0,
+      "error_count": 0,
+      "certified_epsilon": 0.01,
+      "violations": [],
+      "num_violations": 0,
+      "decision_violations": [],
+      "num_decision_violations": 0,
+      "branch_unstable": [],
+      "num_branch_unstable": 0,
+      "branch_certificates_required": false,
+      "wall_time_seconds": 0.012251416017534211
+    }
+  ]
+}

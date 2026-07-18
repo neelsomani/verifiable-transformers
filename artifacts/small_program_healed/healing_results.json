@@ -1,0 +1,185 @@
+{
+  "source_checkpoint": "artifacts/small_norm_free/checkpoint-final",
+  "programs": "artifacts/small_programs/programs.json",
+  "program_heads": [
+    "0.0",
+    "0.1"
+  ],
+  "programs_frozen": true,
+  "success": true,
+  "acceptance": {
+    "candidate_accuracy_each_task": 1.0,
+    "consecutive_evaluations": 3
+  },
+  "elapsed_seconds": 1.1052657089894637,
+  "attempts": [
+    {
+      "learning_rate": 0.003,
+      "initial_metrics": {
+        "quote_close": {
+          "task": "quote_close",
+          "n_examples": 128,
+          "accuracy": 0.5,
+          "candidate_accuracy": 0.5,
+          "mean_candidate_margin": 0.6597034633159637,
+          "confusion": {
+            "9": {
+              "9": 64,
+              "10": 0
+            },
+            "10": {
+              "9": 64,
+              "10": 0
+            }
+          }
+        },
+        "bracket_type": {
+          "task": "bracket_type",
+          "n_examples": 128,
+          "accuracy": 1.0,
+          "candidate_accuracy": 1.0,
+          "mean_candidate_margin": 32.22173045575619,
+          "confusion": {
+            "13": {
+              "13": 64,
+              "14": 0
+            },
+            "14": {
+              "13": 0,
+              "14": 64
+            }
+          }
+        }
+      },
+      "success": true,
+      "history": [
+        {
+          "step": 10,
+          "loss": 0.00597060052677989,
+          "metrics": {
+            "quote_close": {
+              "task": "quote_close",
+              "n_examples": 128,
+              "accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "mean_candidate_margin": 19.067126855254173,
+              "confusion": {
+                "9": {
+                  "9": 64,
+                  "10": 0
+                },
+                "10": {
+                  "9": 0,
+                  "10": 64
+                }
+              }
+            },
+            "bracket_type": {
+              "task": "bracket_type",
+              "n_examples": 128,
+              "accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "mean_candidate_margin": 27.464526817202568,
+              "confusion": {
+                "13": {
+                  "13": 64,
+                  "14": 0
+                },
+                "14": {
+                  "13": 0,
+                  "14": 64
+                }
+              }
+            }
+          },
+          "all_tasks_perfect": true,
+          "consecutive_perfect_evals": 1
+        },
+        {
+          "step": 20,
+          "loss": 3.1909476092550904e-05,
+          "metrics": {
+            "quote_close": {
+              "task": "quote_close",
+              "n_examples": 128,
+              "accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "mean_candidate_margin": 25.90621480345726,
+              "confusion": {
+                "9": {
+                  "9": 64,
+                  "10": 0
+                },
+                "10": {
+                  "9": 0,
+                  "10": 64
+                }
+              }
+            },
+            "bracket_type": {
+              "task": "bracket_type",
+              "n_examples": 128,
+              "accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "mean_candidate_margin": 23.993801079690456,
+              "confusion": {
+                "13": {
+                  "13": 64,
+                  "14": 0
+                },
+                "14": {
+                  "13": 0,
+                  "14": 64
+                }
+              }
+            }
+          },
+          "all_tasks_perfect": true,
+          "consecutive_perfect_evals": 2
+        },
+        {
+          "step": 30,
+          "loss": 4.2398119148856495e-06,
+          "metrics": {
+            "quote_close": {
+              "task": "quote_close",
+              "n_examples": 128,
+              "accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "mean_candidate_margin": 25.942006945610046,
+              "confusion": {
+                "9": {
+                  "9": 64,
+                  "10": 0
+                },
+                "10": {
+                  "9": 0,
+                  "10": 64
+                }
+              }
+            },
+            "bracket_type": {
+              "task": "bracket_type",
+              "n_examples": 128,
+              "accuracy": 1.0,
+              "candidate_accuracy": 1.0,
+              "mean_candidate_margin": 23.8773462921381,
+              "confusion": {
+                "13": {
+                  "13": 64,
+                  "14": 0
+                },
+                "14": {
+                  "13": 0,
+                  "14": 64
+                }
+              }
+            }
+          },
+          "all_tasks_perfect": true,
+          "consecutive_perfect_evals": 3
+        }
+      ]
+    }
+  ]
+}

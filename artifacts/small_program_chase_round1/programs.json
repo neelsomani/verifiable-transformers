@@ -1,0 +1,73 @@
+{
+  "0.0": {
+    "dsl_version": 1,
+    "name": "relative_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "==",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "0.1": {
+    "dsl_version": 1,
+    "name": "distance_le_3+key_position_3",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 3
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_position",
+            "operator": "==",
+            "value": 3
+          }
+        ]
+      }
+    ]
+  },
+  "1.1": {
+    "dsl_version": 1,
+    "name": "key_position_3+key_position_2",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_position",
+            "operator": "==",
+            "value": 3
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_position",
+            "operator": "==",
+            "value": 2
+          }
+        ]
+      }
+    ]
+  }
+}

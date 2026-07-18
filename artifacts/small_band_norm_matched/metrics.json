@@ -1,0 +1,78 @@
+{
+  "final_metrics": {
+    "quote_close": {
+      "task": "quote_close",
+      "n_examples": 128,
+      "accuracy": 1.0,
+      "candidate_accuracy": 1.0,
+      "mean_candidate_margin": 0.32023436576128006,
+      "confusion": {
+        "9": {
+          "9": 64,
+          "10": 0
+        },
+        "10": {
+          "9": 0,
+          "10": 64
+        }
+      }
+    },
+    "bracket_type": {
+      "task": "bracket_type",
+      "n_examples": 128,
+      "accuracy": 1.0,
+      "candidate_accuracy": 1.0,
+      "mean_candidate_margin": 0.1720840036869049,
+      "confusion": {
+        "13": {
+          "13": 64,
+          "14": 0
+        },
+        "14": {
+          "13": 0,
+          "14": 64
+        }
+      }
+    }
+  },
+  "history": [
+    {
+      "quote_close": {
+        "task": "quote_close",
+        "n_examples": 128,
+        "accuracy": 1.0,
+        "candidate_accuracy": 1.0,
+        "mean_candidate_margin": 0.32023436576128006,
+        "confusion": {
+          "9": {
+            "9": 64,
+            "10": 0
+          },
+          "10": {
+            "9": 0,
+            "10": 64
+          }
+        }
+      },
+      "bracket_type": {
+        "task": "bracket_type",
+        "n_examples": 128,
+        "accuracy": 1.0,
+        "candidate_accuracy": 1.0,
+        "mean_candidate_margin": 0.1720840036869049,
+        "confusion": {
+          "13": {
+            "13": 64,
+            "14": 0
+          },
+          "14": {
+            "13": 0,
+            "14": 64
+          }
+        }
+      },
+      "step": 20,
+      "all_tasks_perfect": true
+    }
+  ]
+}

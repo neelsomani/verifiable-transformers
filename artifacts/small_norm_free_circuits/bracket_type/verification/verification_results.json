@@ -1,0 +1,118 @@
+{
+  "task": "bracket_type",
+  "circuit_path": "artifacts/small_norm_free_circuits/bracket_type/circuit.json",
+  "weights_path": "artifacts/small_norm_free/smt_weights.json",
+  "checkpoint": "artifacts/small_norm_free/checkpoint-final",
+  "num_inputs": 128,
+  "candidate_tokens": [
+    13,
+    14
+  ],
+  "candidate_names": [
+    "right_bracket",
+    "right_brace"
+  ],
+  "properties": [
+    {
+      "property": "projected_functional_equivalence",
+      "status": "VERIFIED",
+      "verified_count": 128,
+      "timeout_count": 0,
+      "error_count": 0,
+      "total_sequences": 128,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "assertion_count": 101888,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 3456,
+          "mlp": 98304,
+          "embedding/residual": 0,
+          "decision": 128
+        },
+        "norm_instances": 0
+      },
+      "encoding_seconds": 168.01413917541504,
+      "solve_seconds": 49.67195534706116,
+      "wall_time_seconds": 221.425684249989
+    },
+    {
+      "property": "projected_content_invariance",
+      "status": "VERIFIED",
+      "proof_strategy": "one_anchor_per_feature_plus_transitivity",
+      "verified_anchor_comparisons": 126,
+      "verified_pairs_by_transitivity": 4032,
+      "assertion_count": 200466,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 6804,
+          "mlp": 193536,
+          "embedding/residual": 0,
+          "decision": 126
+        },
+        "norm_instances": 0
+      },
+      "solve_seconds": 76.99029564857483,
+      "timeout_count": 0,
+      "error_count": 0,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "wall_time_seconds": 392.8218260410067
+    },
+    {
+      "property": "projected_edge_necessity",
+      "status": "VERIFIED",
+      "total_edges": 4,
+      "necessary_edges": 4,
+      "unnecessary_edges_found": 0,
+      "unresolved_edges_found": 0,
+      "timeout_count": 0,
+      "error_count": 0,
+      "unnecessary_edges": [],
+      "unresolved_edges": [],
+      "assertion_count": 6364,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 216,
+          "mlp": 6144,
+          "embedding/residual": 0,
+          "decision": 4
+        },
+        "norm_instances": 0
+      },
+      "solve_seconds": 1.8353981971740723,
+      "wall_time_seconds": 11.073706583003514
+    },
+    {
+      "property": "projected_continuous_robustness",
+      "status": "VERIFIED",
+      "verified_count": 128,
+      "timeout_count": 0,
+      "error_count": 0,
+      "certified_epsilon": 0.01,
+      "violations": [],
+      "num_violations": 0,
+      "decision_violations": [],
+      "num_decision_violations": 0,
+      "branch_unstable": [],
+      "num_branch_unstable": 0,
+      "branch_certificates_required": false,
+      "assertion_count": 4224,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 0,
+          "mlp": 0,
+          "embedding/residual": 0,
+          "decision": 4224
+        },
+        "norm_instances": 0
+      },
+      "solve_seconds": 0.14604592323303223,
+      "wall_time_seconds": 0.7067850830208044
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "status": "OBSERVED_BEFORE_PROGRAM_CHASE",
+  "task": "quote_close",
+  "before": {
+    "checkpoint": "artifacts/small_norm_free/checkpoint-final",
+    "circuit": "artifacts/small_norm_free_circuits/quote_close/circuit.json",
+    "path": [
+      "emb",
+      "attn_0_h_0",
+      "mlp_0",
+      "mlp_1",
+      "logits"
+    ],
+    "edges": [
+      [
+        "attn_0_h_0",
+        "mlp_0"
+      ],
+      [
+        "emb",
+        "attn_0_h_0"
+      ],
+      [
+        "mlp_0",
+        "mlp_1"
+      ],
+      [
+        "mlp_1",
+        "logits"
+      ]
+    ]
+  },
+  "after": {
+    "checkpoint": "artifacts/small_program_healed_ablation_aware/checkpoint-final",
+    "circuit": "artifacts/small_program_healed_ablation_aware_circuits/quote_close/circuit.json",
+    "edges": [
+      [
+        "attn_0_h_0",
+        "mlp_0"
+      ],
+      [
+        "attn_1_h_1",
+        "logits"
+      ],
+      [
+        "emb",
+        "attn_0_h_0"
+      ],
+      [
+        "emb",
+        "mlp_0"
+      ],
+      [
+        "mlp_0",
+        "attn_1_h_1"
+      ]
+    ],
+    "installed_program_heads": [
+      "attn_0_h_0",
+      "attn_0_h_1"
+    ],
+    "new_downstream_neural_dependencies": [
+      "attn_1_h_1"
+    ]
+  },
+  "migration": {
+    "report": "artifacts/small_program_healed_ablation_aware_circuits/migration_report.json",
+    "passed": true,
+    "quote_program_necessary": true,
+    "quote_program_non_bypassed": true
+  },
+  "interpretation": "Ablation-aware healing made the installed quote program necessary and non-bypassed, but the selected exact circuit migrated to a new downstream neural attention dependency at attn_1_h_1.",
+  "plain_heal_failure_preservation": {
+    "path": "artifacts/small_program_healed_circuits/migration_report.json",
+    "sha256_before_chase": "34f184b5c901fc85ef14fdea6cb6016ab3001fad3cb2e7e27c25ef9d927e824d"
+  }
+}

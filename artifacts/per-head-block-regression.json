@@ -1,0 +1,497 @@
+{
+  "requirement": "Re-run block-level extractions; the union of retained heads must reproduce each block-level circuit.",
+  "checkpoint": "artifacts/small_norm_free/checkpoint-final",
+  "n_layers": 2,
+  "n_heads": 2,
+  "threshold": 0.01,
+  "min_agreement": 1.0,
+  "tasks": {
+    "quote_close": {
+      "domain_size": 128,
+      "legacy_block_edges": [
+        [
+          "attn_0",
+          "mlp_0"
+        ],
+        [
+          "emb",
+          "attn_0"
+        ],
+        [
+          "mlp_0",
+          "mlp_1"
+        ],
+        [
+          "mlp_1",
+          "logits"
+        ]
+      ],
+      "legacy_block_edge_count": 4,
+      "expanded_head_union_edges": [
+        [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        [
+          "emb",
+          "attn_0_h_0"
+        ],
+        [
+          "emb",
+          "attn_0_h_1"
+        ],
+        [
+          "mlp_0",
+          "mlp_1"
+        ],
+        [
+          "mlp_1",
+          "logits"
+        ]
+      ],
+      "expanded_head_union_edge_count": 6,
+      "block_circuit_projected_agreement_with_full": 1.0,
+      "head_union_projected_agreement_with_block_circuit": 1.0,
+      "full_graph_max_abs_diff": 1.9073486328125e-05,
+      "circuit_max_abs_diff": 5.7220458984375e-06,
+      "atol": 0.0001,
+      "passed": true,
+      "edge_log": [
+        {
+          "edge": [
+            "attn_0",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -3.755203828593038e-39,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "attn_1",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -1.1476854426679151e-38,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 2.1706113212391416e-41,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -2.089834872561602e-39,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_1",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 0.6931811571121216,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -5.143852771680395e-39,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "attn_1",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.006646325811743736,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -9.610224515199661e-05,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 0.6871644547209144,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "attn_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "attn_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "attn_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "mlp_0"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 0.697305410169065,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "emb",
+            "mlp_0"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -0.0007734624668955803,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "attn_0"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 0.6920635122805834,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "mlp_0"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "emb",
+            "attn_0"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "mlp_1"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "mlp_1",
+            "logits"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        }
+      ]
+    },
+    "bracket_type": {
+      "domain_size": 128,
+      "legacy_block_edges": [
+        [
+          "attn_0",
+          "mlp_0"
+        ],
+        [
+          "emb",
+          "attn_0"
+        ],
+        [
+          "mlp_0",
+          "mlp_1"
+        ],
+        [
+          "mlp_1",
+          "logits"
+        ]
+      ],
+      "legacy_block_edge_count": 4,
+      "expanded_head_union_edges": [
+        [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        [
+          "emb",
+          "attn_0_h_0"
+        ],
+        [
+          "emb",
+          "attn_0_h_1"
+        ],
+        [
+          "mlp_0",
+          "mlp_1"
+        ],
+        [
+          "mlp_1",
+          "logits"
+        ]
+      ],
+      "expanded_head_union_edge_count": 6,
+      "block_circuit_projected_agreement_with_full": 1.0,
+      "head_union_projected_agreement_with_block_circuit": 1.0,
+      "full_graph_max_abs_diff": 1.52587890625e-05,
+      "circuit_max_abs_diff": 2.384185791015625e-07,
+      "atol": 0.0001,
+      "passed": true,
+      "edge_log": [
+        {
+          "edge": [
+            "attn_0",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -5.440156861125593e-35,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "attn_1",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -3.547579961821757e-35,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 2.0938493124021996e-37,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -1.870457172110482e-35,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_1",
+            "logits"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 0.6937580108642578,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -6.616374416480125e-35,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "attn_1",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0006934510893188417,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": -0.00017323909560218453,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "mlp_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 0.6949127489933744,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "attn_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "attn_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "attn_1"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "mlp_0"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 1.0750432187924162,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "emb",
+            "mlp_0"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 1.0,
+          "delta": 0.0001459028571844101,
+          "decision": "removed"
+        },
+        {
+          "edge": [
+            "emb",
+            "attn_0"
+          ],
+          "stage": "legacy_block_acdc",
+          "agreement": 0.5,
+          "delta": 0.8227857617894188,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "attn_0",
+            "mlp_0"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "emb",
+            "attn_0"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "mlp_0",
+            "mlp_1"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        },
+        {
+          "edge": [
+            "mlp_1",
+            "logits"
+          ],
+          "stage": "projected_trim",
+          "agreement": 0.5,
+          "decision": "kept"
+        }
+      ]
+    }
+  },
+  "regression_pass": true
+}

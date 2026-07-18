@@ -1,0 +1,1105 @@
+{
+  "sequence_length": 6,
+  "bilinear_term_definition": "active neural heads * head_dim * causal query-key pairs; program weights are rational constants and contribute zero Q/K products",
+  "claim_policy": {
+    "qualitative": "Reported per run from its own verification result.",
+    "quantitative": "Across different circuit topologies, compare only instrumented normalized columns (assertions per edge, solve seconds per edge, and norm-attributable assertions per norm instance). Raw totals are eligible only inside an explicitly matched-topology group.",
+    "raw_wall_time": "Descriptive execution metadata only; it is not a cross-topology quantitative claim."
+  },
+  "assertion_category_schema": [
+    "norm",
+    "attention",
+    "mlp",
+    "embedding/residual",
+    "decision"
+  ],
+  "matched_topology_selection": {
+    "comparison_scope": "Only selected pairs with identical task and circuit edge count are eligible for raw quantitative comparison.",
+    "tasks": {
+      "quote_close": {
+        "status": "SELECTED",
+        "matched_edge_count": 5,
+        "eligible_edge_counts": {
+          "bandnorm": [
+            2,
+            5,
+            7
+          ],
+          "norm_free": [
+            4,
+            5
+          ]
+        },
+        "variants": {
+          "bandnorm": {
+            "source_sweep": "artifacts/small_band_norm_matched_circuits/quote_close/threshold_sweep.json",
+            "threshold": 0.001,
+            "n_edges": 5,
+            "metrics": {
+              "candidate_accuracy": 1.0,
+              "agreement": 1.0,
+              "mean_candidate_kl": 0.005429089069366455
+            }
+          },
+          "norm_free": {
+            "source_sweep": "artifacts/small_norm_free_circuits/quote_close/threshold_sweep.json",
+            "threshold": 0.001,
+            "n_edges": 5,
+            "metrics": {
+              "candidate_accuracy": 1.0,
+              "agreement": 1.0,
+              "mean_candidate_kl": 0.2910464107990265
+            }
+          }
+        }
+      },
+      "bracket_type": {
+        "status": "SKIPPED_NO_EQUAL_EDGE_TOPOLOGY",
+        "eligible_edge_counts": {
+          "bandnorm": [
+            2
+          ],
+          "norm_free": [
+            4
+          ]
+        }
+      }
+    }
+  },
+  "matched_topology_comparisons": {
+    "quote_close_5_edges": [
+      {
+        "row_type": "matched_topology",
+        "comparison_group": "quote_close_5_edges",
+        "run": "bandnorm",
+        "task": "quote_close",
+        "norm_variant": "signed_l1_band_norm",
+        "model_n_heads": 2,
+        "head_dim": 8,
+        "circuit_edges": 5,
+        "active_attention_heads": 2,
+        "active_program_heads": 0,
+        "active_neural_heads": 2,
+        "qk_bilinear_terms_length_6": 336,
+        "zero_attention_bilinear_terms": false,
+        "assertion_categories": {
+          "norm": 389400,
+          "attention": 21276,
+          "mlp": 151296,
+          "embedding/residual": 0,
+          "decision": 4357
+        },
+        "assertion_attribution": {
+          "norm": 389400,
+          "attention": 21276,
+          "mlp": 151296,
+          "embedding/residual": 0,
+          "decision": 4357
+        },
+        "per_property_assertion_attribution": {
+          "projected_functional_equivalence": {
+            "assertions": {
+              "norm": 126464,
+              "attention": 6912,
+              "mlp": 49152,
+              "embedding/residual": 0,
+              "decision": 128
+            },
+            "norm_instances": 2432
+          },
+          "projected_content_invariance": {
+            "assertions": {
+              "norm": 248976,
+              "attention": 13608,
+              "mlp": 96768,
+              "embedding/residual": 0,
+              "decision": 126
+            },
+            "norm_instances": 4788
+          },
+          "projected_edge_necessity": {
+            "assertions": {
+              "norm": 13832,
+              "attention": 756,
+              "mlp": 5376,
+              "embedding/residual": 0,
+              "decision": 7
+            },
+            "norm_instances": 266
+          },
+          "projected_continuous_robustness": {
+            "assertions": {
+              "norm": 128,
+              "attention": 0,
+              "mlp": 0,
+              "embedding/residual": 0,
+              "decision": 4096
+            },
+            "norm_instances": 128
+          }
+        },
+        "profiled_assertions": 566329,
+        "profiled_solve_seconds": 58.80256962776184,
+        "per_property_solve_seconds": {
+          "projected_functional_equivalence": 23.05590581893921,
+          "projected_content_invariance": 34.2485625743866,
+          "projected_edge_necessity": 1.276888370513916,
+          "projected_continuous_robustness": 0.22121286392211914
+        },
+        "assertions_per_edge": 113265.8,
+        "solve_seconds_per_edge": 11.760513925552369,
+        "norm_instances": 7614,
+        "norm_attributable_assertions": 389400,
+        "norm_attributable_assertions_per_norm_instance": 51.14263199369582,
+        "descriptive_wall_time_seconds_not_comparable": 406.0458072909678,
+        "branch_certificates_required": true,
+        "robustness_branch_unknown_possible": true,
+        "robustness_provable_without_branch_certificates": false,
+        "all_four_properties_verified": false,
+        "formal_statuses": {
+          "projected_functional_equivalence": "VERIFIED",
+          "projected_content_invariance": "VERIFIED",
+          "projected_edge_necessity": "VERIFIED",
+          "projected_continuous_robustness": "UNKNOWN_BRANCH_UNSTABLE"
+        },
+        "timeouts": 0,
+        "errors": 0,
+        "unknowns": 1,
+        "qualitative_claim": "BandNorm verification requires branch certificates; whether the epsilon box remains within one branch is checkpoint-dependent.",
+        "quantitative_claim_scope": "raw_and_normalized_within_matched_topology_group"
+      },
+      {
+        "row_type": "matched_topology",
+        "comparison_group": "quote_close_5_edges",
+        "run": "norm_free",
+        "task": "quote_close",
+        "norm_variant": "none",
+        "model_n_heads": 2,
+        "head_dim": 8,
+        "circuit_edges": 5,
+        "active_attention_heads": 2,
+        "active_program_heads": 0,
+        "active_neural_heads": 2,
+        "qk_bilinear_terms_length_6": 336,
+        "zero_attention_bilinear_terms": false,
+        "assertion_categories": {
+          "norm": 0,
+          "attention": 21492,
+          "mlp": 305664,
+          "embedding/residual": 0,
+          "decision": 4487
+        },
+        "assertion_attribution": {
+          "norm": 0,
+          "attention": 21492,
+          "mlp": 305664,
+          "embedding/residual": 0,
+          "decision": 4487
+        },
+        "per_property_assertion_attribution": {
+          "projected_functional_equivalence": {
+            "assertions": {
+              "norm": 0,
+              "attention": 6912,
+              "mlp": 98304,
+              "embedding/residual": 0,
+              "decision": 128
+            },
+            "norm_instances": 0
+          },
+          "projected_content_invariance": {
+            "assertions": {
+              "norm": 0,
+              "attention": 13608,
+              "mlp": 193536,
+              "embedding/residual": 0,
+              "decision": 126
+            },
+            "norm_instances": 0
+          },
+          "projected_edge_necessity": {
+            "assertions": {
+              "norm": 0,
+              "attention": 972,
+              "mlp": 13824,
+              "embedding/residual": 0,
+              "decision": 9
+            },
+            "norm_instances": 0
+          },
+          "projected_continuous_robustness": {
+            "assertions": {
+              "norm": 0,
+              "attention": 0,
+              "mlp": 0,
+              "embedding/residual": 0,
+              "decision": 4224
+            },
+            "norm_instances": 0
+          }
+        },
+        "profiled_assertions": 331643,
+        "profiled_solve_seconds": 272.50673270225525,
+        "per_property_solve_seconds": {
+          "projected_functional_equivalence": 99.37463617324829,
+          "projected_content_invariance": 165.72353196144104,
+          "projected_edge_necessity": 7.274073600769043,
+          "projected_continuous_robustness": 0.134490966796875
+        },
+        "assertions_per_edge": 66328.6,
+        "solve_seconds_per_edge": 54.50134654045105,
+        "norm_instances": 0,
+        "norm_attributable_assertions": 0,
+        "norm_attributable_assertions_per_norm_instance": null,
+        "descriptive_wall_time_seconds_not_comparable": 1013.4627241669805,
+        "branch_certificates_required": false,
+        "robustness_branch_unknown_possible": false,
+        "robustness_provable_without_branch_certificates": true,
+        "all_four_properties_verified": true,
+        "formal_statuses": {
+          "projected_functional_equivalence": "VERIFIED",
+          "projected_content_invariance": "VERIFIED",
+          "projected_edge_necessity": "VERIFIED",
+          "projected_continuous_robustness": "VERIFIED"
+        },
+        "timeouts": 0,
+        "errors": 0,
+        "unknowns": 0,
+        "qualitative_claim": "Final decision is affine plus candidate argmax; no norm branch certificate is required and robustness cannot be branch-unknown.",
+        "quantitative_claim_scope": "raw_and_normalized_within_matched_topology_group"
+      }
+    ]
+  },
+  "runs": {
+    "bandnorm": {
+      "norm_variant": "signed_l1_band_norm",
+      "parameter_count": 7712,
+      "n_heads": 2,
+      "head_dim": 8,
+      "physical_qk_parameters": 1088,
+      "installed_program_heads": []
+    },
+    "norm_free": {
+      "norm_variant": "none",
+      "parameter_count": 7584,
+      "n_heads": 2,
+      "head_dim": 8,
+      "physical_qk_parameters": 1088,
+      "installed_program_heads": []
+    },
+    "program_healed": {
+      "norm_variant": "none",
+      "parameter_count": 6768,
+      "n_heads": 2,
+      "head_dim": 8,
+      "physical_qk_parameters": 272,
+      "installed_program_heads": [
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "attn_1_h_1"
+      ]
+    }
+  },
+  "rows": [
+    {
+      "row_type": "selected_circuit",
+      "comparison_group": null,
+      "run": "bandnorm",
+      "task": "quote_close",
+      "norm_variant": "signed_l1_band_norm",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 2,
+      "active_attention_heads": 1,
+      "active_program_heads": 0,
+      "active_neural_heads": 1,
+      "qk_bilinear_terms_length_6": 168,
+      "zero_attention_bilinear_terms": false,
+      "assertion_categories": {
+        "norm": 140632,
+        "attention": 10422,
+        "mlp": 0,
+        "embedding/residual": 0,
+        "decision": 4353
+      },
+      "assertion_attribution": {
+        "norm": 140632,
+        "attention": 10422,
+        "mlp": 0,
+        "embedding/residual": 0,
+        "decision": 4353
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 46592,
+            "attention": 3456,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 896
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 91728,
+            "attention": 6804,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 1764
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 2184,
+            "attention": 162,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 3
+          },
+          "norm_instances": 42
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 128,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 4096
+          },
+          "norm_instances": 128
+        }
+      },
+      "profiled_assertions": 155407,
+      "profiled_solve_seconds": 8.201419830322266,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 3.1358513832092285,
+        "projected_content_invariance": 4.805555582046509,
+        "projected_edge_necessity": 0.08140802383422852,
+        "projected_continuous_robustness": 0.1786048412322998
+      },
+      "assertions_per_edge": 77703.5,
+      "solve_seconds_per_edge": 4.100709915161133,
+      "norm_instances": 2830,
+      "norm_attributable_assertions": 140632,
+      "norm_attributable_assertions_per_norm_instance": 49.69328621908127,
+      "descriptive_wall_time_seconds_not_comparable": 76.4237717090582,
+      "branch_certificates_required": true,
+      "robustness_branch_unknown_possible": true,
+      "robustness_provable_without_branch_certificates": false,
+      "all_four_properties_verified": false,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "UNKNOWN_BRANCH_UNSTABLE"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 1,
+      "qualitative_claim": "BandNorm verification requires branch certificates; whether the epsilon box remains within one branch is checkpoint-dependent.",
+      "quantitative_claim_scope": "normalized_metrics_only_across_different_topologies"
+    },
+    {
+      "row_type": "selected_circuit",
+      "comparison_group": null,
+      "run": "bandnorm",
+      "task": "bracket_type",
+      "norm_variant": "signed_l1_band_norm",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 2,
+      "active_attention_heads": 1,
+      "active_program_heads": 0,
+      "active_neural_heads": 1,
+      "qk_bilinear_terms_length_6": 168,
+      "zero_attention_bilinear_terms": false,
+      "assertion_categories": {
+        "norm": 147288,
+        "attention": 10422,
+        "mlp": 0,
+        "embedding/residual": 0,
+        "decision": 6465
+      },
+      "assertion_attribution": {
+        "norm": 147288,
+        "attention": 10422,
+        "mlp": 0,
+        "embedding/residual": 0,
+        "decision": 6465
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 46592,
+            "attention": 3456,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 896
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 91728,
+            "attention": 6804,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 1764
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 2184,
+            "attention": 162,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 3
+          },
+          "norm_instances": 42
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 6784,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 6208
+          },
+          "norm_instances": 256
+        }
+      },
+      "profiled_assertions": 164175,
+      "profiled_solve_seconds": 9.816687107086182,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 3.2086522579193115,
+        "projected_content_invariance": 4.938580751419067,
+        "projected_edge_necessity": 0.07805585861206055,
+        "projected_continuous_robustness": 1.5913982391357422
+      },
+      "assertions_per_edge": 82087.5,
+      "solve_seconds_per_edge": 4.908343553543091,
+      "norm_instances": 2958,
+      "norm_attributable_assertions": 147288,
+      "norm_attributable_assertions_per_norm_instance": 49.793103448275865,
+      "descriptive_wall_time_seconds_not_comparable": 78.78522683298797,
+      "branch_certificates_required": true,
+      "robustness_branch_unknown_possible": true,
+      "robustness_provable_without_branch_certificates": false,
+      "all_four_properties_verified": false,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "UNKNOWN_BRANCH_UNSTABLE"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 1,
+      "qualitative_claim": "BandNorm verification requires branch certificates; whether the epsilon box remains within one branch is checkpoint-dependent.",
+      "quantitative_claim_scope": "normalized_metrics_only_across_different_topologies"
+    },
+    {
+      "row_type": "selected_circuit",
+      "comparison_group": null,
+      "run": "norm_free",
+      "task": "quote_close",
+      "norm_variant": "none",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 4,
+      "active_attention_heads": 1,
+      "active_program_heads": 0,
+      "active_neural_heads": 1,
+      "qk_bilinear_terms_length_6": 168,
+      "zero_attention_bilinear_terms": false,
+      "assertion_categories": {
+        "norm": 0,
+        "attention": 10638,
+        "mlp": 302592,
+        "embedding/residual": 0,
+        "decision": 4485
+      },
+      "assertion_attribution": {
+        "norm": 0,
+        "attention": 10638,
+        "mlp": 302592,
+        "embedding/residual": 0,
+        "decision": 4485
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 0,
+            "attention": 3456,
+            "mlp": 98304,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 0
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 0,
+            "attention": 6804,
+            "mlp": 193536,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 0
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 0,
+            "attention": 378,
+            "mlp": 10752,
+            "embedding/residual": 0,
+            "decision": 7
+          },
+          "norm_instances": 0
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 4224
+          },
+          "norm_instances": 0
+        }
+      },
+      "profiled_assertions": 317715,
+      "profiled_solve_seconds": 101.76794743537903,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 38.0821008682251,
+        "projected_content_invariance": 61.20846486091614,
+        "projected_edge_necessity": 2.3406333923339844,
+        "projected_continuous_robustness": 0.1367483139038086
+      },
+      "assertions_per_edge": 79428.75,
+      "solve_seconds_per_edge": 25.441986858844757,
+      "norm_instances": 0,
+      "norm_attributable_assertions": 0,
+      "norm_attributable_assertions_per_norm_instance": null,
+      "descriptive_wall_time_seconds_not_comparable": 575.4343237499706,
+      "branch_certificates_required": false,
+      "robustness_branch_unknown_possible": false,
+      "robustness_provable_without_branch_certificates": true,
+      "all_four_properties_verified": true,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "VERIFIED"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 0,
+      "qualitative_claim": "Final decision is affine plus candidate argmax; no norm branch certificate is required and robustness cannot be branch-unknown.",
+      "quantitative_claim_scope": "normalized_metrics_only_across_different_topologies"
+    },
+    {
+      "row_type": "selected_circuit",
+      "comparison_group": null,
+      "run": "norm_free",
+      "task": "bracket_type",
+      "norm_variant": "none",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 4,
+      "active_attention_heads": 1,
+      "active_program_heads": 0,
+      "active_neural_heads": 1,
+      "qk_bilinear_terms_length_6": 168,
+      "zero_attention_bilinear_terms": false,
+      "assertion_categories": {
+        "norm": 0,
+        "attention": 10476,
+        "mlp": 297984,
+        "embedding/residual": 0,
+        "decision": 4482
+      },
+      "assertion_attribution": {
+        "norm": 0,
+        "attention": 10476,
+        "mlp": 297984,
+        "embedding/residual": 0,
+        "decision": 4482
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 0,
+            "attention": 3456,
+            "mlp": 98304,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 0
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 0,
+            "attention": 6804,
+            "mlp": 193536,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 0
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 0,
+            "attention": 216,
+            "mlp": 6144,
+            "embedding/residual": 0,
+            "decision": 4
+          },
+          "norm_instances": 0
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 4224
+          },
+          "norm_instances": 0
+        }
+      },
+      "profiled_assertions": 312942,
+      "profiled_solve_seconds": 128.6436951160431,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 49.67195534706116,
+        "projected_content_invariance": 76.99029564857483,
+        "projected_edge_necessity": 1.8353981971740723,
+        "projected_continuous_robustness": 0.14604592323303223
+      },
+      "assertions_per_edge": 78235.5,
+      "solve_seconds_per_edge": 32.16092377901077,
+      "norm_instances": 0,
+      "norm_attributable_assertions": 0,
+      "norm_attributable_assertions_per_norm_instance": null,
+      "descriptive_wall_time_seconds_not_comparable": 626.02800195702,
+      "branch_certificates_required": false,
+      "robustness_branch_unknown_possible": false,
+      "robustness_provable_without_branch_certificates": true,
+      "all_four_properties_verified": true,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "VERIFIED"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 0,
+      "qualitative_claim": "Final decision is affine plus candidate argmax; no norm branch certificate is required and robustness cannot be branch-unknown.",
+      "quantitative_claim_scope": "normalized_metrics_only_across_different_topologies"
+    },
+    {
+      "row_type": "selected_circuit",
+      "comparison_group": null,
+      "run": "program_healed",
+      "task": "quote_close",
+      "norm_variant": "none",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 5,
+      "active_attention_heads": 2,
+      "active_program_heads": 2,
+      "active_neural_heads": 0,
+      "qk_bilinear_terms_length_6": 0,
+      "zero_attention_bilinear_terms": true,
+      "assertion_categories": {
+        "norm": 0,
+        "attention": 0,
+        "mlp": 152064,
+        "embedding/residual": 0,
+        "decision": 4486
+      },
+      "assertion_attribution": {
+        "norm": 0,
+        "attention": 0,
+        "mlp": 152064,
+        "embedding/residual": 0,
+        "decision": 4486
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 49152,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 0
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 96768,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 0
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 6144,
+            "embedding/residual": 0,
+            "decision": 8
+          },
+          "norm_instances": 0
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 4224
+          },
+          "norm_instances": 0
+        }
+      },
+      "profiled_assertions": 156550,
+      "profiled_solve_seconds": 21.83351182937622,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 7.2616565227508545,
+        "projected_content_invariance": 13.850379705429077,
+        "projected_edge_necessity": 0.5778396129608154,
+        "projected_continuous_robustness": 0.14363598823547363
+      },
+      "assertions_per_edge": 31310.0,
+      "solve_seconds_per_edge": 4.366702365875244,
+      "norm_instances": 0,
+      "norm_attributable_assertions": 0,
+      "norm_attributable_assertions_per_norm_instance": null,
+      "descriptive_wall_time_seconds_not_comparable": 311.53665466603707,
+      "branch_certificates_required": false,
+      "robustness_branch_unknown_possible": false,
+      "robustness_provable_without_branch_certificates": true,
+      "all_four_properties_verified": true,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "VERIFIED"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 0,
+      "qualitative_claim": "Final decision is affine plus candidate argmax; no norm branch certificate is required and robustness cannot be branch-unknown.",
+      "quantitative_claim_scope": "normalized_metrics_only_across_different_topologies"
+    },
+    {
+      "row_type": "selected_circuit",
+      "comparison_group": null,
+      "run": "program_healed",
+      "task": "bracket_type",
+      "norm_variant": "none",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 4,
+      "active_attention_heads": 1,
+      "active_program_heads": 1,
+      "active_neural_heads": 0,
+      "qk_bilinear_terms_length_6": 0,
+      "zero_attention_bilinear_terms": true,
+      "assertion_categories": {
+        "norm": 0,
+        "attention": 0,
+        "mlp": 302592,
+        "embedding/residual": 0,
+        "decision": 4485
+      },
+      "assertion_attribution": {
+        "norm": 0,
+        "attention": 0,
+        "mlp": 302592,
+        "embedding/residual": 0,
+        "decision": 4485
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 98304,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 0
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 193536,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 0
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 10752,
+            "embedding/residual": 0,
+            "decision": 7
+          },
+          "norm_instances": 0
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 4224
+          },
+          "norm_instances": 0
+        }
+      },
+      "profiled_assertions": 307077,
+      "profiled_solve_seconds": 86.92749381065369,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 29.63927984237671,
+        "projected_content_invariance": 55.28313708305359,
+        "projected_edge_necessity": 1.864689826965332,
+        "projected_continuous_robustness": 0.14038705825805664
+      },
+      "assertions_per_edge": 76769.25,
+      "solve_seconds_per_edge": 21.73187345266342,
+      "norm_instances": 0,
+      "norm_attributable_assertions": 0,
+      "norm_attributable_assertions_per_norm_instance": null,
+      "descriptive_wall_time_seconds_not_comparable": 534.4209287489648,
+      "branch_certificates_required": false,
+      "robustness_branch_unknown_possible": false,
+      "robustness_provable_without_branch_certificates": true,
+      "all_four_properties_verified": true,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "VERIFIED"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 0,
+      "qualitative_claim": "Final decision is affine plus candidate argmax; no norm branch certificate is required and robustness cannot be branch-unknown.",
+      "quantitative_claim_scope": "normalized_metrics_only_across_different_topologies"
+    },
+    {
+      "row_type": "matched_topology",
+      "comparison_group": "quote_close_5_edges",
+      "run": "bandnorm",
+      "task": "quote_close",
+      "norm_variant": "signed_l1_band_norm",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 5,
+      "active_attention_heads": 2,
+      "active_program_heads": 0,
+      "active_neural_heads": 2,
+      "qk_bilinear_terms_length_6": 336,
+      "zero_attention_bilinear_terms": false,
+      "assertion_categories": {
+        "norm": 389400,
+        "attention": 21276,
+        "mlp": 151296,
+        "embedding/residual": 0,
+        "decision": 4357
+      },
+      "assertion_attribution": {
+        "norm": 389400,
+        "attention": 21276,
+        "mlp": 151296,
+        "embedding/residual": 0,
+        "decision": 4357
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 126464,
+            "attention": 6912,
+            "mlp": 49152,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 2432
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 248976,
+            "attention": 13608,
+            "mlp": 96768,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 4788
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 13832,
+            "attention": 756,
+            "mlp": 5376,
+            "embedding/residual": 0,
+            "decision": 7
+          },
+          "norm_instances": 266
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 128,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 4096
+          },
+          "norm_instances": 128
+        }
+      },
+      "profiled_assertions": 566329,
+      "profiled_solve_seconds": 58.80256962776184,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 23.05590581893921,
+        "projected_content_invariance": 34.2485625743866,
+        "projected_edge_necessity": 1.276888370513916,
+        "projected_continuous_robustness": 0.22121286392211914
+      },
+      "assertions_per_edge": 113265.8,
+      "solve_seconds_per_edge": 11.760513925552369,
+      "norm_instances": 7614,
+      "norm_attributable_assertions": 389400,
+      "norm_attributable_assertions_per_norm_instance": 51.14263199369582,
+      "descriptive_wall_time_seconds_not_comparable": 406.0458072909678,
+      "branch_certificates_required": true,
+      "robustness_branch_unknown_possible": true,
+      "robustness_provable_without_branch_certificates": false,
+      "all_four_properties_verified": false,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "UNKNOWN_BRANCH_UNSTABLE"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 1,
+      "qualitative_claim": "BandNorm verification requires branch certificates; whether the epsilon box remains within one branch is checkpoint-dependent.",
+      "quantitative_claim_scope": "raw_and_normalized_within_matched_topology_group"
+    },
+    {
+      "row_type": "matched_topology",
+      "comparison_group": "quote_close_5_edges",
+      "run": "norm_free",
+      "task": "quote_close",
+      "norm_variant": "none",
+      "model_n_heads": 2,
+      "head_dim": 8,
+      "circuit_edges": 5,
+      "active_attention_heads": 2,
+      "active_program_heads": 0,
+      "active_neural_heads": 2,
+      "qk_bilinear_terms_length_6": 336,
+      "zero_attention_bilinear_terms": false,
+      "assertion_categories": {
+        "norm": 0,
+        "attention": 21492,
+        "mlp": 305664,
+        "embedding/residual": 0,
+        "decision": 4487
+      },
+      "assertion_attribution": {
+        "norm": 0,
+        "attention": 21492,
+        "mlp": 305664,
+        "embedding/residual": 0,
+        "decision": 4487
+      },
+      "per_property_assertion_attribution": {
+        "projected_functional_equivalence": {
+          "assertions": {
+            "norm": 0,
+            "attention": 6912,
+            "mlp": 98304,
+            "embedding/residual": 0,
+            "decision": 128
+          },
+          "norm_instances": 0
+        },
+        "projected_content_invariance": {
+          "assertions": {
+            "norm": 0,
+            "attention": 13608,
+            "mlp": 193536,
+            "embedding/residual": 0,
+            "decision": 126
+          },
+          "norm_instances": 0
+        },
+        "projected_edge_necessity": {
+          "assertions": {
+            "norm": 0,
+            "attention": 972,
+            "mlp": 13824,
+            "embedding/residual": 0,
+            "decision": 9
+          },
+          "norm_instances": 0
+        },
+        "projected_continuous_robustness": {
+          "assertions": {
+            "norm": 0,
+            "attention": 0,
+            "mlp": 0,
+            "embedding/residual": 0,
+            "decision": 4224
+          },
+          "norm_instances": 0
+        }
+      },
+      "profiled_assertions": 331643,
+      "profiled_solve_seconds": 272.50673270225525,
+      "per_property_solve_seconds": {
+        "projected_functional_equivalence": 99.37463617324829,
+        "projected_content_invariance": 165.72353196144104,
+        "projected_edge_necessity": 7.274073600769043,
+        "projected_continuous_robustness": 0.134490966796875
+      },
+      "assertions_per_edge": 66328.6,
+      "solve_seconds_per_edge": 54.50134654045105,
+      "norm_instances": 0,
+      "norm_attributable_assertions": 0,
+      "norm_attributable_assertions_per_norm_instance": null,
+      "descriptive_wall_time_seconds_not_comparable": 1013.4627241669805,
+      "branch_certificates_required": false,
+      "robustness_branch_unknown_possible": false,
+      "robustness_provable_without_branch_certificates": true,
+      "all_four_properties_verified": true,
+      "formal_statuses": {
+        "projected_functional_equivalence": "VERIFIED",
+        "projected_content_invariance": "VERIFIED",
+        "projected_edge_necessity": "VERIFIED",
+        "projected_continuous_robustness": "VERIFIED"
+      },
+      "timeouts": 0,
+      "errors": 0,
+      "unknowns": 0,
+      "qualitative_claim": "Final decision is affine plus candidate argmax; no norm branch certificate is required and robustness cannot be branch-unknown.",
+      "quantitative_claim_scope": "raw_and_normalized_within_matched_topology_group"
+    }
+  ]
+}

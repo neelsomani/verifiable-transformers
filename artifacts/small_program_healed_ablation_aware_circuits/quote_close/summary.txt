@@ -1,0 +1,12 @@
+Circuit Extraction Summary
+============================================================
+Task: quote_close
+Model: artifacts/small_program_healed_ablation_aware/checkpoint-final
+
+Best Circuit:
+  Threshold: 0.002
+  Nodes: 8
+  Edges: 2
+  Candidate Accuracy: 1.0000
+  Agreement with Full Model: 1.0000
+  Mean Candidate KL: 0.371472

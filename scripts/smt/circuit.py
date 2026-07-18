@@ -516,3 +516,10 @@ def encode_logits_layer_candidates(
         logits[tok] = Sum([z3_real(lm_head[tok][j]) * normed[j] for j in range(d_model)])
 
     return logits
+
+
+# Phase-0 circuits use pre-W_O attention-head nodes. Keep the legacy helpers
+# above readable for old artifacts, but make the per-head encoder authoritative.
+from .per_head_circuit import encode_per_head_circuit_forward
+
+encode_circuit_forward = encode_per_head_circuit_forward

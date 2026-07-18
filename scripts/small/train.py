@@ -394,10 +394,17 @@ def create_small_model(config: SmallVerifiableConfig) -> GPT2LMHeadModel:
             l1_low_per_dim=config.norm_l1_low_per_dim,
             l1_high_per_dim=config.norm_l1_high_per_dim,
         )
+    elif config.norm_variant == "none":
+        for block in model.transformer.h:
+            block.ln_1 = nn.Identity()
+            block.ln_2 = nn.Identity()
+        model.transformer.ln_f = nn.Identity()
+        model.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=True)
 
     # Apply sparsemax attention
-    if config.attn_variant == "sparsemax":
-        for block in model.transformer.h:
+    for block in model.transformer.h:
+        block.attn._verifiable_attention_variant = config.attn_variant
+        if config.attn_variant == "sparsemax":
             block.attn.forward = MethodType(gpt2_forward_with_sparsemax, block.attn)
 
     # Tie embeddings if requested
@@ -405,6 +412,56 @@ def create_small_model(config: SmallVerifiableConfig) -> GPT2LMHeadModel:
         model.tie_weights()
 
     return model
+
+
+def initialize_from_checkpoint(model: GPT2LMHeadModel, checkpoint: str) -> None:
+    """Initialize a matched architecture, translating LayerNorm affine names.
+
+    This is useful for controlled normalization comparisons: all shared weights
+    can start from the same trained model while BandNorm's additional branch
+    buffers retain their defined defaults.
+    """
+    from safetensors.torch import load_file
+
+    weights_path = os.path.join(checkpoint, "model.safetensors")
+    if os.path.exists(weights_path):
+        source = load_file(weights_path)
+    else:
+        weights_path = os.path.join(checkpoint, "pytorch_model.bin")
+        if not os.path.exists(weights_path):
+            raise FileNotFoundError(f"No model weights found in {checkpoint}")
+        source = torch.load(weights_path, map_location="cpu")
+
+    target = model.state_dict()
+    translated = {}
+    unhandled = []
+    for source_name, value in source.items():
+        candidates = [source_name]
+        if source_name.endswith((".ln_1.weight", ".ln_2.weight", ".ln_f.weight")):
+            candidates.append(source_name[: -len("weight")] + "gamma")
+        elif source_name.endswith((".ln_1.bias", ".ln_2.bias", ".ln_f.bias")):
+            candidates.append(source_name[: -len("bias")] + "beta")
+        target_name = next(
+            (
+                name
+                for name in candidates
+                if name in target and target[name].shape == value.shape
+            ),
+            None,
+        )
+        if target_name is None:
+            unhandled.append(source_name)
+            continue
+        target[target_name] = value.to(dtype=target[target_name].dtype)
+        translated[source_name] = target_name
+    if unhandled:
+        raise RuntimeError(
+            f"Initialization checkpoint has incompatible keys: {unhandled}"
+        )
+    model.load_state_dict(target, strict=True)
+    print(
+        f"Initialized {len(translated)} checkpoint tensors from {weights_path}"
+    )
 
 
 # ============================================================================
@@ -606,6 +663,15 @@ def parse_args():
         help="Path to config JSON (default: use default config)",
     )
     parser.add_argument(
+        "--init_checkpoint",
+        type=str,
+        default=None,
+        help=(
+            "Optional matching checkpoint used only for initialization; "
+            "LayerNorm weight/bias names translate to BandNorm gamma/beta."
+        ),
+    )
+    parser.add_argument(
         "--learning_rate",
         type=float,
         default=0.003,
@@ -683,6 +749,8 @@ def main():
     # Create model
     print("\nCreating model...")
     model = create_small_model(config)
+    if args.init_checkpoint:
+        initialize_from_checkpoint(model, args.init_checkpoint)
 
     # Count parameters
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

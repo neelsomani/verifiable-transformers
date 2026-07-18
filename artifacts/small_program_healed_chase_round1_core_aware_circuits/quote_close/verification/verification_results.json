@@ -1,0 +1,136 @@
+{
+  "task": "quote_close",
+  "circuit_path": "artifacts/small_program_healed_chase_round1_core_aware_circuits/quote_close/circuit.json",
+  "weights_path": "artifacts/small_program_healed_chase_round1_core_aware/smt_weights.json",
+  "checkpoint": "artifacts/small_program_healed_chase_round1_core_aware/checkpoint-final",
+  "num_inputs": 128,
+  "candidate_tokens": [
+    9,
+    10
+  ],
+  "candidate_names": [
+    "single_quote",
+    "double_quote"
+  ],
+  "properties": [
+    {
+      "property": "pytorch_circuit_validation",
+      "status": "PASSED",
+      "examples_checked": 128,
+      "num_failures": 0,
+      "failures": []
+    },
+    {
+      "property": "smt_pytorch_sanity",
+      "status": "PASSED",
+      "examples_checked": 8,
+      "max_logit_diff": 1.4814884767844205e-06,
+      "tolerance": 0.001,
+      "num_failures": 0,
+      "num_logit_failures": 0,
+      "failures": [],
+      "logit_failures": []
+    },
+    {
+      "property": "projected_functional_equivalence",
+      "status": "VERIFIED",
+      "verified_count": 128,
+      "timeout_count": 0,
+      "error_count": 0,
+      "total_sequences": 128,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "assertion_count": 49280,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 0,
+          "mlp": 49152,
+          "embedding/residual": 0,
+          "decision": 128
+        },
+        "norm_instances": 0
+      },
+      "encoding_seconds": 83.30632090568542,
+      "solve_seconds": 7.2616565227508545,
+      "wall_time_seconds": 101.8507102500007
+    },
+    {
+      "property": "projected_content_invariance",
+      "status": "VERIFIED",
+      "proof_strategy": "one_anchor_per_feature_plus_transitivity",
+      "verified_anchor_comparisons": 126,
+      "verified_pairs_by_transitivity": 4032,
+      "assertion_count": 96894,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 0,
+          "mlp": 96768,
+          "embedding/residual": 0,
+          "decision": 126
+        },
+        "norm_instances": 0
+      },
+      "solve_seconds": 13.850379705429077,
+      "timeout_count": 0,
+      "error_count": 0,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "wall_time_seconds": 197.9491323750117
+    },
+    {
+      "property": "projected_edge_necessity",
+      "status": "VERIFIED",
+      "total_edges": 5,
+      "necessary_edges": 5,
+      "unnecessary_edges_found": 0,
+      "unresolved_edges_found": 0,
+      "timeout_count": 0,
+      "error_count": 0,
+      "unnecessary_edges": [],
+      "unresolved_edges": [],
+      "assertion_count": 6152,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 0,
+          "mlp": 6144,
+          "embedding/residual": 0,
+          "decision": 8
+        },
+        "norm_instances": 0
+      },
+      "solve_seconds": 0.5778396129608154,
+      "wall_time_seconds": 11.028009500005282
+    },
+    {
+      "property": "projected_continuous_robustness",
+      "status": "VERIFIED",
+      "verified_count": 128,
+      "timeout_count": 0,
+      "error_count": 0,
+      "certified_epsilon": 0.01,
+      "violations": [],
+      "num_violations": 0,
+      "decision_violations": [],
+      "num_decision_violations": 0,
+      "branch_unstable": [],
+      "num_branch_unstable": 0,
+      "branch_certificates_required": false,
+      "assertion_count": 4224,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 0,
+          "attention": 0,
+          "mlp": 0,
+          "embedding/residual": 0,
+          "decision": 4224
+        },
+        "norm_instances": 0
+      },
+      "solve_seconds": 0.14363598823547363,
+      "wall_time_seconds": 0.708802541019395
+    }
+  ]
+}

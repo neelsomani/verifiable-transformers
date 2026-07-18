@@ -1,0 +1,2194 @@
+[
+  {
+    "threshold": 0.0,
+    "n_edges": 23,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": -6.360243887115757e-09
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "n_heads": 2,
+      "granularity": "head",
+      "nodes": [
+        "emb",
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "mlp_0",
+        "attn_1_h_0",
+        "attn_1_h_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0_h_0",
+          "target": "attn_1_h_0"
+        },
+        {
+          "source": "attn_0_h_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_0",
+          "target": "logits"
+        },
+        {
+          "source": "attn_0_h_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "attn_1_h_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "attn_1_h_0",
+          "target": "logits"
+        },
+        {
+          "source": "attn_1_h_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "logits"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_0"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_1_h_0"
+        },
+        {
+          "source": "emb",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "emb",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 23,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.0
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0_h_0",
+          "logits"
+        ],
+        "delta": 7.960764492054295e-09,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "logits"
+        ],
+        "delta": -5.295832217200314e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "logits"
+        ],
+        "delta": 3.812726578900083e-08,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "logits"
+        ],
+        "delta": 1.161692424922478e-06,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": 1.7473222868602534e-10,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 7.706843607735436e-08,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.004277887462039054,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_1"
+        ],
+        "delta": 6.095586813081866e-09,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_1"
+        ],
+        "delta": 1.6051039697373426e-07,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "mlp_1"
+        ],
+        "delta": 1.1505434915903834e-07,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "mlp_1"
+        ],
+        "delta": 9.529053230927786e-06,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": -5.721125795332682e-10,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 5.568556944446357e-07,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_1"
+        ],
+        "delta": 7.6724880941903e-06,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_1"
+        ],
+        "delta": 2.7049318340743866e-09,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_1"
+        ],
+        "delta": 3.806995607646968e-09,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.0009337478439861435,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_0"
+        ],
+        "delta": 3.3627012285819546e-10,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_0"
+        ],
+        "delta": 1.1374015063125853e-08,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_0"
+        ],
+        "delta": 1.6860683960118195e-08,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_0"
+        ],
+        "delta": 5.4968487095408136e-08,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        "delta": 1.1201743044253476e-07,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        "delta": 0.0018557040492610533,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": -4.922990903821756e-10,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_1"
+        ],
+        "delta": 0.002861850735973448,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_0"
+        ],
+        "delta": 3.618519350823135e-08,
+        "agreement": 1.0,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 1e-06,
+    "n_edges": 11,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 2.0536922420433257e-06
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "n_heads": 2,
+      "granularity": "head",
+      "nodes": [
+        "emb",
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "mlp_0",
+        "attn_1_h_0",
+        "attn_1_h_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0_h_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_0"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "logits"
+        },
+        {
+          "source": "mlp_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 11,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 1e-06
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0_h_0",
+          "logits"
+        ],
+        "delta": 7.960764492054295e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "logits"
+        ],
+        "delta": -4.9938502222346415e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "logits"
+        ],
+        "delta": -2.8509234972773356e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "logits"
+        ],
+        "delta": 3.327379243245332e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": -1.565774709888501e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.26125393712573e-06,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.08659278919287772,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_1"
+        ],
+        "delta": 3.030996253983176e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.00011586397246787783,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "mlp_1"
+        ],
+        "delta": 3.175686913436948e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.00020596173135345452,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": 5.913358336329111e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 1.7157712534299208e-05,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_1"
+        ],
+        "delta": 9.284649820529012e-06,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_1"
+        ],
+        "delta": 3.2385218560193607e-06,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_1"
+        ],
+        "delta": 2.1312700937414775e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.00011640328273188061,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        "delta": 5.093164645586512e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        "delta": 0.003538583059253142,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 7.988546713022515e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_1"
+        ],
+        "delta": 0.5280264940715824,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_0"
+        ],
+        "delta": 2.188798589486396e-06,
+        "agreement": 1.0,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 1e-05,
+    "n_edges": 12,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 1.3050740562903229e-05
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "n_heads": 2,
+      "granularity": "head",
+      "nodes": [
+        "emb",
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "mlp_0",
+        "attn_1_h_0",
+        "attn_1_h_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0_h_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_0"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_1"
+        },
+        {
+          "source": "emb",
+          "target": "mlp_0"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 12,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 1e-05
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0_h_0",
+          "logits"
+        ],
+        "delta": 7.960764492054295e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "logits"
+        ],
+        "delta": -4.9938502222346415e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "logits"
+        ],
+        "delta": -2.8509234972773356e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "logits"
+        ],
+        "delta": 3.327379243245332e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": -1.565774709888501e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.26125393712573e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.694113133166411,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_1"
+        ],
+        "delta": 7.213497610791819e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.004100882200873457,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "mlp_1"
+        ],
+        "delta": -1.7545607988722622e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.0026100929171661846,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": -2.9196871764725074e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.000131738174786733,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_1"
+        ],
+        "delta": 5.639317441819003e-05,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_1"
+        ],
+        "delta": 0.00011344753784214845,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_1"
+        ],
+        "delta": 4.305322363507003e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.0007240464901769883,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        "delta": 1.199681264552055e-05,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        "delta": 0.0006704807738060481,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 1.1794195415859576e-05,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_1"
+        ],
+        "delta": 0.3244853940550456,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_0"
+        ],
+        "delta": 4.00941307816538e-05,
+        "agreement": 1.0,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.0001,
+    "n_edges": 8,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 7.574599294457585e-05
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "n_heads": 2,
+      "granularity": "head",
+      "nodes": [
+        "emb",
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "mlp_0",
+        "attn_1_h_0",
+        "attn_1_h_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0_h_1",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "mlp_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 8,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.0001
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0_h_0",
+          "logits"
+        ],
+        "delta": 7.960764492054295e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "logits"
+        ],
+        "delta": -4.9938502222346415e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "logits"
+        ],
+        "delta": -2.8509234972773356e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "logits"
+        ],
+        "delta": 3.327379243245332e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": -1.565774709888501e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.26125393712573e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.694113133166411,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_1"
+        ],
+        "delta": 7.213497610791819e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.004100882200873457,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "mlp_1"
+        ],
+        "delta": -1.7545607988722622e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.0026100929171661846,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": -2.9196871764725074e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.000131738174786733,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_1"
+        ],
+        "delta": 5.639317441819003e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_1"
+        ],
+        "delta": 0.00015847415488678962,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_1"
+        ],
+        "delta": -1.8337035726290196e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.002189046899729874,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        "delta": 9.296290954807773e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        "delta": 0.00872812456873362,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 1.9648145098472014e-05,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_1"
+        ],
+        "delta": 0.7121333594986936,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      }
+    ]
+  },
+  {
+    "threshold": 0.001,
+    "n_edges": 9,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.002137536648660898
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "n_heads": 2,
+      "granularity": "head",
+      "nodes": [
+        "emb",
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "mlp_0",
+        "attn_1_h_0",
+        "attn_1_h_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0_h_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_0"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 9,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.001
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0_h_0",
+          "logits"
+        ],
+        "delta": 7.960764492054295e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "logits"
+        ],
+        "delta": -4.9938502222346415e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "logits"
+        ],
+        "delta": -2.8509234972773356e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "logits"
+        ],
+        "delta": 3.327379243245332e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": -1.565774709888501e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.26125393712573e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.694113133166411,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_1"
+        ],
+        "delta": 7.213497610791819e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.004100882200873457,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "mlp_1"
+        ],
+        "delta": -1.7545607988722622e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.0026100929171661846,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": -2.9196871764725074e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.000131738174786733,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.0017662343016127124,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_1"
+        ],
+        "delta": 0.0008476574585074559,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_1"
+        ],
+        "delta": 0.0007973568281158805,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.024683224270120263,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        "delta": 0.00470505771227181,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        "delta": 0.00639252201654017,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.0003520387690514326,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_1"
+        ],
+        "delta": 0.45254177367314696,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_0"
+        ],
+        "delta": 0.009631834458559752,
+        "agreement": 1.0,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.01,
+    "n_edges": 9,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.016201592981815338
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "n_heads": 2,
+      "granularity": "head",
+      "nodes": [
+        "emb",
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "mlp_0",
+        "attn_1_h_0",
+        "attn_1_h_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0_h_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_0"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 9,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.01
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0_h_0",
+          "logits"
+        ],
+        "delta": 7.960764492054295e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "logits"
+        ],
+        "delta": -4.9938502222346415e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "logits"
+        ],
+        "delta": -2.8509234972773356e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "logits"
+        ],
+        "delta": 3.327379243245332e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": -1.565774709888501e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.26125393712573e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.694113133166411,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_1"
+        ],
+        "delta": 7.213497610791819e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.004100882200873457,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "mlp_1"
+        ],
+        "delta": -0.0033562888856977224,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.13461939920671284,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": -0.00017583504086360335,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.00801797368330881,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.01858504768460989,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_1"
+        ],
+        "delta": 0.12072472181171179,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_1"
+        ],
+        "delta": 0.005783755332231522,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.31339628528803587,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        "delta": 0.07131495606154203,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        "delta": 0.030169743113219738,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": 0.0018203137442469597,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_1"
+        ],
+        "delta": 0.4855983480811119,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_0"
+        ],
+        "delta": 0.1297263577580452,
+        "agreement": 1.0,
+        "decision": "kept"
+      }
+    ]
+  },
+  {
+    "threshold": 0.1,
+    "n_edges": 7,
+    "metrics": {
+      "candidate_accuracy": 1.0,
+      "agreement": 1.0,
+      "mean_candidate_kl": 0.06931057572364807
+    },
+    "circuit": {
+      "task": "bracket_type",
+      "n_layers": 2,
+      "n_heads": 2,
+      "granularity": "head",
+      "nodes": [
+        "emb",
+        "attn_0_h_0",
+        "attn_0_h_1",
+        "mlp_0",
+        "attn_1_h_0",
+        "attn_1_h_1",
+        "mlp_1",
+        "logits"
+      ],
+      "edges": [
+        {
+          "source": "attn_0_h_0",
+          "target": "mlp_0"
+        },
+        {
+          "source": "attn_0_h_1",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "attn_1_h_1",
+          "target": "mlp_1"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_0"
+        },
+        {
+          "source": "emb",
+          "target": "attn_0_h_1"
+        },
+        {
+          "source": "mlp_0",
+          "target": "attn_1_h_1"
+        },
+        {
+          "source": "mlp_1",
+          "target": "logits"
+        }
+      ],
+      "num_edges": 7,
+      "ablation": "zero",
+      "metric": "candidate_kl",
+      "min_agreement": 1.0,
+      "threshold": 0.1
+    },
+    "edge_log": [
+      {
+        "edge": [
+          "attn_0_h_0",
+          "logits"
+        ],
+        "delta": 7.960764492054295e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "logits"
+        ],
+        "delta": -4.9938502222346415e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "logits"
+        ],
+        "delta": -2.8509234972773356e-09,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "logits"
+        ],
+        "delta": 3.327379243245332e-07,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "logits"
+        ],
+        "delta": -1.565774709888501e-08,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "logits"
+        ],
+        "delta": 3.26125393712573e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_1",
+          "logits"
+        ],
+        "delta": 0.694113133166411,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_1"
+        ],
+        "delta": 7.213497610791819e-06,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.004100882200873457,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_0",
+          "mlp_1"
+        ],
+        "delta": -0.0033562888856977224,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_1_h_1",
+          "mlp_1"
+        ],
+        "delta": 0.13461939920671284,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_1"
+        ],
+        "delta": -0.00017583504086360335,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "mlp_1"
+        ],
+        "delta": 0.00801797368330881,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.01858504768460989,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_1"
+        ],
+        "delta": 0.14109597355127335,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_1"
+        ],
+        "delta": 0.0008290745317935944,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_1"
+        ],
+        "delta": 0.6731125451624393,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "mlp_0",
+          "attn_1_h_0"
+        ],
+        "delta": 0.0,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "attn_0_h_0",
+          "mlp_0"
+        ],
+        "delta": 0.12382425740361214,
+        "agreement": 1.0,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "attn_0_h_1",
+          "mlp_0"
+        ],
+        "delta": 0.054277870804071426,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "mlp_0"
+        ],
+        "delta": -0.012978941202163696,
+        "agreement": 1.0,
+        "decision": "removed"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_1"
+        ],
+        "delta": 0.4807129204273224,
+        "agreement": 0.5,
+        "decision": "kept"
+      },
+      {
+        "edge": [
+          "emb",
+          "attn_0_h_0"
+        ],
+        "delta": 0.41258504986763,
+        "agreement": 0.5,
+        "decision": "kept"
+      }
+    ]
+  }
+]

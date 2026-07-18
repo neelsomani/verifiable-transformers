@@ -237,3 +237,174 @@ def trace_circuit_forward(
     trace["bandnorm"][norm_ctx] = tr
     trace["final_residual"] = final_residual.tolist()
     return trace
+
+
+# Per-head trace used by Phase-0 circuits. The legacy implementation above is
+# retained as documentation for existing block artifacts.
+def trace_circuit_forward(
+    input_tokens: List[int],
+    circuit_edges: Set[Tuple[str, str]],
+    model_weights: Dict[str, Any],
+    ctx_prefix: str,
+) -> Dict[str, Any]:
+    """Trace exact supports/branches for pre-W_O attention-head nodes."""
+    import re
+
+    from scripts.programs.dsl import AttentionProgram
+
+    d_model = model_weights["d_model"]
+    n_layers = model_weights["n_layers"]
+    n_heads = model_weights["n_heads"]
+    head_dim = d_model // n_heads
+    seq_len = len(input_tokens)
+    norm_variant = model_weights.get("norm_variant", "layer_norm")
+    trace: Dict[str, Any] = {"bandnorm": {}, "sparsemax": {}, "leaky_relu": {}}
+    active = {"emb", "logits"}
+    for source, target in circuit_edges:
+        active.update((source, target))
+
+    head_pattern = re.compile(r"^attn_(\d+)_h_(\d+)$")
+    wte = np.asarray(model_weights["wte"], dtype=np.float64)
+    wpe = np.asarray(model_weights["wpe"], dtype=np.float64)
+    outputs: Dict[str, np.ndarray] = {
+        "emb": np.stack(
+            [wte[token] + wpe[position] for position, token in enumerate(input_tokens)]
+        )
+    }
+
+    def residual_for(child: str) -> np.ndarray:
+        residual = np.zeros((seq_len, d_model), dtype=np.float64)
+        selected: Dict[int, Dict[int, np.ndarray]] = {}
+        for parent, target in circuit_edges:
+            if target != child or parent not in outputs:
+                continue
+            match = head_pattern.match(parent)
+            if match is None:
+                residual += outputs[parent]
+            else:
+                layer, head = int(match.group(1)), int(match.group(2))
+                selected.setdefault(layer, {})[head] = outputs[parent]
+        for layer, heads in selected.items():
+            concatenated = np.zeros((seq_len, d_model), dtype=np.float64)
+            for head, values in heads.items():
+                start = head * head_dim
+                concatenated[:, start : start + head_dim] = values
+            W_o = np.asarray(model_weights[f"attn_{layer}_W_o"], dtype=np.float64)
+            b_o = np.asarray(model_weights[f"attn_{layer}_b_o"], dtype=np.float64)
+            residual += concatenated @ W_o.T + b_o
+        return residual
+
+    def normalize(
+        residual: np.ndarray,
+        gamma_key: str,
+        beta_key: str,
+        context: str,
+    ) -> np.ndarray:
+        if norm_variant == "none":
+            return residual
+        if norm_variant != "signed_l1_band_norm":
+            raise ValueError(f"No exact trace for norm variant {norm_variant!r}")
+        normalized = []
+        for position in range(seq_len):
+            norm_context = f"{context}_norm_p{position}"
+            value, branch = bandnorm_trace(
+                residual[position],
+                model_weights[gamma_key],
+                model_weights[beta_key],
+                model_weights["half_low"],
+                model_weights["half_high"],
+            )
+            trace["bandnorm"][norm_context] = branch
+            normalized.append(value)
+        return np.stack(normalized)
+
+    program_specs = model_weights.get("program_heads", {})
+    for layer in range(n_layers):
+        W_q = np.asarray(model_weights[f"attn_{layer}_W_q"], dtype=np.float64)
+        W_k = np.asarray(model_weights[f"attn_{layer}_W_k"], dtype=np.float64)
+        W_v = np.asarray(model_weights[f"attn_{layer}_W_v"], dtype=np.float64)
+        b_q = np.asarray(model_weights[f"attn_{layer}_b_q"], dtype=np.float64)
+        b_k = np.asarray(model_weights[f"attn_{layer}_b_k"], dtype=np.float64)
+        b_v = np.asarray(model_weights[f"attn_{layer}_b_v"], dtype=np.float64)
+        for head in range(n_heads):
+            node = f"attn_{layer}_h_{head}"
+            if node not in active:
+                outputs[node] = np.zeros((seq_len, head_dim), dtype=np.float64)
+                continue
+            context = f"{ctx_prefix}_L{layer}_attn_h{head}"
+            normalized = normalize(
+                residual_for(node),
+                f"attn_{layer}_norm_gamma",
+                f"attn_{layer}_norm_beta",
+                context,
+            )
+            start, stop = head * head_dim, (head + 1) * head_dim
+            values = normalized @ W_v[start:stop].T + b_v[start:stop]
+            raw_program = program_specs.get(f"{layer}.{head}")
+            if raw_program is not None:
+                program = AttentionProgram.from_dict(raw_program)
+                weights = np.asarray(
+                    [
+                        [float(weight) for weight in row]
+                        for row in program.rational_weights(input_tokens)
+                    ],
+                    dtype=np.float64,
+                )
+                outputs[node] = weights @ values
+                continue
+
+            queries = normalized @ W_q[start:stop].T + b_q[start:stop]
+            keys = normalized @ W_k[start:stop].T + b_k[start:stop]
+            head_output = []
+            for position in range(seq_len):
+                scores = np.asarray(
+                    [
+                        np.dot(queries[position], keys[key_position])
+                        / math.sqrt(head_dim)
+                        for key_position in range(position + 1)
+                    ]
+                )
+                weights = sparsemax_np(scores)
+                trace["sparsemax"][f"{context}_p{position}"] = [
+                    int(index) for index in np.where(weights > 0)[0]
+                ]
+                head_output.append(weights @ values[: position + 1])
+            outputs[node] = np.stack(head_output)
+
+        mlp_node = f"mlp_{layer}"
+        if mlp_node not in active:
+            outputs[mlp_node] = np.zeros((seq_len, d_model), dtype=np.float64)
+            continue
+        context = f"{ctx_prefix}_L{layer}_mlp"
+        normalized = normalize(
+            residual_for(mlp_node),
+            f"mlp_{layer}_norm_gamma",
+            f"mlp_{layer}_norm_beta",
+            context,
+        )
+        W_up = np.asarray(model_weights[f"mlp_{layer}_W_up"], dtype=np.float64)
+        b_up = np.asarray(model_weights[f"mlp_{layer}_b_up"], dtype=np.float64)
+        W_down = np.asarray(model_weights[f"mlp_{layer}_W_down"], dtype=np.float64)
+        b_down = np.asarray(model_weights[f"mlp_{layer}_b_down"], dtype=np.float64)
+        hidden_pre = normalized @ W_up.T + b_up
+        for position in range(seq_len):
+            for hidden in range(hidden_pre.shape[-1]):
+                trace["leaky_relu"][
+                    f"{context}_p{position}_hidden_{hidden}"
+                ] = bool(hidden_pre[position, hidden] >= 0)
+        hidden = np.where(hidden_pre >= 0, hidden_pre, 0.01 * hidden_pre)
+        outputs[mlp_node] = hidden @ W_down.T + b_down
+
+    final_residual = residual_for("logits")[-1]
+    if norm_variant == "signed_l1_band_norm":
+        norm_context = f"{ctx_prefix}_logits_norm"
+        _, branch = bandnorm_trace(
+            final_residual,
+            model_weights["final_norm_gamma"],
+            model_weights["final_norm_beta"],
+            model_weights["half_low"],
+            model_weights["half_high"],
+        )
+        trace["bandnorm"][norm_context] = branch
+    trace["final_residual"] = final_residual.tolist()
+    return trace

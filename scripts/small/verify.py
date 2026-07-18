@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from typing import Any, Callable, Dict, List
 
 try:
@@ -46,10 +47,15 @@ def load_json(path: str) -> Dict[str, Any]:
 def assert_verifiable_weights(model_weights: Dict[str, Any]) -> None:
     """Reject weights for model variants the SMT encoder does not implement."""
     expected = {
-        "norm_variant": "signed_l1_band_norm",
         "attn_variant": "sparsemax",
         "activation_variant": "leaky_relu",
     }
+
+    if model_weights.get("norm_variant") not in {"signed_l1_band_norm", "none"}:
+        raise ValueError(
+            "SMT verification supports norm_variant='signed_l1_band_norm' or 'none', "
+            f"got {model_weights.get('norm_variant')!r}"
+        )
 
     for key, value in expected.items():
         actual = model_weights.get(key)
@@ -126,7 +132,7 @@ def run_pytorch_circuit_validation(
 
     circuit_edges = parse_circuit_edges(circuit)
     config = load_small_config(checkpoint_path)
-    graph = CircuitGraph(config.n_layers)
+    graph = CircuitGraph(config.n_layers, config.n_heads, per_head=True)
     device = torch.device("cpu")
     pytorch_model = load_model(checkpoint_path, config, device)
 
@@ -205,7 +211,7 @@ def run_smt_sanity_check(
     circuit_edges = parse_circuit_edges(circuit)
 
     config = load_small_config(checkpoint_path)
-    graph = CircuitGraph(config.n_layers)
+    graph = CircuitGraph(config.n_layers, config.n_heads, per_head=True)
     device = torch.device("cpu")
     pytorch_model = load_model(checkpoint_path, config, device)
 
@@ -564,6 +570,7 @@ def main() -> None:
         print(f"PROPERTY: {property_name}")
         print(f"{'=' * 80}\n")
 
+        property_started = time.perf_counter()
         try:
             result = run_property(
                 property_name,
@@ -580,6 +587,7 @@ def main() -> None:
                 "status": "ERROR",
                 "message": str(e),
             }
+        result["wall_time_seconds"] = time.perf_counter() - property_started
 
         results.append(result)
         print(f"Status: {result.get('status', 'UNKNOWN')}")

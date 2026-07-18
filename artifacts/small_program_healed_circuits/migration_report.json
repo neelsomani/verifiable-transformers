@@ -1,0 +1,87 @@
+{
+  "checkpoint": "artifacts/small_program_healed/checkpoint-final",
+  "circuit_root": "artifacts/small_program_healed_circuits",
+  "program_nodes": [
+    "attn_0_h_0",
+    "attn_0_h_1"
+  ],
+  "criterion": "Every intended program head must be individually necessary and the remaining full neural graph must have projected agreement < 1.0.",
+  "tasks": {
+    "quote_close": {
+      "intended_program_heads": [
+        "attn_0_h_0"
+      ],
+      "circuit_edges": 6,
+      "full_metrics": {
+        "candidate_accuracy": 1.0,
+        "agreement": 1.0,
+        "mean_candidate_kl": 0.0
+      },
+      "individual_ablations": {
+        "attn_0_h_0": {
+          "metrics": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 7.355373782047536e-06
+          },
+          "necessary": false
+        }
+      },
+      "without_intended_program_heads": {
+        "candidate_accuracy": 1.0,
+        "agreement": 1.0,
+        "mean_candidate_kl": 7.355373782047536e-06
+      },
+      "without_all_program_heads": {
+        "candidate_accuracy": 1.0,
+        "agreement": 1.0,
+        "mean_candidate_kl": 0.002567671239376068
+      },
+      "necessary": false,
+      "non_bypassed": false
+    },
+    "bracket_type": {
+      "intended_program_heads": [
+        "attn_0_h_0",
+        "attn_0_h_1"
+      ],
+      "circuit_edges": 7,
+      "full_metrics": {
+        "candidate_accuracy": 1.0,
+        "agreement": 1.0,
+        "mean_candidate_kl": 0.0
+      },
+      "individual_ablations": {
+        "attn_0_h_0": {
+          "metrics": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 4.9424713211010385e-09
+          },
+          "necessary": false
+        },
+        "attn_0_h_1": {
+          "metrics": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.013065364211797714
+          },
+          "necessary": false
+        }
+      },
+      "without_intended_program_heads": {
+        "candidate_accuracy": 0.5,
+        "agreement": 0.5,
+        "mean_candidate_kl": 1.8004786968231201
+      },
+      "without_all_program_heads": {
+        "candidate_accuracy": 0.5,
+        "agreement": 0.5,
+        "mean_candidate_kl": 1.8004786968231201
+      },
+      "necessary": false,
+      "non_bypassed": true
+    }
+  },
+  "migration_pass": false
+}

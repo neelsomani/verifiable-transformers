@@ -13,6 +13,13 @@ from .encoders import (
     z3_real,
 )
 from .trace import trace_circuit_forward
+from .attribution import (
+    add_profiled_assertion,
+    assertion_total,
+    increment_norm_instances,
+    new_assertion_profile,
+    record_solver_delta,
+)
 
 
 def verify_functional_equivalence(
@@ -42,6 +49,9 @@ def verify_functional_equivalence(
     verified_count = 0
     timeout_count = 0
     error_count = 0
+    assertion_profile = new_assertion_profile()
+    encoding_seconds = 0.0
+    solve_seconds = 0.0
 
     print(f"Verifying functional equivalence on {len(input_sequences)} sequences...")
 
@@ -66,8 +76,10 @@ def verify_functional_equivalence(
                 solver,
                 f"seq_{i}",
                 trace=trace_circuit_forward(input_tokens, circuit_edges, model_weights, f"seq_{i}"),
+                assertion_profile=assertion_profile,
             )
 
+            encoding_seconds += time.time() - t0
             print(
                 f"  seq {i}: encoded in {time.time() - t0:.2f}s, "
                 f"assertions={len(solver.assertions())}",
@@ -91,7 +103,9 @@ def verify_functional_equivalence(
                     violations.append(circuit_logits[tok] >= circuit_logits[expected_token])
 
             print(f"  seq {i}: validating base constraints...", flush=True)
+            solve_started = time.time()
             base_result = solver.check()
+            solve_seconds += time.time() - solve_started
             print(f"  seq {i}: base result={base_result}", flush=True)
 
             if base_result == unsat:
@@ -109,12 +123,15 @@ def verify_functional_equivalence(
                 continue
 
             solver.push()
-            solver.add(Or(violations))
+            add_profiled_assertion(
+                assertion_profile, "decision", solver, Or(violations)
+            )
 
             # Check satisfiability
             print(f"  seq {i}: checking violation...", flush=True)
             t1 = time.time()
             result = solver.check()
+            solve_seconds += time.time() - t1
             print(f"  seq {i}: violation result={result} in {time.time() - t1:.2f}s", flush=True)
             solver.pop()
 
@@ -157,6 +174,132 @@ def verify_functional_equivalence(
         "total_sequences": len(input_sequences),
         "counterexamples": counterexamples[:5],  # Return first 5
         "num_counterexamples": len(counterexamples),
+        "assertion_count": assertion_total(assertion_profile),
+        "assertion_attribution": assertion_profile,
+        "encoding_seconds": encoding_seconds,
+        "solve_seconds": solve_seconds,
+    }
+
+
+def _verify_content_invariance_via_anchors(
+    circuit: Dict[str, Any],
+    input_sequences: List[Tuple[List[int], Any]],
+    model_weights: Dict[str, Any],
+    candidate_tokens: List[int],
+    get_structural_feature: Callable[[List[int]], Any],
+    timeout_ms: int,
+) -> Dict[str, Any]:
+    """Prove each group against one anchor; transitivity covers every pair."""
+    circuit_edges = parse_circuit_edges(circuit)
+    groups: Dict[Any, List[List[int]]] = {}
+    for sequence, _ in input_sequences:
+        groups.setdefault(get_structural_feature(sequence), []).append(sequence)
+
+    verified_comparisons = 0
+    total_pairs = sum(len(group) * (len(group) - 1) // 2 for group in groups.values())
+    assertion_profile = new_assertion_profile()
+    solve_seconds = 0.0
+    timeout_count = 0
+    error_count = 0
+    counterexamples = []
+    for feature, sequences in groups.items():
+        if len(sequences) < 2:
+            continue
+        anchor = sequences[0]
+        for index, sequence in enumerate(sequences[1:], start=1):
+            solver = Solver()
+            solver.set("timeout", timeout_ms)
+            try:
+                anchor_prefix = f"feature_{feature}_anchor_{index}"
+                sequence_prefix = f"feature_{feature}_seq_{index}"
+                anchor_logits = encode_circuit_forward(
+                    anchor,
+                    circuit_edges,
+                    model_weights,
+                    candidate_tokens,
+                    solver,
+                    anchor_prefix,
+                    trace=trace_circuit_forward(
+                        anchor, circuit_edges, model_weights, anchor_prefix
+                    ),
+                    assertion_profile=assertion_profile,
+                )
+                sequence_logits = encode_circuit_forward(
+                    sequence,
+                    circuit_edges,
+                    model_weights,
+                    candidate_tokens,
+                    solver,
+                    sequence_prefix,
+                    trace=trace_circuit_forward(
+                        sequence, circuit_edges, model_weights, sequence_prefix
+                    ),
+                    assertion_profile=assertion_profile,
+                )
+                ordering_differs = []
+                for left in candidate_tokens:
+                    for right in candidate_tokens:
+                        if left == right:
+                            continue
+                        ordering_differs.extend(
+                            [
+                                And(
+                                    anchor_logits[left] > anchor_logits[right],
+                                    sequence_logits[left] <= sequence_logits[right],
+                                ),
+                                And(
+                                    anchor_logits[left] <= anchor_logits[right],
+                                    sequence_logits[left] > sequence_logits[right],
+                                ),
+                            ]
+                        )
+                started = time.time()
+                base = solver.check()
+                solve_seconds += time.time() - started
+                if base != sat:
+                    if base == unknown:
+                        timeout_count += 1
+                    else:
+                        error_count += 1
+                    continue
+                solver.push()
+                add_profiled_assertion(
+                    assertion_profile, "decision", solver, Or(ordering_differs)
+                )
+                started = time.time()
+                result = solver.check()
+                solve_seconds += time.time() - started
+                solver.pop()
+                if result == unsat:
+                    verified_comparisons += 1
+                elif result == sat:
+                    counterexamples.append(
+                        {"feature": str(feature), "anchor": anchor, "sequence": sequence}
+                    )
+                else:
+                    timeout_count += 1
+            except Exception:
+                error_count += 1
+
+    if counterexamples:
+        status = "FAILED"
+    elif timeout_count or error_count:
+        status = "UNKNOWN"
+    else:
+        status = "VERIFIED"
+    return {
+        "property": "projected_content_invariance",
+        "status": status,
+        "proof_strategy": "one_anchor_per_feature_plus_transitivity",
+        "verified_anchor_comparisons": verified_comparisons,
+        "verified_pairs_by_transitivity": total_pairs if status == "VERIFIED" else 0,
+        "assertion_count": assertion_total(assertion_profile),
+        "assertion_attribution": assertion_profile,
+        "solve_seconds": solve_seconds,
+        "timeout_count": timeout_count,
+        "error_count": error_count,
+        "counterexamples": counterexamples[:5],
+        "num_counterexamples": len(counterexamples),
     }
 
 
@@ -186,6 +329,16 @@ def verify_content_invariance(
     Returns:
         Verification result dict
     """
+    if circuit.get("granularity") == "head":
+        return _verify_content_invariance_via_anchors(
+            circuit,
+            input_sequences,
+            model_weights,
+            candidate_tokens,
+            get_structural_feature,
+            timeout_ms,
+        )
+
     circuit_edges = parse_circuit_edges(circuit)
 
     # Group sequences by structural feature
@@ -200,6 +353,8 @@ def verify_content_invariance(
     verified_pairs = 0
     timeout_count = 0
     error_count = 0
+    assertion_profile = new_assertion_profile()
+    solve_seconds = 0.0
 
     total_pairs = sum(
         len(sequences) * (len(sequences) - 1) // 2
@@ -384,6 +539,8 @@ def verify_edge_necessity(
     unresolved_edges = []
     timeout_count = 0
     error_count = 0
+    assertion_profile = new_assertion_profile()
+    solve_seconds = 0.0
 
     print(f"Verifying necessity of {len(edges)} edges...")
 
@@ -414,6 +571,7 @@ def verify_edge_necessity(
                     solver,
                     f"full_e{edge_idx}",
                     trace=trace_circuit_forward(input_tokens, circuit_edges, model_weights, f"full_e{edge_idx}"),
+                    assertion_profile=assertion_profile,
                 )
 
                 # Encode ablated circuit
@@ -425,6 +583,7 @@ def verify_edge_necessity(
                     solver,
                     f"ablated_e{edge_idx}",
                     trace=trace_circuit_forward(input_tokens, ablated_edges, model_weights, f"ablated_e{edge_idx}"),
+                    assertion_profile=assertion_profile,
                 )
 
                 # Add constraint: decisions (argmax) differ
@@ -446,7 +605,9 @@ def verify_edge_necessity(
                                     logits_ablated[tok1] > logits_ablated[tok2])
                             )
 
+                solve_started = time.time()
                 base_result = solver.check()
+                solve_seconds += time.time() - solve_started
                 if base_result == unsat:
                     print(f"  ERROR: full/ablated trace certificate invalid for edge {edge}")
                     error_count += 1
@@ -461,9 +622,13 @@ def verify_edge_necessity(
                     continue
 
                 solver.push()
-                solver.add(Or(ordering_violations))
+                add_profiled_assertion(
+                    assertion_profile, "decision", solver, Or(ordering_violations)
+                )
 
+                solve_started = time.time()
                 result = solver.check()
+                solve_seconds += time.time() - solve_started
                 solver.pop()
 
                 if result == sat:
@@ -516,6 +681,9 @@ def verify_edge_necessity(
         "error_count": error_count,
         "unnecessary_edges": unnecessary_edges[:10],
         "unresolved_edges": unresolved_edges[:10],
+        "assertion_count": assertion_total(assertion_profile),
+        "assertion_attribution": assertion_profile,
+        "solve_seconds": solve_seconds,
     }
 
 
@@ -544,7 +712,6 @@ def verify_token_renaming_equivariance(
     verified_count = 0
     timeout_count = 0
     error_count = 0
-
     # Use synthetic token set for tractability
     candidate_tokens = list(range(20, 30))
 
@@ -669,6 +836,8 @@ def verify_structural_constraint(
     verified_count = 0
     timeout_count = 0
     error_count = 0
+    assertion_profile = new_assertion_profile()
+    solve_seconds = 0.0
 
     print(f"Verifying {constraint_name} on {len(test_inputs)} inputs...")
 
@@ -774,6 +943,8 @@ def verify_continuous_robustness(
     verified_count = 0
     timeout_count = 0
     error_count = 0
+    assertion_profile = new_assertion_profile()
+    solve_seconds = 0.0
 
     d_model = model_weights["d_model"]
     print(f"Verifying continuous robustness on {len(test_inputs)} inputs...")
@@ -786,23 +957,97 @@ def verify_continuous_robustness(
         try:
             trace = trace_circuit_forward(input_tokens, circuit_edges, model_weights, f"rob_{i}")
             final_residual = [z3_real(v) for v in trace["final_residual"]]
-            final_trace = trace["bandnorm"][f"rob_{i}_logits_norm"]
+            lm_head = model_weights["lm_head"]
+            lm_bias = model_weights.get("lm_head_bias", [0.0] * len(lm_head))
 
+            if model_weights.get("norm_variant") == "none":
+                # With ln_f folded away, g_T is a single affine map followed by
+                # candidate argmax. There is no branch certificate to validate
+                # and a linear solver decides the entire epsilon box directly.
+                decision_solver = Solver()
+                decision_solver.set("timeout", timeout_ms)
+                eta = [Real(f"rob_{i}_eta_{j}") for j in range(d_model)]
+                for j in range(d_model):
+                    add_profiled_assertion(
+                        assertion_profile,
+                        "decision",
+                        decision_solver,
+                        eta[j] >= -z3_real(epsilon),
+                        eta[j] <= z3_real(epsilon),
+                    )
+                perturbed = [final_residual[j] + eta[j] for j in range(d_model)]
+                logits_original = {
+                    tok: Sum(
+                        [z3_real(lm_head[tok][j]) * final_residual[j] for j in range(d_model)]
+                    )
+                    + z3_real(lm_bias[tok])
+                    for tok in candidate_tokens
+                }
+                logits_perturbed = {
+                    tok: Sum(
+                        [z3_real(lm_head[tok][j]) * perturbed[j] for j in range(d_model)]
+                    )
+                    + z3_real(lm_bias[tok])
+                    for tok in candidate_tokens
+                }
+                decision_flips = []
+                for tok1 in candidate_tokens:
+                    for tok2 in candidate_tokens:
+                        if tok1 == tok2:
+                            continue
+                        decision_flips.extend(
+                            [
+                                And(
+                                    logits_original[tok1] > logits_original[tok2],
+                                    logits_perturbed[tok1] <= logits_perturbed[tok2],
+                                ),
+                                And(
+                                    logits_original[tok1] <= logits_original[tok2],
+                                    logits_perturbed[tok1] > logits_perturbed[tok2],
+                                ),
+                            ]
+                        )
+                add_profiled_assertion(
+                    assertion_profile,
+                    "decision",
+                    decision_solver,
+                    Or(decision_flips),
+                )
+                solve_started = time.time()
+                decision_result = decision_solver.check()
+                solve_seconds += time.time() - solve_started
+                if decision_result == unsat:
+                    verified_count += 1
+                elif decision_result == sat:
+                    decision_violations.append(
+                        {"input": input_tokens, "decision_flip_found": True}
+                    )
+                    if len(decision_violations) >= 10:
+                        break
+                else:
+                    timeout_count += 1
+                continue
+
+            final_trace = trace["bandnorm"][f"rob_{i}_logits_norm"]
             norm_gamma = model_weights["final_norm_gamma"]
             norm_beta = model_weights["final_norm_beta"]
             half_low = model_weights["half_low"]
             half_high = model_weights["half_high"]
             pos_fallback = [1.0 if k % 2 == 0 else 0.0 for k in range(d_model)]
             neg_fallback = [0.0 if k % 2 == 0 else 1.0 for k in range(d_model)]
-            lm_head = model_weights["lm_head"]
 
             # Check 1: final BandNorm branch is stable throughout the epsilon ball.
             stability_solver = Solver()
             stability_solver.set("timeout", timeout_ms)
             eta = [Real(f"rob_{i}_stable_eta_{j}") for j in range(d_model)]
             for j in range(d_model):
-                stability_solver.add(eta[j] >= -z3_real(epsilon))
-                stability_solver.add(eta[j] <= z3_real(epsilon))
+                add_profiled_assertion(
+                    assertion_profile,
+                    "decision",
+                    stability_solver,
+                    eta[j] >= -z3_real(epsilon),
+                    eta[j] <= z3_real(epsilon),
+                )
             perturbed_residual = [final_residual[j] + eta[j] for j in range(d_model)]
             guards = signed_l1_band_norm_guard_conditions(
                 perturbed_residual,
@@ -810,8 +1055,16 @@ def verify_continuous_robustness(
                 half_high,
                 final_trace,
             )
-            stability_solver.add(Or([Not(g) for g in guards]))
+            increment_norm_instances(assertion_profile)
+            add_profiled_assertion(
+                assertion_profile,
+                "norm",
+                stability_solver,
+                Or([Not(g) for g in guards]),
+            )
+            solve_started = time.time()
             stability_result = stability_solver.check()
+            solve_seconds += time.time() - solve_started
 
             if stability_result == sat:
                 branch_unstable.append({
@@ -828,10 +1081,17 @@ def verify_continuous_robustness(
             decision_solver.set("timeout", timeout_ms)
             eta = [Real(f"rob_{i}_decision_eta_{j}") for j in range(d_model)]
             for j in range(d_model):
-                decision_solver.add(eta[j] >= -z3_real(epsilon))
-                decision_solver.add(eta[j] <= z3_real(epsilon))
+                add_profiled_assertion(
+                    assertion_profile,
+                    "decision",
+                    decision_solver,
+                    eta[j] >= -z3_real(epsilon),
+                    eta[j] <= z3_real(epsilon),
+                )
             perturbed_residual = [final_residual[j] + eta[j] for j in range(d_model)]
 
+            increment_norm_instances(assertion_profile)
+            norm_before = len(decision_solver.assertions())
             normed_original = encode_signed_l1_band_norm_with_trace(
                 final_residual,
                 norm_gamma,
@@ -844,6 +1104,11 @@ def verify_continuous_robustness(
                 decision_solver,
                 f"rob_{i}_norm_orig",
             )
+            record_solver_delta(
+                assertion_profile, "norm", decision_solver, norm_before
+            )
+            increment_norm_instances(assertion_profile)
+            norm_before = len(decision_solver.assertions())
             normed_perturbed = encode_signed_l1_band_norm_with_trace(
                 perturbed_residual,
                 norm_gamma,
@@ -855,6 +1120,9 @@ def verify_continuous_robustness(
                 final_trace,
                 decision_solver,
                 f"rob_{i}_norm_pert",
+            )
+            record_solver_delta(
+                assertion_profile, "norm", decision_solver, norm_before
             )
 
             logits_original = {
@@ -883,7 +1151,9 @@ def verify_continuous_robustness(
                 verified_count += 1
                 continue
 
+            solve_started = time.time()
             base_result = decision_solver.check()
+            solve_seconds += time.time() - solve_started
             if base_result == unsat:
                 print(f"  ERROR: robustness trace certificate invalid on input {i}")
                 error_count += 1
@@ -893,8 +1163,15 @@ def verify_continuous_robustness(
                 continue
 
             decision_solver.push()
-            decision_solver.add(Or(decision_flips))
+            add_profiled_assertion(
+                assertion_profile,
+                "decision",
+                decision_solver,
+                Or(decision_flips),
+            )
+            solve_started = time.time()
             decision_result = decision_solver.check()
+            solve_seconds += time.time() - solve_started
             decision_solver.pop()
 
             if decision_result == unsat:
@@ -936,4 +1213,8 @@ def verify_continuous_robustness(
         "num_decision_violations": len(decision_violations),
         "branch_unstable": branch_unstable[:5],
         "num_branch_unstable": len(branch_unstable),
+        "branch_certificates_required": model_weights.get("norm_variant") != "none",
+        "assertion_count": assertion_total(assertion_profile),
+        "assertion_attribution": assertion_profile,
+        "solve_seconds": solve_seconds,
     }

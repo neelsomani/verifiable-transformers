@@ -1,0 +1,134 @@
+{
+  "checkpoint": "artifacts/small_program_healed_ablation_aware/checkpoint-final",
+  "circuit_root": "artifacts/small_program_healed_ablation_aware_circuits",
+  "acceptance_metric": "projected_agreement",
+  "healable_agreement": 1.0,
+  "lm_proposer": null,
+  "lm_proposer_rounds": 2,
+  "requested_targets": [
+    "quote_close:1.1"
+  ],
+  "existing_programs_preserved": [
+    "0.0",
+    "0.1"
+  ],
+  "programs": {
+    "0.0": {
+      "dsl_version": 1,
+      "name": "relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "0.1": {
+      "dsl_version": 1,
+      "name": "distance_le_3+key_position_3",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 3
+            }
+          ]
+        }
+      ]
+    },
+    "1.1": {
+      "dsl_version": 1,
+      "name": "key_position_3+key_position_2",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 2
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tasks": {
+    "quote_close": {
+      "1.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 120,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.875,
+        "mean_absolute_error": 0.05025635287165642,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "key_position_3+key_position_2",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_position",
+                  "operator": "==",
+                  "value": 3
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_position",
+                  "operator": "==",
+                  "value": 2
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction_sparsemax": 0.75,
+        "target_zero_fraction_softmax_counterfactual": null,
+        "mean_support_size_sparsemax": 1.5,
+        "mean_support_size_softmax_counterfactual": null,
+        "softmax_counterfactual_unavailable_reason": "checkpoint already contains program heads, so the raw neural softmax counterfactual is not architecture-compatible"
+      }
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "checkpoint": "artifacts/small_program_healed_ablation_aware/checkpoint-final",
+  "circuit_root": "artifacts/small_program_healed_ablation_aware_circuits",
+  "program_nodes": [
+    "attn_0_h_0",
+    "attn_0_h_1"
+  ],
+  "criterion": "Every intended program head must be individually necessary and the remaining full neural graph must have projected agreement < 1.0.",
+  "tasks": {
+    "quote_close": {
+      "intended_program_heads": [
+        "attn_0_h_0"
+      ],
+      "circuit_edges": 5,
+      "full_metrics": {
+        "candidate_accuracy": 1.0,
+        "agreement": 1.0,
+        "mean_candidate_kl": 0.0
+      },
+      "individual_ablations": {
+        "attn_0_h_0": {
+          "metrics": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6158537864685059
+          },
+          "necessary": true
+        }
+      },
+      "without_intended_program_heads": {
+        "candidate_accuracy": 0.5,
+        "agreement": 0.5,
+        "mean_candidate_kl": 0.6158537864685059
+      },
+      "without_all_program_heads": {
+        "candidate_accuracy": 0.5,
+        "agreement": 0.5,
+        "mean_candidate_kl": 1.3647160530090332
+      },
+      "necessary": true,
+      "non_bypassed": true
+    },
+    "bracket_type": {
+      "intended_program_heads": [
+        "attn_0_h_1"
+      ],
+      "circuit_edges": 4,
+      "full_metrics": {
+        "candidate_accuracy": 1.0,
+        "agreement": 1.0,
+        "mean_candidate_kl": 0.0
+      },
+      "individual_ablations": {
+        "attn_0_h_1": {
+          "metrics": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.7027404308319092
+          },
+          "necessary": true
+        }
+      },
+      "without_intended_program_heads": {
+        "candidate_accuracy": 0.5,
+        "agreement": 0.5,
+        "mean_candidate_kl": 0.7027404308319092
+      },
+      "without_all_program_heads": {
+        "candidate_accuracy": 0.5,
+        "agreement": 0.5,
+        "mean_candidate_kl": 1.0791789293289185
+      },
+      "necessary": true,
+      "non_bypassed": true
+    }
+  },
+  "migration_pass": true
+}

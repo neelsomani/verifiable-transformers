@@ -71,7 +71,7 @@ class SmallVerifiableConfig:
         assert self.d_mlp > 0, "d_mlp must be positive"
 
         # Validate variant choices
-        valid_norms = ["signed_l1_band_norm", "layer_norm", "verifiable_pwl_v1", "verifiable_pwl_v2"]
+        valid_norms = ["signed_l1_band_norm", "layer_norm", "none", "verifiable_pwl_v1", "verifiable_pwl_v2"]
         assert self.norm_variant in valid_norms, \
             f"norm_variant must be one of {valid_norms}, got {self.norm_variant}"
 

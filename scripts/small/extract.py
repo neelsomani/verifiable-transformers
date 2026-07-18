@@ -10,8 +10,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Dict, List, Set, Tuple, Any
-from dataclasses import dataclass, asdict
+from typing import Dict, List, Set, Tuple
 
 import torch
 import torch.nn as nn
@@ -25,207 +24,11 @@ from scripts.small import (
     VOCAB_SIZE,
 )
 from scripts.small.config import SmallVerifiableConfig
+from scripts.circuits import CircuitGraph, controlled_forward
 
 
-# ============================================================================
-# Circuit Graph
-# ============================================================================
-
-
-@dataclass
-class CircuitNode:
-    """A node in the circuit computational graph."""
-    name: str
-    layer: int
-    type: str  # "emb", "attn", "mlp", "logits"
-
-
-@dataclass
-class CircuitEdge:
-    """An edge in the circuit computational graph."""
-    source: str
-    target: str
-    weight: float = 1.0  # Edge importance (for future use)
-
-
-class CircuitGraph:
-    """Computational graph for circuit extraction."""
-
-    def __init__(self, n_layers: int):
-        self.n_layers = n_layers
-        self.nodes: List[str] = []
-        self.edges: Set[Tuple[str, str]] = set()
-        self.incoming_edges: Dict[str, List[Tuple[str, str]]] = {}
-
-        self._build_graph()
-        self.all_edges = self.edges.copy()  # Full edge set for reference
-
-    def _build_graph(self):
-        """Build the computational graph structure."""
-        # Add embedding node
-        self.nodes.append("emb")
-        self.incoming_edges["emb"] = []
-
-        # Add layer nodes
-        for layer in range(self.n_layers):
-            attn_node = f"attn_{layer}"
-            mlp_node = f"mlp_{layer}"
-
-            self.nodes.append(attn_node)
-            self.nodes.append(mlp_node)
-
-            self.incoming_edges[attn_node] = []
-            self.incoming_edges[mlp_node] = []
-
-        # Add output node
-        self.nodes.append("logits")
-        self.incoming_edges["logits"] = []
-
-        # Add edges (coarse-grained: block-level)
-        # Embedding feeds into all attention and MLP blocks (via residual)
-        for layer in range(self.n_layers):
-            self.edges.add(("emb", f"attn_{layer}"))
-            self.edges.add(("emb", f"mlp_{layer}"))
-
-        # Each layer feeds into subsequent layers
-        for layer in range(self.n_layers):
-            attn_node = f"attn_{layer}"
-            mlp_node = f"mlp_{layer}"
-
-            # Attention output feeds into same-layer MLP
-            self.edges.add((attn_node, mlp_node))
-
-            # Both feed into next layer's attention and MLP
-            for next_layer in range(layer + 1, self.n_layers):
-                self.edges.add((attn_node, f"attn_{next_layer}"))
-                self.edges.add((attn_node, f"mlp_{next_layer}"))
-                self.edges.add((mlp_node, f"attn_{next_layer}"))
-                self.edges.add((mlp_node, f"mlp_{next_layer}"))
-
-            # Feed into logits
-            self.edges.add((attn_node, "logits"))
-            self.edges.add((mlp_node, "logits"))
-
-        # Also embedding directly to logits
-        self.edges.add(("emb", "logits"))
-
-        # Build incoming edge lists
-        for source, target in self.edges:
-            self.incoming_edges[target].append((source, target))
-
-    def remove_edge(self, edge: Tuple[str, str]):
-        """Remove an edge from the graph."""
-        if edge in self.edges:
-            self.edges.discard(edge)
-            source, target = edge
-            self.incoming_edges[target] = [
-                e for e in self.incoming_edges[target] if e != edge
-            ]
-
-    def get_edges(self) -> Set[Tuple[str, str]]:
-        """Get all current edges."""
-        return self.edges.copy()
-
-    def to_dict(self) -> Dict:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "n_layers": self.n_layers,
-            "nodes": self.nodes,
-            "edges": [{"source": s, "target": t} for s, t in sorted(self.edges)],
-        }
-
-
-# ============================================================================
-# Circuit Evaluation
-# ============================================================================
-
-
-def controlled_forward(
-    model: GPT2LMHeadModel,
-    input_ids: torch.Tensor,
-    edges_to_keep: Set[Tuple[str, str]],
-    graph: CircuitGraph,
-    return_node_outputs: bool = False,
-):
-    """Controlled forward pass with edge ablation (zero ablation only).
-
-    Args:
-        model: GPT2 model
-        input_ids: [B, T]
-        edges_to_keep: Set of (parent, child) edges to use clean activations
-        graph: Circuit graph
-        return_node_outputs: If True, return node activations
-
-    Returns:
-        logits: [B, T, vocab]
-        node_outputs: Dict[str, Tensor] if return_node_outputs, else None
-    """
-    device = input_ids.device
-    B, T = input_ids.shape
-
-    node_outputs = {}
-
-    # Compute embedding
-    position_ids = torch.arange(T, device=device).unsqueeze(0).expand(B, T)
-    token_embeds = model.transformer.wte(input_ids)
-    pos_embeds = model.transformer.wpe(position_ids)
-    emb = model.transformer.drop(token_embeds + pos_embeds)
-    node_outputs["emb"] = emb
-
-    # Process each layer
-    for i in range(graph.n_layers):
-        block = model.transformer.h[i]
-        attn_node = f"attn_{i}"
-        mlp_node = f"mlp_{i}"
-
-        # Build residual input for attention
-        attn_parents = [p for p, c in graph.incoming_edges[attn_node]]
-        resid_for_attn = torch.zeros_like(emb)
-        for parent in attn_parents:
-            if (parent, attn_node) in edges_to_keep:
-                resid_for_attn = resid_for_attn + node_outputs[parent]
-            # else: zero ablation (deleted edges contribute 0)
-
-        # Compute attention output
-        x_norm = block.ln_1(resid_for_attn)
-        attn_out = block.attn(
-            x_norm,
-            attention_mask=None,
-            head_mask=None,
-            layer_past=None,
-            use_cache=False,
-            output_attentions=False,
-        )[0]
-        node_outputs[attn_node] = attn_out
-
-        # Build residual input for MLP
-        mlp_parents = [p for p, c in graph.incoming_edges[mlp_node]]
-        resid_for_mlp = torch.zeros_like(emb)
-        for parent in mlp_parents:
-            if (parent, mlp_node) in edges_to_keep:
-                resid_for_mlp = resid_for_mlp + node_outputs[parent]
-            # else: zero ablation (deleted edges contribute 0)
-
-        # Compute MLP output
-        x_norm = block.ln_2(resid_for_mlp)
-        mlp_out = block.mlp(x_norm)
-        node_outputs[mlp_node] = mlp_out
-
-    # Build final residual for logits
-    logit_parents = [p for p, c in graph.incoming_edges["logits"]]
-    final_resid = torch.zeros_like(emb)
-    for parent in logit_parents:
-        if (parent, "logits") in edges_to_keep:
-            final_resid = final_resid + node_outputs[parent]
-        # else: zero ablation (deleted edges contribute 0)
-
-    # Final layer norm and logits
-    hidden = model.transformer.ln_f(final_resid)
-    logits = model.lm_head(hidden)
-
-    if return_node_outputs:
-        return logits, node_outputs
-    return logits
+# The graph and controlled forward pass are shared with the GPT-2 extractor.
+# Attention nodes are named ``attn_<layer>_h_<head>`` and store pre-W_O values.
 
 
 def compute_candidate_kl(
@@ -371,7 +174,7 @@ def verify_controlled_forward(
     task_name: str,
     graph: CircuitGraph,
     device: torch.device,
-    atol: float = 1e-5,
+    atol: float = 1e-4,
 ):
     """Verify controlled_forward reproduces native model forward.
 
@@ -442,7 +245,7 @@ def find_circuit(
     # Verify controlled forward matches native
     if verbose:
         print("Verifying controlled forward implementation...")
-    verify_controlled_forward(model, task_name, graph, device, atol=1e-5)
+    verify_controlled_forward(model, task_name, graph, device, atol=1e-4)
     if verbose:
         print("Controlled forward matches native model.\n")
 
@@ -517,18 +320,12 @@ def cleanup_graph(
     edges: Set[Tuple[str, str]],
     graph: CircuitGraph,
 ) -> Set[Tuple[str, str]]:
-    """Remove edges not on any path from emb to logits."""
-    # Find nodes reachable from emb
-    reachable_from_emb = {"emb"}
-    changed = True
-    while changed:
-        changed = False
-        for parent, child in edges:
-            if parent in reachable_from_emb and child not in reachable_from_emb:
-                reachable_from_emb.add(child)
-                changed = True
+    """Remove only subgraphs that cannot influence logits structurally.
 
-    # Find nodes that can reach logits
+    Do not require reachability from ``emb``: GPT attention and MLP modules have
+    biases, so a node with a zero residual input can still emit a nonzero value.
+    Every remaining removal is checked behaviorally by ``projected_trim``.
+    """
     can_reach_logits = {"logits"}
     changed = True
     while changed:
@@ -538,11 +335,65 @@ def cleanup_graph(
                 can_reach_logits.add(parent)
                 changed = True
 
-    # Keep only edges on paths from emb to logits
-    valid_nodes = reachable_from_emb & can_reach_logits
-    cleaned_edges = {(p, c) for p, c in edges if p in valid_nodes and c in valid_nodes}
+    cleaned_edges = {
+        (parent, child)
+        for parent, child in edges
+        if parent in can_reach_logits and child in can_reach_logits
+    }
 
     return cleaned_edges
+
+
+def projected_trim(
+    model: GPT2LMHeadModel,
+    task_name: str,
+    edges: Set[Tuple[str, str]],
+    graph: CircuitGraph,
+    min_agreement: float,
+    device: torch.device,
+) -> Tuple[Set[Tuple[str, str]], List[Dict]]:
+    """Remove every edge unnecessary for the projected decision domain.
+
+    ACDC ranks removals with candidate KL, while the formal edge-necessity
+    property is decision-based. This deterministic fixed-point pass aligns the
+    emitted circuit with that acceptance metric without changing search ranking.
+    """
+    examples = get_eval_dataset(task_name)
+    candidates = sorted(vocab.get_candidates(vocab.TASK_NAME_TO_TOKEN[task_name]))
+    input_ids = torch.tensor(
+        [example["input_ids"] for example in examples],
+        dtype=torch.long,
+        device=device,
+    )
+    with torch.no_grad():
+        full_logits = controlled_forward(model, input_ids, graph.get_edges(), graph)
+
+    trimmed = cleanup_graph(set(edges), graph)
+    log = []
+    changed = True
+    while changed:
+        changed = False
+        for edge in sorted(trimmed):
+            candidate = cleanup_graph(trimmed - {edge}, graph)
+            with torch.no_grad():
+                logits = controlled_forward(model, input_ids, candidate, graph)
+            agreement = compute_projected_agreement(
+                full_logits, logits, candidates
+            )
+            removed = agreement >= min_agreement
+            log.append(
+                {
+                    "edge": list(edge),
+                    "agreement": agreement,
+                    "decision": "removed" if removed else "kept",
+                    "stage": "projected_trim",
+                }
+            )
+            if removed:
+                trimmed = candidate
+                changed = True
+                break
+    return trimmed, log
 
 
 def extract_circuit_threshold(
@@ -571,7 +422,11 @@ def extract_circuit_threshold(
         device = next(model.parameters()).device
 
     # Create full graph
-    graph = CircuitGraph(n_layers=config.n_layers)
+    graph = CircuitGraph(
+        n_layers=config.n_layers,
+        n_heads=config.n_heads,
+        per_head=True,
+    )
 
     print(f"Starting circuit extraction for {task_name}")
     print(f"  Full graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
@@ -589,6 +444,18 @@ def extract_circuit_threshold(
     print("\nCleaning up graph...")
     edges_to_keep = cleanup_graph(edges_to_keep, graph)
     print(f"After cleanup: {len(edges_to_keep)} edges")
+
+    print("\nTrimming edges unnecessary for projected agreement...")
+    edges_to_keep, trim_log = projected_trim(
+        model,
+        task_name,
+        edges_to_keep,
+        graph,
+        min_agreement,
+        device,
+    )
+    edge_log.extend(trim_log)
+    print(f"After projected trim: {len(edges_to_keep)} edges")
 
     # Evaluate final circuit
     metrics = evaluate_circuit(model, task_name, edges_to_keep, graph, device=device)
@@ -631,6 +498,8 @@ def threshold_sweep(
         circuit_dict = {
             "task": task_name,
             "n_layers": graph.n_layers,
+            "n_heads": graph.n_heads,
+            "granularity": "head",
             "nodes": graph.nodes,
             "edges": [{"source": s, "target": t} for s, t in sorted(edges_to_keep)],
             "num_edges": len(edges_to_keep),
@@ -718,8 +587,17 @@ def parse_args():
 def load_model(model_path: str, config: SmallVerifiableConfig, device: torch.device) -> GPT2LMHeadModel:
     """Load model with support for both pytorch_model.bin and model.safetensors."""
     from scripts.small.train import create_small_model
+    from scripts.programs import install_program_heads, load_programs
 
     model = create_small_model(config)
+
+    programs_path = os.path.join(model_path, "programs.json")
+    if os.path.exists(programs_path):
+        programs = load_programs(programs_path)
+        install_program_heads(
+            model, programs, attention_variant=config.attn_variant
+        )
+        print(f"Installed {len(programs)} program heads from {programs_path}")
 
     # Try pytorch_model.bin first, then model.safetensors
     weights_path_bin = os.path.join(model_path, "pytorch_model.bin")

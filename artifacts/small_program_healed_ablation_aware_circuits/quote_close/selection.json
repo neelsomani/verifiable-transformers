@@ -1,0 +1,14 @@
+{
+  "sweep": "artifacts/small_program_healed_ablation_aware_circuits/quote_close/threshold_sweep.json",
+  "required_heads": [
+    "attn_0_h_0"
+  ],
+  "selection_rule": "exact projected agreement, contains all preregistered intended program heads, then minimum edges/KL/threshold",
+  "threshold": 0.001,
+  "n_edges": 5,
+  "metrics": {
+    "candidate_accuracy": 1.0,
+    "agreement": 1.0,
+    "mean_candidate_kl": 0.11608581244945526
+  }
+}

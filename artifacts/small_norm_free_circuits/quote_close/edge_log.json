@@ -1,0 +1,272 @@
+[
+  {
+    "edge": [
+      "attn_0_h_0",
+      "logits"
+    ],
+    "delta": -2.983857687606978e-39,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_0_h_1",
+      "logits"
+    ],
+    "delta": -7.713559500753102e-40,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_1_h_0",
+      "logits"
+    ],
+    "delta": -5.995842237989883e-39,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_1_h_1",
+      "logits"
+    ],
+    "delta": -5.481044418553947e-39,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "logits"
+    ],
+    "delta": 2.1706113212391416e-41,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "logits"
+    ],
+    "delta": -2.089839076456995e-39,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_1",
+      "logits"
+    ],
+    "delta": 0.6931811571121216,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "attn_0_h_0",
+      "mlp_1"
+    ],
+    "delta": -4.160264563989234e-39,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_0_h_1",
+      "mlp_1"
+    ],
+    "delta": -9.836022206758042e-40,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_1_h_0",
+      "mlp_1"
+    ],
+    "delta": -8.200627024878514e-39,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_1_h_1",
+      "mlp_1"
+    ],
+    "delta": 0.006646325811743736,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "mlp_1"
+    ],
+    "delta": -9.610224515199661e-05,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "mlp_1"
+    ],
+    "delta": 0.6871644547209144,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "attn_0_h_0",
+      "attn_1_h_1"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_0_h_1",
+      "attn_1_h_1"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "attn_1_h_1"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "attn_1_h_1"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_0_h_0",
+      "attn_1_h_0"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_0_h_1",
+      "attn_1_h_0"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "attn_1_h_0"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "attn_1_h_0"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "attn_0_h_0",
+      "mlp_0"
+    ],
+    "delta": 0.214067786000669,
+    "agreement": 1.0,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "attn_0_h_1",
+      "mlp_0"
+    ],
+    "delta": 0.006928379647433758,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "mlp_0"
+    ],
+    "delta": -0.0015348168089985847,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "attn_0_h_1"
+    ],
+    "delta": 0.0,
+    "agreement": 1.0,
+    "decision": "removed"
+  },
+  {
+    "edge": [
+      "emb",
+      "attn_0_h_0"
+    ],
+    "delta": 0.6857800791040063,
+    "agreement": 0.5,
+    "decision": "kept"
+  },
+  {
+    "edge": [
+      "attn_0_h_0",
+      "mlp_0"
+    ],
+    "agreement": 0.5,
+    "decision": "kept",
+    "stage": "projected_trim"
+  },
+  {
+    "edge": [
+      "emb",
+      "attn_0_h_0"
+    ],
+    "agreement": 0.5,
+    "decision": "kept",
+    "stage": "projected_trim"
+  },
+  {
+    "edge": [
+      "mlp_0",
+      "mlp_1"
+    ],
+    "agreement": 0.5,
+    "decision": "kept",
+    "stage": "projected_trim"
+  },
+  {
+    "edge": [
+      "mlp_1",
+      "logits"
+    ],
+    "agreement": 0.5,
+    "decision": "kept",
+    "stage": "projected_trim"
+  }
+]

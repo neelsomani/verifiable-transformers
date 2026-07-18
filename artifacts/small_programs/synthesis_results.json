@@ -1,0 +1,132 @@
+{
+  "checkpoint": "artifacts/small_norm_free/checkpoint-final",
+  "circuit_root": "artifacts/small_norm_free_circuits",
+  "acceptance_metric": "projected_agreement",
+  "healable_agreement": 1.0,
+  "lm_proposer": null,
+  "lm_proposer_rounds": 2,
+  "programs": {
+    "0.0": {
+      "dsl_version": 1,
+      "name": "relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "0.1": {
+      "dsl_version": 1,
+      "name": "distance_le_3+key_position_3",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 3
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tasks": {
+    "quote_close": {
+      "0.0": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 120,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7083333134651184,
+        "mean_absolute_error": 0.11122158169746399,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "relative_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "==",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction_sparsemax": 0.7777777910232544,
+        "target_zero_fraction_softmax_counterfactual": 0.4166666567325592,
+        "mean_support_size_sparsemax": 1.3333333730697632,
+        "mean_support_size_softmax_counterfactual": 3.5
+      }
+    },
+    "bracket_type": {
+      "0.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 120,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.6902777552604675,
+        "mean_absolute_error": 0.1124907061457634,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_3+key_position_3",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 3
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_position",
+                  "operator": "==",
+                  "value": 3
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction_sparsemax": 0.6805555820465088,
+        "target_zero_fraction_softmax_counterfactual": 0.4166666567325592,
+        "mean_support_size_sparsemax": 1.9166666269302368,
+        "mean_support_size_softmax_counterfactual": 3.5
+      }
+    }
+  }
+}

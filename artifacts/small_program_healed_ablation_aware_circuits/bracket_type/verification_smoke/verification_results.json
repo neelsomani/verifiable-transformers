@@ -1,0 +1,49 @@
+{
+  "task": "bracket_type",
+  "circuit_path": "artifacts/small_program_healed_ablation_aware_circuits/bracket_type/circuit.json",
+  "weights_path": "artifacts/small_program_healed_ablation_aware/smt_weights.json",
+  "checkpoint": "artifacts/small_program_healed_ablation_aware/checkpoint-final",
+  "num_inputs": 4,
+  "candidate_tokens": [
+    13,
+    14
+  ],
+  "candidate_names": [
+    "right_bracket",
+    "right_brace"
+  ],
+  "properties": [
+    {
+      "property": "pytorch_circuit_validation",
+      "status": "PASSED",
+      "examples_checked": 4,
+      "num_failures": 0,
+      "failures": []
+    },
+    {
+      "property": "smt_pytorch_sanity",
+      "status": "PASSED",
+      "examples_checked": 4,
+      "max_logit_diff": 2.621941359137736e-06,
+      "tolerance": 0.001,
+      "num_failures": 0,
+      "num_logit_failures": 0,
+      "failures": [],
+      "logit_failures": []
+    },
+    {
+      "property": "projected_functional_equivalence",
+      "status": "VERIFIED",
+      "verified_count": 4,
+      "timeout_count": 0,
+      "error_count": 0,
+      "total_sequences": 4,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "assertion_count": 3072,
+      "encoding_seconds": 4.214202165603638,
+      "solve_seconds": 0.8465263843536377,
+      "wall_time_seconds": 5.142651500005741
+    }
+  ]
+}

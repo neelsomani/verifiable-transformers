@@ -293,6 +293,36 @@ Interpretation:
 * The main remaining performance gap is due to normalization, not attention or activation
 * This represents a viable end-to-end verifiable Transformer architecture
 
+## Small-Model Verification Remediation
+
+The original Table 2 runs and the matched BandNorm retrain both use
+$\epsilon_0=0.01$. The matched retrain is a different checkpoint under the same
+intended architecture and task definition, so its branch-unstable result does
+not contradict the earlier certified checkpoint. On both tasks, the matched
+BandNorm circuit is already branch-adjacent at $\epsilon_0/10=0.001$ and remains
+branch-unstable at $\epsilon_0/4$, $\epsilon_0/2$, and $\epsilon_0$; this shows
+that BandNorm branch-certifiability is seed-dependent. The norm-free circuits
+are certified at all four radii because the final decision is affine plus
+argmax and has no normalization branch certificate. Full results are recorded
+in `artifacts/robustness_eps_sweep.json`.
+
+Verification-cost totals are not compared across circuits with different
+topologies. Quantitative comparisons use assertions per edge, solve seconds per
+edge, and norm-attributable assertions per norm instance; raw totals are used
+only for the five-edge quote-close pair selected by the equal-edge topology
+check. Bracket type is skipped for that matched comparison because the exact
+sweeps contain no shared edge count.
+
+The quote-close mechanism drift was frozen in
+`artifacts/mechanism_drift.json` before intervention. One bounded chase round
+then replaced `attn_1_h_1` with a restricted position program and re-healed the
+model with combined and individual ablation pressure on both the full graph and
+the preregistered circuit. Re-extraction retains `attn_0_h_0` and
+`attn_1_h_1` as individually necessary program heads, migration passes, and
+all four properties verify with zero active neural-attention bilinear terms.
+The earlier plain-heal migration failure remains unchanged as the motivating
+negative result.
+
 ## Circuit Extraction from GPT-2 Scale Verifiable Model
 
 Once the verifiable model is trained, we extract pruned circuits responsible for specific behaviors and formally verify their properties using SMT solvers.

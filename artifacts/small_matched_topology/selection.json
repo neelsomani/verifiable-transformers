@@ -1,0 +1,53 @@
+{
+  "comparison_scope": "Only selected pairs with identical task and circuit edge count are eligible for raw quantitative comparison.",
+  "tasks": {
+    "quote_close": {
+      "status": "SELECTED",
+      "matched_edge_count": 5,
+      "eligible_edge_counts": {
+        "bandnorm": [
+          2,
+          5,
+          7
+        ],
+        "norm_free": [
+          4,
+          5
+        ]
+      },
+      "variants": {
+        "bandnorm": {
+          "source_sweep": "artifacts/small_band_norm_matched_circuits/quote_close/threshold_sweep.json",
+          "threshold": 0.001,
+          "n_edges": 5,
+          "metrics": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.005429089069366455
+          }
+        },
+        "norm_free": {
+          "source_sweep": "artifacts/small_norm_free_circuits/quote_close/threshold_sweep.json",
+          "threshold": 0.001,
+          "n_edges": 5,
+          "metrics": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.2910464107990265
+          }
+        }
+      }
+    },
+    "bracket_type": {
+      "status": "SKIPPED_NO_EQUAL_EDGE_TOPOLOGY",
+      "eligible_edge_counts": {
+        "bandnorm": [
+          2
+        ],
+        "norm_free": [
+          4
+        ]
+      }
+    }
+  }
+}

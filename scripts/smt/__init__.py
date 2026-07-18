@@ -62,3 +62,6 @@ __all__ = [
     "get_small_candidate_tokens",
     "get_bandnorm_params",
 ]
+from .program_head import encode_program_attention_head
+
+__all__ = ["encode_program_attention_head"]

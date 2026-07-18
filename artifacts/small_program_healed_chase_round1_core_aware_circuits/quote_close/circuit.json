@@ -1,0 +1,43 @@
+{
+  "task": "quote_close",
+  "n_layers": 2,
+  "n_heads": 2,
+  "granularity": "head",
+  "nodes": [
+    "emb",
+    "attn_0_h_0",
+    "attn_0_h_1",
+    "mlp_0",
+    "attn_1_h_0",
+    "attn_1_h_1",
+    "mlp_1",
+    "logits"
+  ],
+  "edges": [
+    {
+      "source": "attn_0_h_0",
+      "target": "mlp_0"
+    },
+    {
+      "source": "attn_1_h_1",
+      "target": "logits"
+    },
+    {
+      "source": "emb",
+      "target": "attn_0_h_0"
+    },
+    {
+      "source": "emb",
+      "target": "mlp_0"
+    },
+    {
+      "source": "mlp_0",
+      "target": "attn_1_h_1"
+    }
+  ],
+  "num_edges": 5,
+  "ablation": "zero",
+  "metric": "candidate_kl",
+  "min_agreement": 1.0,
+  "threshold": 0.001
+}

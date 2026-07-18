@@ -1,0 +1,10 @@
+{
+  "selection_rule": "exact projected agreement, shared edge count, then lowest candidate KL and threshold",
+  "threshold": 0.001,
+  "n_edges": 5,
+  "metrics": {
+    "candidate_accuracy": 1.0,
+    "agreement": 1.0,
+    "mean_candidate_kl": 0.005429089069366455
+  }
+}

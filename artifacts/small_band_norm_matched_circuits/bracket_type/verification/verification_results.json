@@ -1,0 +1,174 @@
+{
+  "task": "bracket_type",
+  "circuit_path": "artifacts/small_band_norm_matched_circuits/bracket_type/circuit.json",
+  "weights_path": "artifacts/small_band_norm_matched/smt_weights.json",
+  "checkpoint": "artifacts/small_band_norm_matched/checkpoint-final",
+  "num_inputs": 128,
+  "candidate_tokens": [
+    13,
+    14
+  ],
+  "candidate_names": [
+    "right_bracket",
+    "right_brace"
+  ],
+  "properties": [
+    {
+      "property": "projected_functional_equivalence",
+      "status": "VERIFIED",
+      "verified_count": 128,
+      "timeout_count": 0,
+      "error_count": 0,
+      "total_sequences": 128,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "assertion_count": 50176,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 46592,
+          "attention": 3456,
+          "mlp": 0,
+          "embedding/residual": 0,
+          "decision": 128
+        },
+        "norm_instances": 896
+      },
+      "encoding_seconds": 22.372152090072632,
+      "solve_seconds": 3.2086522579193115,
+      "wall_time_seconds": 25.948440416017547
+    },
+    {
+      "property": "projected_content_invariance",
+      "status": "VERIFIED",
+      "proof_strategy": "one_anchor_per_feature_plus_transitivity",
+      "verified_anchor_comparisons": 126,
+      "verified_pairs_by_transitivity": 4032,
+      "assertion_count": 98658,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 91728,
+          "attention": 6804,
+          "mlp": 0,
+          "embedding/residual": 0,
+          "decision": 126
+        },
+        "norm_instances": 1764
+      },
+      "solve_seconds": 4.938580751419067,
+      "timeout_count": 0,
+      "error_count": 0,
+      "counterexamples": [],
+      "num_counterexamples": 0,
+      "wall_time_seconds": 48.854775499989046
+    },
+    {
+      "property": "projected_edge_necessity",
+      "status": "VERIFIED",
+      "total_edges": 2,
+      "necessary_edges": 2,
+      "unnecessary_edges_found": 0,
+      "unresolved_edges_found": 0,
+      "timeout_count": 0,
+      "error_count": 0,
+      "unnecessary_edges": [],
+      "unresolved_edges": [],
+      "assertion_count": 2349,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 2184,
+          "attention": 162,
+          "mlp": 0,
+          "embedding/residual": 0,
+          "decision": 3
+        },
+        "norm_instances": 42
+      },
+      "solve_seconds": 0.07805585861206055,
+      "wall_time_seconds": 0.9663209999853279
+    },
+    {
+      "property": "projected_continuous_robustness",
+      "status": "UNKNOWN_BRANCH_UNSTABLE",
+      "verified_count": 64,
+      "timeout_count": 0,
+      "error_count": 0,
+      "certified_epsilon": 0.01,
+      "violations": [],
+      "num_violations": 0,
+      "decision_violations": [],
+      "num_decision_violations": 0,
+      "branch_unstable": [
+        {
+          "input": [
+            1,
+            3,
+            5,
+            12,
+            5,
+            5
+          ],
+          "branch_instability_found": true
+        },
+        {
+          "input": [
+            1,
+            3,
+            5,
+            12,
+            5,
+            6
+          ],
+          "branch_instability_found": true
+        },
+        {
+          "input": [
+            1,
+            3,
+            5,
+            12,
+            5,
+            7
+          ],
+          "branch_instability_found": true
+        },
+        {
+          "input": [
+            1,
+            3,
+            5,
+            12,
+            5,
+            8
+          ],
+          "branch_instability_found": true
+        },
+        {
+          "input": [
+            1,
+            3,
+            5,
+            12,
+            6,
+            5
+          ],
+          "branch_instability_found": true
+        }
+      ],
+      "num_branch_unstable": 64,
+      "branch_certificates_required": true,
+      "assertion_count": 12992,
+      "assertion_attribution": {
+        "assertions": {
+          "norm": 6784,
+          "attention": 0,
+          "mlp": 0,
+          "embedding/residual": 0,
+          "decision": 6208
+        },
+        "norm_instances": 256
+      },
+      "solve_seconds": 1.5913982391357422,
+      "wall_time_seconds": 3.0156899169960525
+    }
+  ]
+}

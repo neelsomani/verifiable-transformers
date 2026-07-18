@@ -5,9 +5,19 @@ __pycache__/
 .DS_Store
 
 dump_verification_code.sh
-*.txt
+verification_code_dump.txt
 dump_code.py
 AGENTS.md
+
+# Generated neural-model checkpoints and training state.  SMT weight exports
+# remain versioned because they are the exact objects quantified over by proofs.
+artifacts/**/checkpoint-*/
+artifacts/**/model.safetensors
+artifacts/**/optimizer.pt
+artifacts/**/scheduler.pt
+artifacts/**/rng_state.pth
+artifacts/**/training_args.bin
+artifacts/**/trainer_state.json
 
 # C extensions
 *.so

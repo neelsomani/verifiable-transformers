@@ -1,0 +1,3236 @@
+{
+  "source_checkpoint": "artifacts/small_program_healed_ablation_aware/checkpoint-final",
+  "programs": "artifacts/small_program_chase_round1/programs.json",
+  "circuit_root": "artifacts/small_program_healed_ablation_aware_circuits",
+  "programs_frozen": true,
+  "method": "sampled_non_circuit_ablation_with_bypass_suppression",
+  "intended_program_heads": {
+    "quote_close": [
+      "attn_0_h_0",
+      "attn_1_h_1"
+    ],
+    "bracket_type": [
+      "attn_0_h_1"
+    ]
+  },
+  "success": false,
+  "elapsed_seconds": 5.942261792020872,
+  "hyperparameters": {
+    "checkpoint": "artifacts/small_program_healed_ablation_aware/checkpoint-final",
+    "programs": "artifacts/small_program_chase_round1/programs.json",
+    "circuit_root": "artifacts/small_program_healed_ablation_aware_circuits",
+    "output_dir": "artifacts/small_program_healed_chase_round1",
+    "learning_rate": 0.003,
+    "weight_decay": 0.01,
+    "max_steps": 500,
+    "eval_every": 10,
+    "perfect_evals": 3,
+    "non_circuit_keep_probability": 0.25,
+    "circuit_loss_weight": 1.0,
+    "sampled_loss_weight": 1.0,
+    "bypass_penalty_weight": 1.0,
+    "seed": 0
+  },
+  "history": [
+    {
+      "step": 10,
+      "loss": 0.560359001159668,
+      "full_loss": 0.002634681761264801,
+      "circuit_loss": 0.3125428855419159,
+      "sampled_loss": 0.145099475979805,
+      "bypass_penalty": 0.10008196532726288,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 1.2466908693313599
+              },
+              "necessary": true
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.06884448975324631
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.8744797110557556
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6636911630630493
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6636911630630493
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 20,
+      "loss": 0.07595809549093246,
+      "full_loss": 0.000130599903059192,
+      "circuit_loss": 0.024547550827264786,
+      "sampled_loss": 0.028811553493142128,
+      "bypass_penalty": 0.022468391805887222,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.39769941568374634
+              },
+              "necessary": true
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.09405320882797241
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.7299889326095581
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6845481395721436
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6845481395721436
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 30,
+      "loss": 0.01883726567029953,
+      "full_loss": 5.093820618640166e-06,
+      "circuit_loss": 0.0028600164223462343,
+      "sampled_loss": 0.0014156237011775374,
+      "bypass_penalty": 0.014556530863046646,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.256826788187027
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.11843179166316986
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.0,
+            "agreement": 0.0,
+            "mean_candidate_kl": 0.7942237257957458
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.704256534576416
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.704256534576416
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 40,
+      "loss": 0.009336482733488083,
+      "full_loss": 2.495943931535294e-07,
+      "circuit_loss": 0.00030094559770077467,
+      "sampled_loss": 0.00029110346804372966,
+      "bypass_penalty": 0.00874418392777443,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.07515750080347061
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1050449088215828
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.704573392868042
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.7069200277328491
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.7069200277328491
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 50,
+      "loss": 0.0014414772158488631,
+      "full_loss": 2.0721925864108925e-07,
+      "circuit_loss": 0.00014629305223934352,
+      "sampled_loss": 6.180810305522755e-05,
+      "bypass_penalty": 0.0012331688776612282,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.0635545626282692
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.11935839056968689
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6920223236083984
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6923539638519287
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6923539638519287
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 60,
+      "loss": 0.0040507810190320015,
+      "full_loss": 1.732259846676243e-07,
+      "circuit_loss": 0.00010291847138432786,
+      "sampled_loss": 0.0001248927292181179,
+      "bypass_penalty": 0.0038227965123951435,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.05052976310253143
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.09662489593029022
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6683285236358643
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6898511052131653
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6898511052131653
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 70,
+      "loss": 0.0009069110383279622,
+      "full_loss": 2.598388846308808e-07,
+      "circuit_loss": 8.342374349012971e-05,
+      "sampled_loss": 2.057828714896459e-05,
+      "bypass_penalty": 0.0008026491850614548,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.06533467769622803
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.11816383898258209
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.7043818235397339
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6910746693611145
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6910746693611145
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 80,
+      "loss": 0.0006011121440678835,
+      "full_loss": 2.1047878817626042e-07,
+      "circuit_loss": 6.200200732564554e-05,
+      "sampled_loss": 7.527611160185188e-05,
+      "bypass_penalty": 0.0004636235535144806,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.05608290061354637
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1345704197883606
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6910396814346313
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6918032169342041
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6918032169342041
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 90,
+      "loss": 0.0018052661325782537,
+      "full_loss": 2.8125924700361793e-07,
+      "circuit_loss": 5.4075924708740786e-05,
+      "sampled_loss": 8.175859693437815e-05,
+      "bypass_penalty": 0.001669150311499834,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.051918722689151764
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1444486528635025
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6928994655609131
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6933803558349609
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6933803558349609
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 100,
+      "loss": 0.0002660925965756178,
+      "full_loss": 3.27825318890973e-07,
+      "circuit_loss": 5.7308341638417915e-05,
+      "sampled_loss": 5.522218270925805e-05,
+      "bypass_penalty": 0.00015323422849178314,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.054671358317136765
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16172009706497192
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6943161487579346
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.4453125,
+                "agreement": 0.4453125,
+                "mean_candidate_kl": 0.6953513622283936
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.4453125,
+            "agreement": 0.4453125,
+            "mean_candidate_kl": 0.6953513622283936
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 110,
+      "loss": 0.00013353271060623229,
+      "full_loss": 3.2596267374174204e-07,
+      "circuit_loss": 5.3329924412537366e-05,
+      "sampled_loss": 2.288873292854987e-05,
+      "bypass_penalty": 5.698809400200844e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.050205595791339874
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16323941946029663
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6915256977081299
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6945100426673889
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6945100426673889
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 120,
+      "loss": 0.00013052385475020856,
+      "full_loss": 2.328305299670319e-07,
+      "circuit_loss": 4.297408668207936e-05,
+      "sampled_loss": 3.382316936040297e-05,
+      "bypass_penalty": 5.349377170205116e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.04806125536561012
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1589880734682083
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6941743493080139
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6941417455673218
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6941417455673218
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 130,
+      "loss": 8.669668750371784e-05,
+      "full_loss": 1.6950066594745294e-07,
+      "circuit_loss": 3.4152926673414186e-05,
+      "sampled_loss": 3.2543604902457446e-05,
+      "bypass_penalty": 1.9830651581287384e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.045401379466056824
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1530769169330597
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6936682462692261
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6938316822052002
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6938316822052002
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 140,
+      "loss": 5.840006269863807e-05,
+      "full_loss": 1.4901156930591242e-07,
+      "circuit_loss": 2.8250375180505216e-05,
+      "sampled_loss": 5.9110871006851085e-06,
+      "bypass_penalty": 2.4089589715003967e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.0428168885409832
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.14793413877487183
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.640625,
+            "agreement": 0.640625,
+            "mean_candidate_kl": 0.6929514408111572
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6929329037666321
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6929329037666321
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 150,
+      "loss": 0.0003153403231408447,
+      "full_loss": 1.6018744020129816e-07,
+      "circuit_loss": 2.7164465791429393e-05,
+      "sampled_loss": 7.346235179284122e-06,
+      "bypass_penalty": 0.0002806694246828556,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.04284100607037544
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15212514996528625
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6937978267669678
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.696552574634552
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.696552574634552
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 160,
+      "loss": 0.00010541458323132247,
+      "full_loss": 1.4901156930591242e-07,
+      "circuit_loss": 3.1366482289740816e-05,
+      "sampled_loss": 3.389925404917449e-05,
+      "bypass_penalty": 3.9999838918447495e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.036703139543533325
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15802335739135742
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6901469230651855
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6914807558059692
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6914807558059692
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 170,
+      "loss": 0.0002631362876854837,
+      "full_loss": 1.4901156930591242e-07,
+      "circuit_loss": 2.977302938234061e-05,
+      "sampled_loss": 3.271119203418493e-05,
+      "bypass_penalty": 0.00020050304010510445,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.037405598908662796
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16308137774467468
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6945546865463257
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6931020617485046
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6931020617485046
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 180,
+      "loss": 0.00014751350681763142,
+      "full_loss": 1.4901156930591242e-07,
+      "circuit_loss": 2.6806861569639295e-05,
+      "sampled_loss": 3.1721101549919695e-05,
+      "bypass_penalty": 8.883653208613396e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.035455524921417236
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16110801696777344
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6934451460838318
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6922590732574463
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6922590732574463
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 190,
+      "loss": 9.520726598566398e-05,
+      "full_loss": 1.4901156930591242e-07,
+      "circuit_loss": 2.3983158826013096e-05,
+      "sampled_loss": 1.9027669623028487e-05,
+      "bypass_penalty": 5.2047427743673325e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.03453434631228447
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15947948396205902
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6938930153846741
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6925646662712097
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6925646662712097
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 200,
+      "loss": 6.684112304355949e-05,
+      "full_loss": 1.1920928244535389e-07,
+      "circuit_loss": 2.0786927052540705e-05,
+      "sampled_loss": 1.968519609363284e-05,
+      "bypass_penalty": 2.624979242682457e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.03339501470327377
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15652602910995483
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6937741041183472
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6933152675628662
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6933152675628662
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 210,
+      "loss": 3.1694133213022724e-05,
+      "full_loss": 8.940696005765858e-08,
+      "circuit_loss": 1.797065488062799e-05,
+      "sampled_loss": 5.957645043963566e-06,
+      "bypass_penalty": 7.676426321268082e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.03150421753525734
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15205755829811096
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.546875,
+            "agreement": 0.546875,
+            "mean_candidate_kl": 0.6930670738220215
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6930035352706909
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6930035352706909
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 220,
+      "loss": 3.5655008105095476e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 1.586962753208354e-05,
+      "sampled_loss": 1.428266114089638e-05,
+      "bypass_penalty": 5.443114787340164e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.030336512252688408
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.14891637861728668
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6932656168937683
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6932440996170044
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6932440996170044
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 230,
+      "loss": 2.7521811716724187e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 1.429012536391383e-05,
+      "sampled_loss": 1.26808081404306e-05,
+      "bypass_penalty": 4.912726581096649e-07,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.029305415228009224
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1460239440202713
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.640625,
+            "agreement": 0.640625,
+            "mean_candidate_kl": 0.693091094493866
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.6015625,
+                "agreement": 0.6015625,
+                "mean_candidate_kl": 0.6930240988731384
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.6015625,
+            "agreement": 0.6015625,
+            "mean_candidate_kl": 0.6930240988731384
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 240,
+      "loss": 3.198105696355924e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 1.2934135156683624e-05,
+      "sampled_loss": 4.782319138030289e-06,
+      "bypass_penalty": 1.4204997569322586e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.028650589287281036
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.14378364384174347
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6932176947593689
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6938207149505615
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6938207149505615
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 250,
+      "loss": 0.0008144023595377803,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 1.3813291843689512e-05,
+      "sampled_loss": 4.2021174522233196e-06,
+      "bypass_penalty": 0.0007963273674249649,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.029934406280517578
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15402700006961823
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6947959065437317
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.140625,
+                "agreement": 0.140625,
+                "mean_candidate_kl": 0.6961761713027954
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.140625,
+            "agreement": 0.140625,
+            "mean_candidate_kl": 0.6961761713027954
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 260,
+      "loss": 0.00022100027126725763,
+      "full_loss": 1.1920928244535389e-07,
+      "circuit_loss": 2.112963738909457e-05,
+      "sampled_loss": 8.271039405371994e-06,
+      "bypass_penalty": 0.0001914803870022297,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.029472025111317635
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16728278994560242
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.6898046135902405
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6927211880683899
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6927211880683899
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 270,
+      "loss": 9.188221883960068e-05,
+      "full_loss": 1.1920928244535389e-07,
+      "circuit_loss": 1.4543436918756925e-05,
+      "sampled_loss": 1.5199074368865695e-05,
+      "bypass_penalty": 6.202049553394318e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.027622273191809654
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16033200919628143
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6913712620735168
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.69182288646698
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.69182288646698
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 280,
+      "loss": 4.067341797053814e-05,
+      "full_loss": 8.940696005765858e-08,
+      "circuit_loss": 1.2114584023947828e-05,
+      "sampled_loss": 1.4894467312842607e-05,
+      "bypass_penalty": 1.3574957847595215e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.026511095464229584
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1582552194595337
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6912963390350342
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6923542618751526
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6923542618751526
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 290,
+      "loss": 4.268944394425489e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 1.1011910828528926e-05,
+      "sampled_loss": 3.8742946344427764e-06,
+      "bypass_penalty": 2.7743633836507797e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.02667386643588543
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15945902466773987
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6931610703468323
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6936464309692383
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6936464309692383
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 300,
+      "loss": 2.028648304985836e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 1.0073144039779436e-05,
+      "sampled_loss": 4.947175966663053e-06,
+      "bypass_penalty": 5.206558853387833e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.025659555569291115
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1580420434474945
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.578125,
+            "agreement": 0.578125,
+            "mean_candidate_kl": 0.692602813243866
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.692949116230011
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.692949116230011
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 310,
+      "loss": 0.000220913760131225,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 9.477102139499038e-06,
+      "sampled_loss": 1.1406731573515572e-05,
+      "bypass_penalty": 0.0001999703235924244,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.024931473657488823
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.15736441314220428
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6923216581344604
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6917897462844849
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6917897462844849
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 320,
+      "loss": 0.0004017957835458219,
+      "full_loss": 8.940696005765858e-08,
+      "circuit_loss": 1.2531807442428544e-05,
+      "sampled_loss": 4.842875114263734e-07,
+      "bypass_penalty": 0.0003886902704834938,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.02848462201654911
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1797596514225006
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6979692578315735
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.694108247756958
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.694108247756958
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 330,
+      "loss": 0.00017406902043148875,
+      "full_loss": 1.0430812125150624e-07,
+      "circuit_loss": 1.5243783309415448e-05,
+      "sampled_loss": 1.7940817997441627e-05,
+      "bypass_penalty": 0.00014078011736273766,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.027629436925053596
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1847158521413803
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6962262392044067
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6931761503219604
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6931761503219604
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 340,
+      "loss": 4.764904952025972e-05,
+      "full_loss": 1.1548399214689198e-07,
+      "circuit_loss": 1.363447790936334e-05,
+      "sampled_loss": 1.4473561350314412e-05,
+      "bypass_penalty": 1.942552626132965e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.025421472266316414
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.17996616661548615
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6922940611839294
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6929160356521606
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6929160356521606
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 350,
+      "loss": 1.5031017937872093e-05,
+      "full_loss": 8.940696005765858e-08,
+      "circuit_loss": 1.1265220564382616e-05,
+      "sampled_loss": 3.2931511668721214e-06,
+      "bypass_penalty": 3.832392394542694e-07,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.024831928312778473
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1762371063232422
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6928945779800415
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6931697726249695
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6931697726249695
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 360,
+      "loss": 1.6227782907662913e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 9.521802894596476e-06,
+      "sampled_loss": 4.142515081184683e-06,
+      "bypass_penalty": 2.503860741853714e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.02406981959939003
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.17210528254508972
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6928699612617493
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6931742429733276
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6931742429733276
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 370,
+      "loss": 2.0154604499111883e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 8.359522325918078e-06,
+      "sampled_loss": 1.1712194464053027e-05,
+      "bypass_penalty": 2.3283064365386963e-08,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.023480499163269997
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16925987601280212
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6927871704101562
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6931043267250061
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6931043267250061
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 380,
+      "loss": 1.2373984645819291e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 7.629369974893052e-06,
+      "sampled_loss": 3.764397661143448e-06,
+      "bypass_penalty": 9.206123650074005e-07,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.022985605522990227
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1671207845211029
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.640625,
+            "agreement": 0.640625,
+            "mean_candidate_kl": 0.6930490732192993
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6931469440460205
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6931469440460205
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 390,
+      "loss": 1.3083183148410171e-05,
+      "full_loss": 2.9802320611338473e-08,
+      "circuit_loss": 7.092931355145993e-06,
+      "sampled_loss": 5.554392828344135e-06,
+      "bypass_penalty": 4.0605664253234863e-07,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.022453784942626953
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16538529098033905
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.693009614944458
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.693048357963562
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.693048357963562
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 400,
+      "loss": 1.8125740098184906e-05,
+      "full_loss": 2.9802320611338473e-08,
+      "circuit_loss": 6.660800863755867e-06,
+      "sampled_loss": 1.116831299441401e-05,
+      "bypass_penalty": 2.668239176273346e-07,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.022091316059231758
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1640605479478836
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5546875,
+            "agreement": 0.5546875,
+            "mean_candidate_kl": 0.6931429505348206
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.693144679069519
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.693144679069519
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 410,
+      "loss": 1.6306010365951806e-05,
+      "full_loss": 2.9802320611338473e-08,
+      "circuit_loss": 6.318074156297371e-06,
+      "sampled_loss": 8.732047717785463e-06,
+      "bypass_penalty": 1.2260861694812775e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.021674033254384995
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.16291089355945587
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.693243145942688
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6932401657104492
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6932401657104492
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 420,
+      "loss": 0.00033223434002138674,
+      "full_loss": 2.9802320611338473e-08,
+      "circuit_loss": 6.079658305679914e-06,
+      "sampled_loss": 9.134339052252471e-06,
+      "bypass_penalty": 0.00031699053943157196,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.02238541841506958
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1651594042778015
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.695371150970459
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6961364150047302
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6961364150047302
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 430,
+      "loss": 0.0012440257705748081,
+      "full_loss": 6.332992796842518e-08,
+      "circuit_loss": 1.0296652362740133e-05,
+      "sampled_loss": 3.233548113712459e-06,
+      "bypass_penalty": 0.0012304321862757206,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.022202813997864723
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.18165215849876404
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.640625,
+            "agreement": 0.640625,
+            "mean_candidate_kl": 0.689802348613739
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6930888891220093
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6930888891220093
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 440,
+      "loss": 0.0008535756496712565,
+      "full_loss": 8.940696005765858e-08,
+      "circuit_loss": 1.4141092833597213e-05,
+      "sampled_loss": 4.0475201785739046e-06,
+      "bypass_penalty": 0.000835297629237175,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.020214058458805084
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.19190439581871033
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.265625,
+            "agreement": 0.265625,
+            "mean_candidate_kl": 0.6940898299217224
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6893012523651123
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6893012523651123
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 450,
+      "loss": 2.5938159524230286e-05,
+      "full_loss": 1.1920928244535389e-07,
+      "circuit_loss": 1.3753675375482999e-05,
+      "sampled_loss": 3.918995844287565e-06,
+      "bypass_penalty": 8.14627856016159e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.020154835656285286
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.20232152938842773
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6964513659477234
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6900410652160645
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6900410652160645
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 460,
+      "loss": 5.7779641792876646e-05,
+      "full_loss": 1.1920928244535389e-07,
+      "circuit_loss": 1.2606307791429572e-05,
+      "sampled_loss": 1.054256586030533e-06,
+      "bypass_penalty": 4.3999869376420975e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.018987564370036125
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.20538176596164703
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6956021189689636
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6914716362953186
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6914716362953186
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 470,
+      "loss": 4.591601464198902e-05,
+      "full_loss": 9.872018580381337e-08,
+      "circuit_loss": 1.059467740560649e-05,
+      "sampled_loss": 2.041455445578322e-06,
+      "bypass_penalty": 3.318116068840027e-05,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.017356012016534805
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.2026909738779068
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6936731338500977
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.9765625,
+                "agreement": 0.9765625,
+                "mean_candidate_kl": 0.6922012567520142
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.9765625,
+            "agreement": 0.9765625,
+            "mean_candidate_kl": 0.6922012567520142
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 480,
+      "loss": 2.2557051124749705e-05,
+      "full_loss": 8.940696005765858e-08,
+      "circuit_loss": 8.80655261426e-06,
+      "sampled_loss": 5.006775609217584e-06,
+      "bypass_penalty": 8.654315024614334e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.016191881150007248
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.1989169716835022
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6924830675125122
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6928673982620239
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6928673982620239
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 490,
+      "loss": 1.6866652003955096e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 7.390953669528244e-06,
+      "sampled_loss": 8.12667713034898e-06,
+      "bypass_penalty": 1.28941610455513e-06,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.0156704131513834
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.19605182111263275
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.692661464214325
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.6929114460945129
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.6929114460945129
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    },
+    {
+      "step": 500,
+      "loss": 1.431718010280747e-05,
+      "full_loss": 5.9604641222676946e-08,
+      "circuit_loss": 6.5713957155821845e-06,
+      "sampled_loss": 7.286642357939854e-06,
+      "bypass_penalty": 3.995373845100403e-07,
+      "migration": {
+        "quote_close": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_0": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.015405712649226189
+              },
+              "necessary": false
+            },
+            "attn_1_h_1": {
+              "metrics": {
+                "candidate_accuracy": 1.0,
+                "agreement": 1.0,
+                "mean_candidate_kl": 0.19410152733325958
+              },
+              "necessary": false
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.484375,
+            "agreement": 0.484375,
+            "mean_candidate_kl": 0.6931121349334717
+          }
+        },
+        "bracket_type": {
+          "full": {
+            "candidate_accuracy": 1.0,
+            "agreement": 1.0,
+            "mean_candidate_kl": 0.0
+          },
+          "individual_ablations": {
+            "attn_0_h_1": {
+              "metrics": {
+                "candidate_accuracy": 0.5,
+                "agreement": 0.5,
+                "mean_candidate_kl": 0.692859947681427
+              },
+              "necessary": true
+            }
+          },
+          "without_intended_program_heads": {
+            "candidate_accuracy": 0.5,
+            "agreement": 0.5,
+            "mean_candidate_kl": 0.692859947681427
+          }
+        }
+      },
+      "passed": false,
+      "consecutive_passes": 0
+    }
+  ]
+}

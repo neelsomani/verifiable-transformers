@@ -6,3 +6,6 @@ numpy>=1.24
 tqdm>=4.66
 matplotlib>=3.8
 z3-solver>=4.12
+torch>=2.2
+safetensors>=0.4
+pytest>=8.0

@@ -52,32 +52,14 @@ def extract_weights_from_checkpoint(checkpoint_path: str) -> Dict[str, Any]:
     Returns:
         Dict with weight arrays in format expected by SMT encoder
     """
-    from scripts.small.train import create_small_model
+    from scripts.programs import ProgrammedAttention, load_programs
+    from scripts.small.extract import load_model
 
     # Load config
     config = load_small_config(checkpoint_path)
 
-    # Create model
-    model = create_small_model(config)
-
-    # Load weights
-    weights_path_bin = os.path.join(checkpoint_path, "pytorch_model.bin")
-    weights_path_safetensors = os.path.join(checkpoint_path, "model.safetensors")
-
-    if os.path.exists(weights_path_bin):
-        state_dict = torch.load(weights_path_bin, map_location="cpu")
-        model.load_state_dict(state_dict)
-    elif os.path.exists(weights_path_safetensors):
-        try:
-            from safetensors.torch import load_file
-            state_dict = load_file(weights_path_safetensors)
-            model.load_state_dict(state_dict)
-        except ImportError:
-            raise ImportError("safetensors not installed")
-    else:
-        raise FileNotFoundError(f"No weights found in {checkpoint_path}")
-
-    model.eval()
+    # The shared loader installs program heads before loading their state dict.
+    model = load_model(checkpoint_path, config, torch.device("cpu"))
 
     weights = {
         "d_model": config.d_model,
@@ -92,6 +74,15 @@ def extract_weights_from_checkpoint(checkpoint_path: str) -> Dict[str, Any]:
         "half_low": (config.norm_l1_low_per_dim * config.d_model) / 2.0,
         "half_high": (config.norm_l1_high_per_dim * config.d_model) / 2.0,
     }
+    programs_path = os.path.join(checkpoint_path, "programs.json")
+    if os.path.exists(programs_path):
+        programs = load_programs(programs_path)
+        weights["program_heads"] = {
+            f"{layer}.{head}": program.to_dict()
+            for (layer, head), program in sorted(programs.items())
+        }
+    else:
+        weights["program_heads"] = {}
 
     # Token and position embeddings
     weights["wte"] = model.transformer.wte.weight.detach().cpu().numpy().tolist()
@@ -102,18 +93,45 @@ def extract_weights_from_checkpoint(checkpoint_path: str) -> Dict[str, Any]:
         block = model.transformer.h[i]
 
         # Attention weights
-        # GPT-2 uses c_attn which combines Q, K, V projections
         d_model = config.d_model
-        c_attn_weight = block.attn.c_attn.weight.detach().cpu().numpy()  # [d_model, 3*d_model]
-        c_attn_bias = block.attn.c_attn.bias.detach().cpu().numpy()      # [3*d_model]
-
-        weights[f"attn_{i}_W_q"] = c_attn_weight[:, :d_model].T.tolist()
-        weights[f"attn_{i}_W_k"] = c_attn_weight[:, d_model:2*d_model].T.tolist()
-        weights[f"attn_{i}_W_v"] = c_attn_weight[:, 2*d_model:3*d_model].T.tolist()
-
-        weights[f"attn_{i}_b_q"] = c_attn_bias[:d_model].tolist()
-        weights[f"attn_{i}_b_k"] = c_attn_bias[d_model:2*d_model].tolist()
-        weights[f"attn_{i}_b_v"] = c_attn_bias[2*d_model:3*d_model].tolist()
+        if isinstance(block.attn, ProgrammedAttention):
+            # Program rows deliberately have no Q/K parameters. Zero placeholders
+            # keep the dense JSON shape stable; the SMT encoder never reads them.
+            W_q = torch.zeros(d_model, d_model)
+            W_k = torch.zeros(d_model, d_model)
+            b_q = torch.zeros(d_model)
+            b_k = torch.zeros(d_model)
+            for neural_index, head in enumerate(block.attn.neural_heads):
+                source = slice(
+                    neural_index * block.attn.head_dim,
+                    (neural_index + 1) * block.attn.head_dim,
+                )
+                target = slice(
+                    head * block.attn.head_dim,
+                    (head + 1) * block.attn.head_dim,
+                )
+                W_q[target] = block.attn.query_proj.weight[source].detach().cpu()
+                W_k[target] = block.attn.key_proj.weight[source].detach().cpu()
+                b_q[target] = block.attn.query_proj.bias[source].detach().cpu()
+                b_k[target] = block.attn.key_proj.bias[source].detach().cpu()
+            W_v = block.attn.value_proj.weight.detach().cpu()
+            b_v = block.attn.value_proj.bias.detach().cpu()
+            weights[f"attn_{i}_W_q"] = W_q.numpy().tolist()
+            weights[f"attn_{i}_W_k"] = W_k.numpy().tolist()
+            weights[f"attn_{i}_W_v"] = W_v.numpy().tolist()
+            weights[f"attn_{i}_b_q"] = b_q.numpy().tolist()
+            weights[f"attn_{i}_b_k"] = b_k.numpy().tolist()
+            weights[f"attn_{i}_b_v"] = b_v.numpy().tolist()
+        else:
+            # GPT-2 Conv1D stores the combined projection as [input, output].
+            c_attn_weight = block.attn.c_attn.weight.detach().cpu().numpy()
+            c_attn_bias = block.attn.c_attn.bias.detach().cpu().numpy()
+            weights[f"attn_{i}_W_q"] = c_attn_weight[:, :d_model].T.tolist()
+            weights[f"attn_{i}_W_k"] = c_attn_weight[:, d_model:2*d_model].T.tolist()
+            weights[f"attn_{i}_W_v"] = c_attn_weight[:, 2*d_model:3*d_model].T.tolist()
+            weights[f"attn_{i}_b_q"] = c_attn_bias[:d_model].tolist()
+            weights[f"attn_{i}_b_k"] = c_attn_bias[d_model:2*d_model].tolist()
+            weights[f"attn_{i}_b_v"] = c_attn_bias[2*d_model:3*d_model].tolist()
 
         # Attention output projection
         c_proj_weight = block.attn.c_proj.weight.detach().cpu().numpy().T  # [d_model, d_model]
@@ -136,28 +154,45 @@ def extract_weights_from_checkpoint(checkpoint_path: str) -> Dict[str, Any]:
         weights[f"mlp_{i}_b_down"] = c_proj_mlp_bias.tolist()
 
         # Layer norm 1 (pre-attention)
-        ln1_gamma = block.ln_1.gamma.detach().cpu().numpy() if hasattr(block.ln_1, 'gamma') else block.ln_1.weight.detach().cpu().numpy()
-        ln1_beta = block.ln_1.beta.detach().cpu().numpy() if hasattr(block.ln_1, 'beta') else block.ln_1.bias.detach().cpu().numpy()
+        if isinstance(block.ln_1, torch.nn.Identity):
+            ln1_gamma = torch.ones(config.d_model).numpy()
+            ln1_beta = torch.zeros(config.d_model).numpy()
+        else:
+            ln1_gamma = block.ln_1.gamma.detach().cpu().numpy() if hasattr(block.ln_1, 'gamma') else block.ln_1.weight.detach().cpu().numpy()
+            ln1_beta = block.ln_1.beta.detach().cpu().numpy() if hasattr(block.ln_1, 'beta') else block.ln_1.bias.detach().cpu().numpy()
 
         weights[f"attn_{i}_norm_gamma"] = ln1_gamma.tolist()
         weights[f"attn_{i}_norm_beta"] = ln1_beta.tolist()
 
         # Layer norm 2 (pre-MLP)
-        ln2_gamma = block.ln_2.gamma.detach().cpu().numpy() if hasattr(block.ln_2, 'gamma') else block.ln_2.weight.detach().cpu().numpy()
-        ln2_beta = block.ln_2.beta.detach().cpu().numpy() if hasattr(block.ln_2, 'beta') else block.ln_2.bias.detach().cpu().numpy()
+        if isinstance(block.ln_2, torch.nn.Identity):
+            ln2_gamma = torch.ones(config.d_model).numpy()
+            ln2_beta = torch.zeros(config.d_model).numpy()
+        else:
+            ln2_gamma = block.ln_2.gamma.detach().cpu().numpy() if hasattr(block.ln_2, 'gamma') else block.ln_2.weight.detach().cpu().numpy()
+            ln2_beta = block.ln_2.beta.detach().cpu().numpy() if hasattr(block.ln_2, 'beta') else block.ln_2.bias.detach().cpu().numpy()
 
         weights[f"mlp_{i}_norm_gamma"] = ln2_gamma.tolist()
         weights[f"mlp_{i}_norm_beta"] = ln2_beta.tolist()
 
     # Final layer norm
-    final_ln_gamma = model.transformer.ln_f.gamma.detach().cpu().numpy() if hasattr(model.transformer.ln_f, 'gamma') else model.transformer.ln_f.weight.detach().cpu().numpy()
-    final_ln_beta = model.transformer.ln_f.beta.detach().cpu().numpy() if hasattr(model.transformer.ln_f, 'beta') else model.transformer.ln_f.bias.detach().cpu().numpy()
+    if isinstance(model.transformer.ln_f, torch.nn.Identity):
+        final_ln_gamma = torch.ones(config.d_model).numpy()
+        final_ln_beta = torch.zeros(config.d_model).numpy()
+    else:
+        final_ln_gamma = model.transformer.ln_f.gamma.detach().cpu().numpy() if hasattr(model.transformer.ln_f, 'gamma') else model.transformer.ln_f.weight.detach().cpu().numpy()
+        final_ln_beta = model.transformer.ln_f.beta.detach().cpu().numpy() if hasattr(model.transformer.ln_f, 'beta') else model.transformer.ln_f.bias.detach().cpu().numpy()
 
     weights["final_norm_gamma"] = final_ln_gamma.tolist()
     weights["final_norm_beta"] = final_ln_beta.tolist()
 
     # LM head (unembedding)
     weights["lm_head"] = model.lm_head.weight.detach().cpu().numpy().tolist()
+    weights["lm_head_bias"] = (
+        model.lm_head.bias.detach().cpu().numpy().tolist()
+        if model.lm_head.bias is not None
+        else [0.0] * config.vocab_size
+    )
 
     return weights
 

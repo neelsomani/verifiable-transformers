@@ -1,0 +1,12 @@
+Circuit Extraction Summary
+============================================================
+Task: bracket_type
+Model: artifacts/small_program_healed/checkpoint-final
+
+Best Circuit:
+  Threshold: 0.1
+  Nodes: 8
+  Edges: 7
+  Candidate Accuracy: 1.0000
+  Agreement with Full Model: 1.0000
+  Mean Candidate KL: 0.069311
