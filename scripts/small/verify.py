@@ -32,9 +32,9 @@ from scripts.smt.utils import parse_circuit_edges
 from scripts.smt.trace import trace_circuit_forward
 
 
-DEFAULT_WEIGHTS_PATH = "artifacts/small_verifiable/smt_weights.json"
+DEFAULT_WEIGHTS_PATH = "artifacts/small/smt_weights.json"
 DEFAULT_CIRCUIT_ROOT = "artifacts/small_circuits"
-DEFAULT_CHECKPOINT_PATH = "artifacts/small_verifiable/checkpoint-best"
+DEFAULT_CHECKPOINT_PATH = "artifacts/small/checkpoint-final"
 
 
 def load_json(path: str) -> Dict[str, Any]:

@@ -7,6 +7,7 @@ __pycache__/
 dump_verification_code.sh
 *.txt
 dump_code.py
+AGENTS.md
 
 # C extensions
 *.so

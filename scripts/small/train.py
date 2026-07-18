@@ -51,7 +51,7 @@ from scripts.small.config import SmallVerifiableConfig, get_default_config
 
 
 # ============================================================================
-# Model Components (copied from train_experiment.py)
+# Model Components
 # ============================================================================
 
 class SignedL1BandNorm(nn.Module):
@@ -596,7 +596,7 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="artifacts/small_verifiable",
+        default="artifacts/small",
         help="Output directory for checkpoints and logs",
     )
     parser.add_argument(

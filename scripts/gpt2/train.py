@@ -1047,13 +1047,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=str,
-        default="configs/step1_gpt2_small_openwebtext.json",
+        default="configs/gpt2_baseline.json",
         help="Path to JSON config file.",
     )
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="artifacts/step1-gpt2-small-openwebtext",
+        default="artifacts/gpt2-baseline",
         help="Training output directory.",
     )
     parser.add_argument(

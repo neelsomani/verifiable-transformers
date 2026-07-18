@@ -8,14 +8,16 @@ Checks:
 """
 
 import argparse
+import os
 import sys
 import torch
 from transformers import AutoTokenizer, GPT2Config, GPT2LMHeadModel
 
-# Import from train_experiment
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from train_experiment import apply_model_variants, sparsemax
+# Import the exact implementation used by the GPT-2 training entrypoint.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from scripts.gpt2 import train as gpt2_train
+
+apply_model_variants = gpt2_train.apply_model_variants
 
 
 def verify_sparsemax(model, tokenizer, device):
@@ -29,21 +31,19 @@ def verify_sparsemax(model, tokenizer, device):
 
     # Check 1: Verify patch is active
     print("1. Checking sparsemax patch is active...")
-    print("   (Note: This check verifies the AttentionInterface registration is working)")
+    print("   (This check verifies that the GPT-2 attention forward patch is active)")
 
-    # Import global counter from train_experiment
-    import train_experiment
-    train_experiment._sparsemax_call_count = 0
+    gpt2_train._sparsemax_call_count = 0
 
     dummy = torch.randint(0, model.config.vocab_size, (1, 16), device=device)
     with torch.no_grad():
         model(dummy)
 
-    sparsemax_calls = train_experiment._sparsemax_call_count
+    sparsemax_calls = gpt2_train._sparsemax_call_count
 
     if sparsemax_calls == 0:
         print("   ✗ FAILED: Sparsemax patch not active!")
-        print("   This likely means AttentionInterface registration isn't being invoked correctly.")
+        print("   The patched attention forward method was not invoked.")
         return False
     print(f"   ✓ PASSED: {sparsemax_calls} sparsemax calls during forward")
 

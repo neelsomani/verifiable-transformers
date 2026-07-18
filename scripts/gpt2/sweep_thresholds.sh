@@ -2,13 +2,13 @@
 # Threshold sweep for circuit extraction with candidate_kl metric
 #
 # Usage:
-#   bash scripts/circuits/sweep_thresholds.sh quote_close
-#   bash scripts/circuits/sweep_thresholds.sh bracket_type
+#   bash scripts/gpt2/sweep_thresholds.sh quote_close
+#   bash scripts/gpt2/sweep_thresholds.sh bracket_type
 
 set -e
 
 TASK="${1:-quote_close}"
-MODEL_PATH="${2:-artifacts/step2c-band-norm-sparsemax/checkpoint-240000}"
+MODEL_PATH="${2:-artifacts/band-norm-sparsemax/checkpoint-240000}"
 N_EXAMPLES="${3:-128}"
 METRIC="${4:-candidate_kl}"
 OUTPUT_BASE="${5:-artifacts/circuits_sweep}"
@@ -29,7 +29,7 @@ for THRESH in 0.005 0.01 0.02 0.05 0.1 0.2; do
 
   OUTPUT_DIR="${OUTPUT_BASE}/${TASK}_t${THRESH}"
 
-  python scripts/circuits/extract_circuit.py \
+  python scripts/gpt2/extract.py \
     --model_path "$MODEL_PATH" \
     --extract_circuit "$TASK" \
     --n_examples "$N_EXAMPLES" \
@@ -48,5 +48,5 @@ echo ""
 echo "Results saved to: $OUTPUT_BASE"
 echo ""
 echo "To compare results:"
-echo "  python scripts/circuits/compare_sweep_results.py --sweep_dir $OUTPUT_BASE --task $TASK"
+echo "  python scripts/gpt2/compare_sweeps.py --sweep_dir $OUTPUT_BASE --task $TASK"
 echo ""

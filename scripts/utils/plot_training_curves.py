@@ -13,7 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--run_dir",
         type=str,
-        default="artifacts/step1-gpt2-small-openwebtext",
+        default="artifacts/gpt2-baseline",
         help="Run output directory containing trainer_state.json",
     )
     parser.add_argument(

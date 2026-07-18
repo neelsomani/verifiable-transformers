@@ -3,7 +3,8 @@
 Interactive text generation with a trained verifiable transformer model.
 
 Example usage:
-    python scripts/generate_text.py --model_path artifacts/step2c-band-norm-sparsemax
+    python scripts/utils/generate_text.py \
+        --model_path artifacts/band-norm-sparsemax/checkpoint-240000
 """
 
 import argparse
@@ -20,9 +21,9 @@ except ImportError:
     HAS_SAFETENSORS = False
 
 
-# Import custom norm/attention implementations from train_experiment
-sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
-from train_experiment import apply_model_variants
+# Import the custom norm/attention implementations used during training.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from scripts.gpt2.train import apply_model_variants
 
 
 def main():

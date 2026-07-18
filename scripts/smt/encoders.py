@@ -155,7 +155,7 @@ def encode_signed_l1_band_norm(
     solver: Solver,
     ctx_prefix: str,
 ) -> List[ArithRef]:
-    """Encode Signed L1 BandNorm exactly as implemented in train_experiment.py.
+    """Encode Signed L1 BandNorm exactly as implemented by the model code.
 
     Algorithm:
     1. Center: c = x - mean(x)

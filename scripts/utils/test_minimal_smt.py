@@ -25,7 +25,7 @@ parser.add_argument("--circuit_path", type=str,
                     default="artifacts/circuits_sweep/quote_close_t0.02/circuit.json",
                     help="Path to circuit.json")
 parser.add_argument("--model_path", type=str,
-                    default="artifacts/step2c-band-norm-sparsemax/checkpoint-240000",
+                    default="artifacts/band-norm-sparsemax/checkpoint-240000",
                     help="Path to model checkpoint")
 parser.add_argument("--timeout", type=int, default=300,
                     help="Timeout in seconds for encoding (default: 300)")
@@ -50,20 +50,16 @@ print(f"Circuit has {circuit['num_edges']} edges")
 circuit_edges = parse_circuit_edges(circuit)
 
 # Load weights
-model_path = 'artifacts/step2c-band-norm-sparsemax/checkpoint-240000'
+model_path = args.model_path
 print(f"Loading weights from {model_path}...")
 weights = load_model_weights(model_path)
 print(f"Loaded model: {weights['n_layers']} layers, {weights['d_model']} dims")
-
-# Simplest possible test: single token
-input_tokens = [6]
-candidate_tokens = [6, 1]
 
 print(f"\nEncoding circuit for input {input_tokens}...")
 print(f"Candidate tokens: {candidate_tokens}")
 
 solver = Solver()
-solver.set("timeout", 10000)
+solver.set("timeout", args.timeout * 1000)
 
 import signal
 
