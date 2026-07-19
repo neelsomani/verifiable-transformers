@@ -444,7 +444,8 @@ def sparsemax_attention_forward(module, query, key, value, attention_mask, head_
             attn_weights: [batch, num_heads, seq, seq]
     """
     global _sparsemax_call_count
-    _sparsemax_call_count += 1
+    if not torch.compiler.is_compiling():
+        _sparsemax_call_count += 1
 
     # Compute attention scores: Q @ K^T
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
