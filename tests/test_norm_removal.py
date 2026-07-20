@@ -29,7 +29,7 @@ def test_fully_attenuated_norms_fold_exactly():
     input_ids = torch.tensor([[1, 2, 5, 9, 6, 7], [1, 3, 8, 11, 5, 6]])
     with torch.no_grad():
         before = model(input_ids).logits
-        fold_attenuated_layernorms(model)
+        fold_attenuated_layernorms(model, compute_dtype=torch.float64)
         after = model(input_ids).logits
 
     torch.testing.assert_close(after, before, atol=3e-6, rtol=3e-5)

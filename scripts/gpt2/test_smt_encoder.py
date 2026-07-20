@@ -33,7 +33,7 @@ def load_pytorch_model(model_path: str, model_info_path: str = None):
     from scripts.gpt2.extract import load_model_with_variants
 
     if model_info_path is None:
-        return load_model_with_variants(model_path, "cpu")
+        return load_model_with_variants(model_path, "cpu").float().eval()
 
     # Load model_info.json
     if model_info_path is None:
@@ -85,7 +85,7 @@ def load_pytorch_model(model_path: str, model_info_path: str = None):
     else:
         raise FileNotFoundError(f"Model weights not found in {model_path}")
 
-    model.eval()
+    model.float().eval()
     return model
 
 

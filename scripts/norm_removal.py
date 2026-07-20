@@ -145,46 +145,65 @@ def update_attenuation_schedule(
     return state
 
 
-def _affine_matrix(module: AttenuatedLayerNorm) -> Tuple[torch.Tensor, torch.Tensor]:
+def _affine_matrix(
+    module: AttenuatedLayerNorm,
+    *,
+    compute_dtype: torch.dtype | None = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     if float(module.attenuation.item()) != 1.0:
         raise ValueError("Cannot fold a LayerNorm before attenuation reaches one")
-    scale = module.weight.detach() / module.fixed_std.detach().to(module.weight.dtype)
+    if compute_dtype is None:
+        compute_dtype = module.weight.dtype
+    scale = module.weight.detach().to(compute_dtype) / module.fixed_std.detach().to(
+        compute_dtype
+    )
     hidden_size = scale.numel()
     matrix = torch.diag(scale) - torch.ones(
-        hidden_size, 1, device=scale.device, dtype=scale.dtype
+        hidden_size, 1, device=scale.device, dtype=compute_dtype
     ) @ scale.view(1, -1) / hidden_size
-    return matrix, module.bias.detach()
+    return matrix, module.bias.detach().to(compute_dtype)
 
 
 @torch.no_grad()
-def _fold_into_conv1d(module: AttenuatedLayerNorm, projection) -> None:
-    matrix, bias = _affine_matrix(module)
-    old_weight = projection.weight.detach().clone()
-    old_bias = projection.bias.detach().clone()
-    projection.weight.copy_(matrix @ old_weight)
-    projection.bias.copy_(bias @ old_weight + old_bias)
+def _fold_into_conv1d(
+    module: AttenuatedLayerNorm,
+    projection,
+    *,
+    compute_dtype: torch.dtype | None = None,
+) -> None:
+    matrix, bias = _affine_matrix(module, compute_dtype=compute_dtype)
+    old_weight = projection.weight.detach().to(matrix.dtype)
+    old_bias = projection.bias.detach().to(matrix.dtype)
+    projection.weight.copy_((matrix @ old_weight).to(projection.weight.dtype))
+    projection.bias.copy_((bias @ old_weight + old_bias).to(projection.bias.dtype))
 
 
 @torch.no_grad()
-def fold_attenuated_layernorms(model) -> None:
+def fold_attenuated_layernorms(
+    model,
+    *,
+    compute_dtype: torch.dtype | None = None,
+) -> None:
     """Fold every fully attenuated norm, leaving only identity modules."""
     for block in model.transformer.h:
-        _fold_into_conv1d(block.ln_1, block.attn.c_attn)
+        _fold_into_conv1d(
+            block.ln_1, block.attn.c_attn, compute_dtype=compute_dtype
+        )
         block.ln_1 = nn.Identity()
-        _fold_into_conv1d(block.ln_2, block.mlp.c_fc)
+        _fold_into_conv1d(block.ln_2, block.mlp.c_fc, compute_dtype=compute_dtype)
         block.ln_2 = nn.Identity()
 
     final_norm = model.transformer.ln_f
-    matrix, bias = _affine_matrix(final_norm)
+    matrix, bias = _affine_matrix(final_norm, compute_dtype=compute_dtype)
     old_linear = model.lm_head
-    old_weight_as_conv = old_linear.weight.detach().transpose(0, 1).clone()
+    old_weight_as_conv = old_linear.weight.detach().transpose(0, 1).to(matrix.dtype)
     old_bias = (
-        old_linear.bias.detach().clone()
+        old_linear.bias.detach().to(matrix.dtype)
         if old_linear.bias is not None
         else torch.zeros(
             old_linear.out_features,
             device=old_linear.weight.device,
-            dtype=old_linear.weight.dtype,
+            dtype=matrix.dtype,
         )
     )
     replacement = nn.Linear(
@@ -194,8 +213,14 @@ def fold_attenuated_layernorms(model) -> None:
         device=old_linear.weight.device,
         dtype=old_linear.weight.dtype,
     )
-    replacement.weight.copy_((matrix @ old_weight_as_conv).transpose(0, 1))
-    replacement.bias.copy_(bias @ old_weight_as_conv + old_bias)
+    replacement.weight.copy_(
+        (matrix @ old_weight_as_conv)
+        .transpose(0, 1)
+        .to(replacement.weight.dtype)
+    )
+    replacement.bias.copy_(
+        (bias @ old_weight_as_conv + old_bias).to(replacement.bias.dtype)
+    )
     model.lm_head = replacement
     model.transformer.ln_f = nn.Identity()
     model.config.tie_word_embeddings = False

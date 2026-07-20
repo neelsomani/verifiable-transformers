@@ -24,7 +24,10 @@ from transformers import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from scripts.gpt2.extract import load_model_with_variants
-from scripts.gpt2.train import create_optimizer_with_weight_decay_exclusions
+from scripts.gpt2.train import (
+    create_optimizer_with_weight_decay_exclusions,
+    validate_checkpoint_compatibility,
+)
 from scripts.norm_removal import (
     fold_attenuated_layernorms,
     install_attenuated_layernorms,
@@ -58,6 +61,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_steps", type=int, default=None)
     parser.add_argument("--max_train_samples", type=int, default=None)
     parser.add_argument("--max_eval_samples", type=int, default=None)
+    parser.add_argument(
+        "--postprocess_checkpoint",
+        default=None,
+        help=(
+            "Recover a completed attenuation run from checkpoint-N and perform "
+            "only the fold checks, final evaluation, and artifact save."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -76,6 +87,98 @@ def validate_bandnorm_eval_loss_gate(cfg: dict, supplied: float | None) -> float
             f"bandnorm_eval_loss_gate={gate}"
         )
     return gate
+
+
+def load_trained_removal_checkpoint(
+    model, checkpoint: str, *, required_step: int
+) -> int:
+    state_path = os.path.join(checkpoint, "trainer_state.json")
+    if not os.path.isfile(state_path):
+        raise FileNotFoundError(f"Missing trainer state: {state_path}")
+    state = load_json(state_path)
+    global_step = int(state["global_step"])
+    if global_step < required_step:
+        raise ValueError(
+            f"Postprocess checkpoint stopped at step {global_step}; "
+            f"required at least {required_step}"
+        )
+
+    weights_path = os.path.join(checkpoint, "model.safetensors")
+    if os.path.isfile(weights_path):
+        from safetensors.torch import load_file
+
+        state_dict = load_file(weights_path)
+    else:
+        weights_path = os.path.join(checkpoint, "pytorch_model.bin")
+        if not os.path.isfile(weights_path):
+            raise FileNotFoundError(f"Missing model weights in {checkpoint}")
+        state_dict = torch.load(weights_path, map_location="cpu")
+
+    incompatible = model.load_state_dict(state_dict, strict=False)
+    ignored_missing = validate_checkpoint_compatibility(model, incompatible)
+    if ignored_missing:
+        model.tie_weights()
+    return global_step
+
+
+def validate_attenuation_endpoint(entries) -> dict[str, dict[str, float | bool]]:
+    endpoint = {}
+    errors = []
+    for entry in entries:
+        attenuation = float(entry.module.attenuation.item())
+        fixed_std = float(entry.module.fixed_std.item())
+        calibrating = bool(entry.module.calibrating.item())
+        endpoint[entry.name] = {
+            "attenuation": attenuation,
+            "fixed_std": fixed_std,
+            "calibrating": calibrating,
+        }
+        if attenuation != 1.0:
+            errors.append(f"{entry.name}: attenuation={attenuation}")
+        if calibrating:
+            errors.append(f"{entry.name}: calibration still enabled")
+        if not math.isfinite(fixed_std) or fixed_std <= 0.0:
+            errors.append(f"{entry.name}: invalid fixed_std={fixed_std}")
+    if errors:
+        raise RuntimeError(
+            "LayerNorm attenuation checkpoint is not at the fixed-std endpoint: "
+            + "; ".join(errors)
+        )
+    return endpoint
+
+
+@torch.no_grad()
+def fold_and_measure_in_fp32(model, sample: torch.Tensor) -> dict[str, float]:
+    """Check the algebraic fold outside Accelerate's lossy BF16 wrapper."""
+    parameter_dtypes = {parameter.dtype for parameter in model.parameters()}
+    if parameter_dtypes != {torch.float32}:
+        raise RuntimeError(
+            "FP32 fold validation requires every model parameter to be float32; "
+            f"found {sorted(map(str, parameter_dtypes))}"
+        )
+    prepared_forward = model.forward
+    original_forward = getattr(model, "_original_forward", None)
+    if original_forward is not None:
+        model.forward = original_forward
+    try:
+        before_fold = model(input_ids=sample).logits.float()
+        fold_attenuated_layernorms(model, compute_dtype=torch.float64)
+        after_fold = model(input_ids=sample).logits.float()
+        difference = after_fold - before_fold
+        relative_l2_error = torch.linalg.vector_norm(difference) / torch.linalg.vector_norm(
+            before_fold
+        ).clamp_min(torch.finfo(torch.float32).tiny)
+        top1_agreement = (
+            after_fold.argmax(dim=-1) == before_fold.argmax(dim=-1)
+        ).float().mean()
+        return {
+            "max_abs_diff": float(difference.abs().max().item()),
+            "relative_l2_error": float(relative_l2_error.item()),
+            "top1_agreement": float(top1_agreement.item()),
+        }
+    finally:
+        if original_forward is not None:
+            model.forward = prepared_forward
 
 
 class NormRemovalScheduleCallback(TrainerCallback):
@@ -154,7 +257,7 @@ def main() -> None:
     os.makedirs(args.output_dir, exist_ok=True)
     write_status(args.output_dir, "initializing", source_checkpoint=args.checkpoint)
 
-    model = load_model_with_variants(args.checkpoint, "cpu")
+    model = load_model_with_variants(args.checkpoint, "cpu").float()
     source_info_path = os.path.join(args.checkpoint, "model_info.json")
     if not os.path.exists(source_info_path):
         source_info_path = os.path.join(os.path.dirname(args.checkpoint), "model_info.json")
@@ -179,6 +282,12 @@ def main() -> None:
         raise ValueError(
             f"max_steps={max_steps} ends before full attenuation at step {end_step}"
         )
+    recovered_step = None
+    if args.postprocess_checkpoint is not None:
+        recovered_step = load_trained_removal_checkpoint(
+            model, args.postprocess_checkpoint, required_step=max_steps
+        )
+        validate_attenuation_endpoint(entries)
     if cfg.get("gradient_checkpointing", False):
         model.gradient_checkpointing_enable()
 
@@ -224,6 +333,10 @@ def main() -> None:
         report_to="none",
     )
     callback = NormRemovalScheduleCallback(entries, cfg, args.output_dir)
+    if args.postprocess_checkpoint is not None:
+        history_path = os.path.join(args.output_dir, "removal_schedule.json")
+        if os.path.isfile(history_path):
+            callback.history = load_json(history_path)
     optimizer = create_optimizer_with_weight_decay_exclusions(
         model,
         learning_rate=cfg["learning_rate"],
@@ -242,27 +355,84 @@ def main() -> None:
         optimizers=(optimizer, None),
     )
 
-    write_status(args.output_dir, "training", schedule_end=end_step, max_steps=max_steps)
-    trainer.train()
+    if args.postprocess_checkpoint is None:
+        write_status(args.output_dir, "training", schedule_end=end_step, max_steps=max_steps)
+        trainer.train()
+    else:
+        write_status(
+            args.output_dir,
+            "postprocessing_recovered_checkpoint",
+            schedule_end=end_step,
+            max_steps=max_steps,
+            recovered_checkpoint=args.postprocess_checkpoint,
+            recovered_step=recovered_step,
+        )
     final_schedule = callback._update(max_steps)
     if not all(value == 1.0 for value in final_schedule.values()):
         raise RuntimeError("Training ended before every LayerNorm reached attenuation=1")
+    attenuation_endpoint = validate_attenuation_endpoint(entries)
 
     pre_fold_metrics = trainer.evaluate()
-    sample = next(iter(trainer.get_eval_dataloader()))["input_ids"][:1]
+    sample = next(iter(trainer.get_eval_dataloader()))["input_ids"][
+        : cfg["fold_validation_batch_size"]
+    ]
     sample = sample.to(trainer.model.device)
     trainer.model.eval()
-    with torch.no_grad():
-        before_fold = trainer.model(input_ids=sample).logits.float().cpu()
-    fold_attenuated_layernorms(trainer.model)
-    with torch.no_grad():
-        after_fold = trainer.model(input_ids=sample).logits.float().cpu()
-    fold_diff = float((before_fold - after_fold).abs().max().item())
-    if fold_diff > cfg["fold_tolerance"]:
-        raise RuntimeError(
-            f"Affine fold changed logits by {fold_diff}, tolerance={cfg['fold_tolerance']}"
-        )
+    local_fold_metrics = fold_and_measure_in_fp32(trainer.model, sample)
+    local_fold_tensor = torch.tensor(
+        [
+            local_fold_metrics["max_abs_diff"],
+            local_fold_metrics["relative_l2_error"],
+            local_fold_metrics["top1_agreement"],
+        ],
+        device=trainer.model.device,
+        dtype=torch.float64,
+    )
+    gathered_fold_metrics = trainer.accelerator.gather(local_fold_tensor)
+    gathered_fold_metrics = gathered_fold_metrics.reshape(-1, 3)
+    fold_max_abs_diff = float(gathered_fold_metrics[:, 0].max().item())
+    fold_relative_l2_error = float(gathered_fold_metrics[:, 1].max().item())
+    fold_top1_agreement = float(gathered_fold_metrics[:, 2].min().item())
     post_fold_metrics = trainer.evaluate()
+    fold_eval_loss_delta = float(
+        post_fold_metrics["eval_loss"] - pre_fold_metrics["eval_loss"]
+    )
+    fold_validation = {
+        "arithmetic_dtype": "float64",
+        "forward_dtype": "float32",
+        "validation_batch_size_per_rank": cfg["fold_validation_batch_size"],
+        "max_abs_diff": fold_max_abs_diff,
+        "max_abs_tolerance": cfg["fold_max_abs_tolerance_fp32"],
+        "relative_l2_error": fold_relative_l2_error,
+        "relative_l2_tolerance": cfg["fold_relative_l2_tolerance_fp32"],
+        "top1_agreement": fold_top1_agreement,
+        "top1_agreement_min": cfg["fold_top1_agreement_min"],
+        "pre_fold_eval_loss": float(pre_fold_metrics["eval_loss"]),
+        "post_fold_eval_loss": float(post_fold_metrics["eval_loss"]),
+        "eval_loss_delta": fold_eval_loss_delta,
+        "eval_loss_delta_tolerance": cfg["fold_eval_loss_delta_tolerance"],
+    }
+    fold_violations = []
+    if fold_max_abs_diff > cfg["fold_max_abs_tolerance_fp32"]:
+        fold_violations.append("fp32 max absolute logit difference exceeded tolerance")
+    if fold_relative_l2_error > cfg["fold_relative_l2_tolerance_fp32"]:
+        fold_violations.append("fp32 relative L2 logit error exceeded tolerance")
+    if fold_top1_agreement < cfg["fold_top1_agreement_min"]:
+        fold_violations.append("fp32 top-1 agreement fell below threshold")
+    if abs(fold_eval_loss_delta) > cfg["fold_eval_loss_delta_tolerance"]:
+        fold_violations.append("BF16 eval-loss delta exceeded tolerance")
+    fold_validation["status"] = "passed" if not fold_violations else "failed"
+    fold_validation["violations"] = fold_violations
+    if trainer.is_world_process_zero():
+        with open(os.path.join(args.output_dir, "fold_validation.json"), "w") as handle:
+            json.dump(fold_validation, handle, indent=2)
+    if fold_violations:
+        write_status(
+            args.output_dir,
+            "fold_validation_failed",
+            fold_validation=fold_validation,
+        )
+        raise RuntimeError("Affine fold validation failed: " + "; ".join(fold_violations))
     trainer.save_model(args.output_dir)
     if trainer.is_world_process_zero():
         tokenizer.save_pretrained(args.output_dir)
@@ -279,7 +449,14 @@ def main() -> None:
         "source_checkpoint": args.checkpoint,
         "schedule_end": end_step,
         "max_steps": max_steps,
-        "fold_max_abs_diff": fold_diff,
+        "recovered_checkpoint": args.postprocess_checkpoint,
+        "recovered_step": recovered_step,
+        "attenuation_endpoint": attenuation_endpoint,
+        "fold_validation": fold_validation,
+        "fold_max_abs_diff": fold_max_abs_diff,
+        "fold_relative_l2_error": fold_relative_l2_error,
+        "fold_top1_agreement": fold_top1_agreement,
+        "fold_eval_loss_delta": fold_eval_loss_delta,
         "pre_fold_eval_loss": float(pre_fold_metrics["eval_loss"]),
         "post_fold_eval_loss": eval_loss,
         "post_fold_perplexity": math.exp(eval_loss),

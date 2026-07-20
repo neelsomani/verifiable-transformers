@@ -92,7 +92,9 @@ def load_model_weights(model_path: str, model_info_path: str = None) -> Dict[str
     else:
         raise FileNotFoundError(f"Model weights not found in {model_path}")
 
-    model.eval()
+    # SMT exports and their PyTorch sanity checks are defined in fp32. This
+    # avoids treating BF16 execution rounding as an encoder mismatch.
+    model.float().eval()
 
     # Extract weights
     weights = {
