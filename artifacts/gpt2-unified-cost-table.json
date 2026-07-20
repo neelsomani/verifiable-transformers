@@ -61,8 +61,8 @@
       "owt_eval_perplexity": 24.67033950244981,
       "owt_perplexity_delta": 0.21407158866461273,
       "relative_owt_perplexity_increase": 0.008753240249872674,
-      "wikitext_perplexity": null,
-      "wikitext_perplexity_delta": null,
+      "wikitext_perplexity": 52.5124117915026,
+      "wikitext_perplexity_delta": -4.673063312259046,
       "replacement_fraction": null,
       "status": "norm_free"
     },

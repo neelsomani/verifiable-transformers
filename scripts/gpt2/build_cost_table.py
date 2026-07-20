@@ -63,10 +63,17 @@ DOCUMENTED_ROWS = [
     },
 ]
 
+WIKITEXT_VALIDATION_TOKENS = 251_048
+WIKITEXT_REMOVAL_SOURCE_PERPLEXITY = 57.18547510376165
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--removal_metrics", default="artifacts/gpt2-norm-free/removal_metrics.json")
+    parser.add_argument(
+        "--removal_wikitext_metrics",
+        default="artifacts/gpt2-norm-free/wikitext_eval_final.json",
+    )
     parser.add_argument("--program_metrics", default="artifacts/gpt2-program-healed/healing_results.json")
     parser.add_argument("--synthesis_metrics", default="artifacts/gpt2-programs/synthesis_results.json")
     parser.add_argument("--output_json", required=True)
@@ -85,6 +92,18 @@ def main() -> None:
     args = parse_args()
     rows = list(DOCUMENTED_ROWS)
     removal = load_if_present(args.removal_metrics)
+    removal_wikitext = load_if_present(args.removal_wikitext_metrics)
+    if removal_wikitext is not None:
+        if removal_wikitext.get("dataset") != "wikitext-103-raw-v1":
+            raise ValueError("Removal WikiText metrics use the wrong dataset")
+        if removal_wikitext.get("split") != "validation":
+            raise ValueError("Removal WikiText metrics must use the validation split")
+        if removal_wikitext.get("max_samples") is not None:
+            raise ValueError("Removal WikiText metrics must use the full validation split")
+        if int(removal_wikitext.get("seq_len", -1)) != WIKITEXT_VALIDATION_TOKENS:
+            raise ValueError(
+                "Removal WikiText metrics do not use the registered token domain"
+            )
     if removal is None:
         rows.append(
             {
@@ -101,6 +120,11 @@ def main() -> None:
             }
         )
     else:
+        removal_wikitext_perplexity = (
+            None
+            if removal_wikitext is None
+            else float(removal_wikitext["perplexity"])
+        )
         rows.append(
             {
                 "component": "layernorm_removal",
@@ -118,8 +142,13 @@ def main() -> None:
                     if removal.get("removal_loss_delta") is None
                     else math.exp(removal["removal_loss_delta"]) - 1.0
                 ),
-                "wikitext_perplexity": None,
-                "wikitext_perplexity_delta": None,
+                "wikitext_perplexity": removal_wikitext_perplexity,
+                "wikitext_perplexity_delta": (
+                    None
+                    if removal_wikitext_perplexity is None
+                    else removal_wikitext_perplexity
+                    - WIKITEXT_REMOVAL_SOURCE_PERPLEXITY
+                ),
                 "replacement_fraction": None,
                 "status": removal.get("decision", "measured"),
             }

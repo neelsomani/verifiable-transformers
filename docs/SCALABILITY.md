@@ -303,10 +303,12 @@ The A4 decision is therefore **norm-free**: Phase C uses the norm-free
 sparsemax-and-LeakyReLU model, while BandNorm remains a measured from-scratch negative
 result. In the unified cost table, the `layernorm_removal` delta is the
 incremental cost relative to its LayerNorm source; its total loss delta from the
-local 3.1340 baseline is +0.0716017. WikiText-103 was not re-evaluated after
-folding. Folding the final norm also unties the output projection from the token
-embedding, so the saved model has 163,049,041 parameters; this storage cost is
-retained as part of the measured recipe.
+local 3.1340 baseline is +0.0716017. On the full 251,048-token WikiText-103
+validation stream, the folded model has loss **3.9610** and perplexity
+**52.5124**: an improvement of **4.6731** perplexity versus its LayerNorm source
+and **0.4696** versus the local baseline. Folding the final norm also unties the
+output projection from the token embedding, so the saved model has 163,049,041
+parameters; this storage cost is retained as part of the measured recipe.
 
 The exact schedule, endpoint state, fold validation, final decision, effective
 configuration, and checkpoint training curve are recorded under
