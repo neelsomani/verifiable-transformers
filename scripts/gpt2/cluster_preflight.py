@@ -20,11 +20,15 @@ REQUIRED_FILES = (
     "scripts/gpt2/remove_layernorm.py",
     "scripts/gpt2/evaluate_checkpoint.py",
     "scripts/gpt2/extract.py",
+    "scripts/gpt2/select_sweep_circuit.py",
     "scripts/gpt2/synthesize_programs.py",
     "scripts/gpt2/heal_programs.py",
     "scripts/gpt2/check_program_migration.py",
     "scripts/gpt2/test_smt_encoder.py",
+    "scripts/gpt2/verify.py",
     "scripts/gpt2/scale_verification.py",
+    "scripts/gpt2/build_cost_table.py",
+    "scripts/gpt2/run_phase_c.py",
 )
 
 

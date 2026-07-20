@@ -15,6 +15,12 @@ from scripts.gpt2.remove_layernorm import (
     validate_attenuation_endpoint,
     validate_bandnorm_eval_loss_gate,
 )
+from scripts.gpt2.run_phase_c import (
+    behavior_scan_gate,
+    circuit_artifact_complete,
+    healing_state,
+    selected_circuit_complete,
+)
 from scripts.gpt2.select_base_model import select
 from scripts.norm_removal import install_attenuated_layernorms
 
@@ -228,3 +234,125 @@ def test_cluster_preflight_requires_variant_metadata_and_complete_dataset(tmp_pa
     (dataset / "train").mkdir()
     (dataset / "validation").mkdir()
     assert processed_dataset_ready(str(dataset))
+
+
+def test_phase_c_runner_validates_behavior_scan_provenance_and_gate(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    report = tmp_path / "behavior_scan.json"
+    report.write_text(
+        json.dumps(
+            {
+                "model_path": str(model),
+                "results": {
+                    task: {
+                        "n_examples_used": 128,
+                        "viability": "strong",
+                        "binary_accuracy": 1.0,
+                        "mean_logit_diff": 2.0,
+                    }
+                    for task in ("quote_close", "bracket_type")
+                },
+            }
+        )
+    )
+
+    assert behavior_scan_gate(report, model.resolve()) == (True, [])
+    wrong_model = tmp_path / "wrong-model"
+    passed, failures = behavior_scan_gate(report, wrong_model.resolve())
+    assert not passed
+    assert "model path" in failures[0]
+
+
+def test_phase_c_runner_reuses_only_matching_per_head_circuits(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    circuit_path = tmp_path / "circuit.json"
+    circuit = {
+        "model_path": str(model),
+        "task": "quote_close",
+        "metric": "candidate_kl",
+        "threshold": 0.01,
+        "min_agreement": 1.0,
+        "n_examples": 128,
+        "granularity": "head",
+        "n_heads": 12,
+        "edges": [["emb", "attn_1_h_2"], ["attn_1_h_2", "logits"]],
+        "scores": {"circuit": {"projected_agreement_with_full": 1.0}},
+    }
+    circuit_path.write_text(json.dumps(circuit))
+
+    assert circuit_artifact_complete(
+        circuit_path,
+        task="quote_close",
+        threshold=0.01,
+        model_path=model.resolve(),
+    )
+    circuit["granularity"] = "block"
+    circuit_path.write_text(json.dumps(circuit))
+    assert not circuit_artifact_complete(
+        circuit_path,
+        task="quote_close",
+        threshold=0.01,
+        model_path=model.resolve(),
+    )
+
+
+def test_phase_c_runner_selected_circuit_requires_exact_agreement_and_programs(
+    tmp_path,
+):
+    model = tmp_path / "model"
+    model.mkdir()
+    circuit_path = tmp_path / "circuit.json"
+    selection_path = tmp_path / "selection.json"
+    circuit_path.write_text(
+        json.dumps(
+            {
+                "model_path": str(model),
+                "task": "bracket_type",
+                "granularity": "head",
+                "edges": [
+                    ["emb", "attn_2_h_3"],
+                    ["attn_2_h_3", "logits"],
+                ],
+            }
+        )
+    )
+    selection_path.write_text(
+        json.dumps({"task": "bracket_type", "projected_agreement": 1.0})
+    )
+
+    assert selected_circuit_complete(
+        circuit_path,
+        selection_path,
+        model.resolve(),
+        {"attn_2_h_3"},
+    )
+    assert not selected_circuit_complete(
+        circuit_path,
+        selection_path,
+        model.resolve(),
+        {"attn_9_h_9"},
+    )
+
+
+def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path):
+    output = tmp_path / "healed"
+    make_checkpoint(output)
+    result_path = output / "healing_results.json"
+    result = {
+        "success": True,
+        "reference_eval_perplexity": 24.67033950244981,
+        "final_eval_perplexity": 27.0,
+        "perplexity_budget": 28.617593822841776,
+        "final_projected_agreement": {
+            "quote_close": 1.0,
+            "bracket_type": 1.0,
+        },
+    }
+    result_path.write_text(json.dumps(result))
+    assert healing_state(output, 24.67033950244981) == "passed"
+
+    result["final_projected_agreement"]["bracket_type"] = 0.99
+    result_path.write_text(json.dumps(result))
+    assert healing_state(output, 24.67033950244981) == "failed"
