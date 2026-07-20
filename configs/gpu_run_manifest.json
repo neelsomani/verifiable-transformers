@@ -5,7 +5,8 @@
     "small_layernorm_removal": "passed",
     "small_program_healing": "passed_after_ablation_aware_countermeasure",
     "small_program_migration": "passed",
-    "full_gpt2_training_started": false
+    "full_gpt2_training_started": true,
+    "a4_standard_ln": "completed_at_step_200000"
   },
   "shared": {
     "gpu_count": 8,
@@ -17,8 +18,8 @@
   "phase_a4": {
     "gate": "A2 passed, so A4 must run.",
     "train_standard_ln": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/train.py --config configs/sparsemax_leaky_layernorm.json --output_dir artifacts/gpt2-sparsemax-leaky-layernorm --processed_dataset_dir $PROCESSED_DATASET_DIR --evaluate_wikitext_at_end",
-    "remove_layernorm": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/remove_layernorm.py --checkpoint artifacts/gpt2-sparsemax-leaky-layernorm --processed_dataset_dir $PROCESSED_DATASET_DIR --output_dir artifacts/gpt2-norm-free",
-    "decision_rule": "Choose norm-free only if removal_loss_delta < 0.196; otherwise use the existing BandNorm sparsemax checkpoint.",
+    "remove_layernorm": "torchrun --standalone --nproc_per_node=8 scripts/gpt2/remove_layernorm.py --checkpoint artifacts/gpt2-sparsemax-leaky-layernorm --processed_dataset_dir $PROCESSED_DATASET_DIR --output_dir artifacts/gpt2-norm-free --baseline_eval_loss 3.1968865394592285 --bandnorm_eval_loss 3.3180",
+    "decision_rule": "Choose norm-free only if its final post-fold OpenWebText eval loss is below the preregistered BandNorm-only comparator of 3.3180; otherwise use BandNorm.",
     "decision_artifact": "artifacts/gpt2-norm-free/removal_metrics.json"
   },
   "phase_c": {

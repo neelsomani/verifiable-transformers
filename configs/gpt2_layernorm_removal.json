@@ -25,6 +25,6 @@
   "gap_steps": 100,
   "ema_momentum": 0.9,
   "fold_tolerance": 0.02,
-  "bandnorm_loss_delta_gate": 0.196,
-  "decision_rule": "Choose norm-free only if its final eval-loss increase over the matched standard-LN run is below 0.196; otherwise retain BandNorm."
+  "bandnorm_eval_loss_gate": 3.318,
+  "decision_rule": "Choose norm-free only if its final post-fold OpenWebText eval loss is below the preregistered BandNorm-only comparator of 3.3180; otherwise retain BandNorm."
 }

@@ -254,6 +254,23 @@ Interpretation:
 * **Dramatically better than verifiable norm replacements** (Step 2a variants)
 * This demonstrates that a fully SMT-encodable attention mechanism can achieve near-baseline performance while maintaining exact zeros in attention distributions
 
+### Sparsemax + LeakyReLU + Standard LayerNorm (A4 Run 1)
+
+This isolation run is the source checkpoint for GPT-2 LayerNorm removal and a
+standalone measurement of adding LeakyReLU to sparsemax while retaining standard
+LayerNorm. It stopped at step 200,000 when the preregistered OpenWebText
+validation criterion (`eval_loss <= 3.2`) was first met.
+
+* OpenWebText validation loss: **3.1968865** (perplexity **24.4563**)
+* Delta from the local baseline: **+0.0628865** loss
+* WikiText-103 validation perplexity: **57.1855**
+* Effective global batch: **256** sequences of 1,024 tokens
+* Nominal token budget at stopping: **52,428,800,000** tokens
+* Status: **removal input; A4 run 1 of 2**
+
+The exact run configuration, summaries, and training curve are recorded under
+`artifacts/gpt2-sparsemax-leaky-layernorm/`.
+
 ### Combined Verifiable Replacements (Norm + Attention + LeakyReLU)
 
 This combines the two verifiable components from steps 2a and 2b, in addition to replacing the GELU activation function.

@@ -31,11 +31,11 @@ def valid_checkpoint(path: str) -> bool:
 def select(metrics: dict, norm_free_model: str, bandnorm_model: str) -> dict:
     if metrics.get("status") != "passed":
         raise RuntimeError("A4 removal did not complete successfully")
-    delta = metrics.get("removal_loss_delta")
-    gate = metrics.get("bandnorm_loss_delta_gate")
-    if delta is None or gate is None:
-        raise RuntimeError("A4 decision requires measured removal delta and gate")
-    expected = "norm_free" if float(delta) < float(gate) else "bandnorm"
+    eval_loss = metrics.get("post_fold_eval_loss")
+    gate = metrics.get("bandnorm_eval_loss_gate")
+    if eval_loss is None or gate is None:
+        raise RuntimeError("A4 decision requires post-fold eval loss and absolute gate")
+    expected = "norm_free" if float(eval_loss) < float(gate) else "bandnorm"
     if metrics.get("decision") != expected:
         raise RuntimeError(
             f"Removal artifact decision {metrics.get('decision')!r} contradicts "
@@ -49,9 +49,10 @@ def select(metrics: dict, norm_free_model: str, bandnorm_model: str) -> dict:
     return {
         "decision": expected,
         "selected_model": os.path.abspath(selected),
-        "removal_loss_delta": float(delta),
-        "bandnorm_loss_delta_gate": float(gate),
-        "decision_rule": "norm_free iff removal_loss_delta < bandnorm_loss_delta_gate",
+        "post_fold_eval_loss": float(eval_loss),
+        "bandnorm_eval_loss_gate": float(gate),
+        "removal_loss_delta": metrics.get("removal_loss_delta"),
+        "decision_rule": "norm_free iff post_fold_eval_loss < bandnorm_eval_loss_gate",
         "removal_metrics": metrics,
     }
 

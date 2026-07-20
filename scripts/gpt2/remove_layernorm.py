@@ -40,8 +40,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config", default="configs/gpt2_layernorm_removal.json"
     )
-    parser.add_argument("--baseline_eval_loss", type=float, default=None)
-    parser.add_argument("--bandnorm_eval_loss", type=float, default=None)
+    parser.add_argument(
+        "--baseline_eval_loss",
+        type=float,
+        default=None,
+        help="Source-model eval loss used only to report removal degradation.",
+    )
+    parser.add_argument(
+        "--bandnorm_eval_loss",
+        type=float,
+        default=None,
+        help=(
+            "Optional invocation-time copy of the preregistered absolute BandNorm "
+            "gate. If supplied, it must match bandnorm_eval_loss_gate in the config."
+        ),
+    )
     parser.add_argument("--max_steps", type=int, default=None)
     parser.add_argument("--max_train_samples", type=int, default=None)
     parser.add_argument("--max_eval_samples", type=int, default=None)
@@ -51,6 +64,18 @@ def parse_args() -> argparse.Namespace:
 def load_json(path: str) -> dict:
     with open(path) as handle:
         return json.load(handle)
+
+
+def validate_bandnorm_eval_loss_gate(cfg: dict, supplied: float | None) -> float:
+    gate = float(cfg["bandnorm_eval_loss_gate"])
+    if supplied is not None and not math.isclose(
+        float(supplied), gate, rel_tol=0.0, abs_tol=1e-12
+    ):
+        raise ValueError(
+            f"--bandnorm_eval_loss={supplied} contradicts the preregistered "
+            f"bandnorm_eval_loss_gate={gate}"
+        )
+    return gate
 
 
 class NormRemovalScheduleCallback(TrainerCallback):
@@ -122,6 +147,9 @@ def write_status(output_dir: str, stage: str, **extra) -> None:
 def main() -> None:
     args = parse_args()
     cfg = load_json(args.config)
+    bandnorm_eval_loss_gate = validate_bandnorm_eval_loss_gate(
+        cfg, args.bandnorm_eval_loss
+    )
     set_seed(cfg["seed"])
     os.makedirs(args.output_dir, exist_ok=True)
     write_status(args.output_dir, "initializing", source_checkpoint=args.checkpoint)
@@ -257,18 +285,14 @@ def main() -> None:
         "post_fold_perplexity": math.exp(eval_loss),
         "baseline_eval_loss": baseline_eval_loss,
         "bandnorm_eval_loss": args.bandnorm_eval_loss,
-        "bandnorm_loss_delta_gate": cfg["bandnorm_loss_delta_gate"],
+        "bandnorm_eval_loss_gate": bandnorm_eval_loss_gate,
         "decision_rule": cfg["decision_rule"],
     }
     if baseline_eval_loss is not None:
         result["removal_loss_delta"] = eval_loss - baseline_eval_loss
-        result["decision"] = (
-            "norm_free"
-            if result["removal_loss_delta"] < cfg["bandnorm_loss_delta_gate"]
-            else "bandnorm"
-        )
-    else:
-        result["decision"] = "pending_baseline_eval_loss"
+    result["decision"] = (
+        "norm_free" if eval_loss < bandnorm_eval_loss_gate else "bandnorm"
+    )
     if args.bandnorm_eval_loss is not None:
         result["beats_measured_bandnorm"] = eval_loss < args.bandnorm_eval_loss
 

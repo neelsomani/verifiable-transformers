@@ -1,0 +1,7 @@
+{
+  "model_name": "gpt2",
+  "num_parameters": 124439808,
+  "norm_variant": "layernorm",
+  "attn_variant": "sparsemax",
+  "activation_variant": "leaky_relu"
+}

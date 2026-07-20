@@ -36,6 +36,20 @@ DOCUMENTED_ROWS = [
         "status": "measured",
     },
     {
+        "component": "layernorm+sparsemax+leaky_relu",
+        "owt_eval_loss": 3.1968865394592285,
+        "owt_loss_delta": 3.1968865394592285 - 3.1340,
+        "owt_eval_perplexity": 24.456267913785197,
+        "owt_perplexity_delta": 24.456267913785197 - math.exp(3.1340),
+        "relative_owt_perplexity_increase": (
+            24.456267913785197 / math.exp(3.1340) - 1.0
+        ),
+        "wikitext_perplexity": 57.18547510376165,
+        "wikitext_perplexity_delta": 57.18547510376165 - 52.9820,
+        "replacement_fraction": None,
+        "status": "measured; removal input; A4 run 1 of 2",
+    },
+    {
         "component": "bandnorm+sparsemax+leaky_relu",
         "owt_eval_loss": 3.3300,
         "owt_loss_delta": 0.1960,

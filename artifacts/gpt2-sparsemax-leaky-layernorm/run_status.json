@@ -1,0 +1,42 @@
+{
+  "status": "completed",
+  "stage": "done",
+  "updated_at_utc": "2026-07-20T16:16:22.820757+00:00",
+  "final_train_loss": 2.7383553102111815,
+  "final_eval_loss": 3.1968865394592285,
+  "final_eval_perplexity": 24.456267913785197,
+  "final_wikitext_perplexity": 57.18547510376165,
+  "training_record": {
+    "record_schema_version": 1,
+    "phase": "A4 run 1 of 2",
+    "role": "LayerNorm-removal input and LeakyReLU isolation result",
+    "source_git_commit_at_artifact_capture": "73131833fd43e35282629b7a9c4d661f6e4b9484",
+    "model": "gpt2",
+    "normalization": "layernorm",
+    "attention": "sparsemax",
+    "activation": "leaky_relu",
+    "dataset": "openwebtext",
+    "train_examples": 8727790,
+    "block_size": 1024,
+    "seed": 1337,
+    "gpu_count": 8,
+    "gpu_model": "NVIDIA H100 80GB HBM3",
+    "per_device_train_batch_size": 8,
+    "gradient_accumulation_steps": 4,
+    "effective_global_batch_size": 256,
+    "configured_max_steps": 600000,
+    "actual_global_step": 200000,
+    "actual_epoch": 5.866306866512187,
+    "nominal_training_sequences": 51200000,
+    "nominal_training_tokens": 52428800000,
+    "stopping_criterion": {
+      "metric": "OpenWebText validation eval_loss",
+      "operator": "<=",
+      "threshold": 3.2,
+      "evaluation_interval_steps": 20000,
+      "first_met_at_step": 200000
+    },
+    "resume_note": "The final invocation resumed from checkpoint-40000 with the effective global batch preserved at 256.",
+    "compile_note": "torch_compile was requested, but the live process emitted the sparsemax-counter recompilation-limit warning and continued via fallback; the source guard committed during the run did not alter the already-running process."
+  }
+}

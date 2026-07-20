@@ -1,0 +1,8 @@
+{
+  "dataset": "wikitext-103-raw-v1",
+  "split": "validation",
+  "loss": 4.046299934387207,
+  "perplexity": 57.18547510376165,
+  "seq_len": 251048,
+  "max_samples": null
+}
