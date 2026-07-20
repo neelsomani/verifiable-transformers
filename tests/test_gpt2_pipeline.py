@@ -1,8 +1,12 @@
 import json
 
 import pytest
+import torch
+from safetensors.torch import load_file
+from transformers import GPT2Config, GPT2LMHeadModel
 
 from scripts.gpt2.cluster_preflight import checkpoint_ready, processed_dataset_ready
+from scripts.gpt2.extract import load_model_with_variants
 from scripts.gpt2.remove_layernorm import validate_bandnorm_eval_loss_gate
 from scripts.gpt2.select_base_model import select
 
@@ -58,6 +62,39 @@ def test_removal_rejects_invocation_time_gate_shift():
     assert validate_bandnorm_eval_loss_gate(cfg, 3.318) == 3.318
     with pytest.raises(ValueError, match="contradicts"):
         validate_bandnorm_eval_loss_gate(cfg, 3.330)
+
+
+def test_loader_restores_safetensors_omitted_tied_lm_head(tmp_path):
+    config = GPT2Config(
+        vocab_size=19,
+        n_positions=8,
+        n_embd=8,
+        n_layer=1,
+        n_head=2,
+        n_inner=16,
+        tie_word_embeddings=True,
+    )
+    source = GPT2LMHeadModel(config)
+    source.save_pretrained(tmp_path, safe_serialization=True)
+    with open(tmp_path / "model_info.json", "w") as handle:
+        json.dump(
+            {
+                "norm_variant": "layernorm",
+                "attn_variant": "softmax",
+                "activation_variant": "gelu",
+            },
+            handle,
+        )
+
+    state_dict = load_file(tmp_path / "model.safetensors")
+    assert "transformer.wte.weight" in state_dict
+    assert "lm_head.weight" not in state_dict
+
+    loaded = load_model_with_variants(str(tmp_path), "cpu")
+    assert loaded.lm_head.weight is loaded.transformer.wte.weight
+    torch.testing.assert_close(
+        loaded.transformer.wte.weight, source.transformer.wte.weight
+    )
 
 
 def test_cluster_preflight_requires_variant_metadata_and_complete_dataset(tmp_path):

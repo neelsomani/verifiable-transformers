@@ -11,7 +11,7 @@ from types import MethodType
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from transformers import GPT2LMHeadModel, GPT2Config
-from scripts.gpt2.train import apply_model_variants
+from scripts.gpt2.train import apply_model_variants, validate_checkpoint_compatibility
 from scripts.programs import ProgrammedAttention, install_program_heads, load_programs
 from scripts.smt.utils import get_norm_params, get_bandnorm_params
 
@@ -84,12 +84,10 @@ def load_model_weights(model_path: str, model_info_path: str = None) -> Dict[str
             state_dict = load_file(weights_path)
 
         incompatible = model.load_state_dict(state_dict, strict=False)
-        if incompatible.missing_keys or incompatible.unexpected_keys:
-            raise RuntimeError(
-                "Checkpoint architecture mismatch: "
-                f"missing={incompatible.missing_keys}, "
-                f"unexpected={incompatible.unexpected_keys}"
-            )
+        ignored_missing = validate_checkpoint_compatibility(model, incompatible)
+        if ignored_missing:
+            model.tie_weights()
+            print(f"Restored omitted tied weights: {ignored_missing}")
         print(f"Loaded weights from {weights_path}")
     else:
         raise FileNotFoundError(f"Model weights not found in {model_path}")

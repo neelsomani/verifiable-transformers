@@ -21,7 +21,7 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
 
 # Import model variant loading
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from scripts.gpt2.train import apply_model_variants
+from scripts.gpt2.train import apply_model_variants, validate_checkpoint_compatibility
 from scripts.circuits import (
     CircuitGraph as PerHeadCircuitGraph,
     controlled_forward as per_head_controlled_forward,
@@ -219,12 +219,10 @@ def load_model_with_variants(model_path: str, device: str):
                 raise ImportError("safetensors not installed")
 
         incompatible = model.load_state_dict(state_dict, strict=False)
-        if incompatible.missing_keys or incompatible.unexpected_keys:
-            raise RuntimeError(
-                "Checkpoint architecture mismatch: "
-                f"missing={incompatible.missing_keys}, "
-                f"unexpected={incompatible.unexpected_keys}"
-            )
+        ignored_missing = validate_checkpoint_compatibility(model, incompatible)
+        if ignored_missing:
+            model.tie_weights()
+            print(f"Restored omitted tied weights: {ignored_missing}")
         print(f"Loaded weights from {weights_path}")
     else:
         raise FileNotFoundError(f"Could not find model weights in {model_path}")

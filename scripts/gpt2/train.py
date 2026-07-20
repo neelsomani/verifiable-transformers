@@ -420,6 +420,24 @@ def sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
     return torch.clamp(z - tau, min=0.0)
 
 
+def validate_checkpoint_compatibility(model, incompatible) -> list[str]:
+    """Reject architecture drift while allowing omitted, reconstructible tied weights."""
+    tied_weight_keys = set(getattr(model, "_tied_weights_keys", None) or [])
+    ignored_missing = [
+        key for key in incompatible.missing_keys if key in tied_weight_keys
+    ]
+    missing_keys = [
+        key for key in incompatible.missing_keys if key not in tied_weight_keys
+    ]
+    if missing_keys or incompatible.unexpected_keys:
+        raise RuntimeError(
+            "Checkpoint architecture mismatch: "
+            f"missing={missing_keys}, "
+            f"unexpected={incompatible.unexpected_keys}"
+        )
+    return ignored_missing
+
+
 # Global counter for sparsemax verification
 _sparsemax_call_count = 0
 
