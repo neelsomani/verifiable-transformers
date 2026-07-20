@@ -33,7 +33,10 @@ from scripts.gpt2.extract import (
     select_last_real_logits,
 )
 from scripts.gpt2.synthesize_programs import projected_decisions
-from scripts.gpt2.train import create_optimizer_with_weight_decay_exclusions
+from scripts.gpt2.train import (
+    create_optimizer_with_weight_decay_exclusions,
+    find_latest_checkpoint,
+)
 from scripts.programs import install_program_heads, load_programs, save_programs
 
 
@@ -52,6 +55,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_steps", type=int, default=None)
     parser.add_argument("--max_train_samples", type=int, default=None)
     parser.add_argument("--max_eval_samples", type=int, default=None)
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        default=None,
+        help="Explicit Trainer checkpoint; otherwise the latest output checkpoint is used.",
+    )
+    parser.add_argument(
+        "--disable_auto_resume",
+        action="store_true",
+        help="Start from the base model even if output_dir contains checkpoints.",
+    )
     parser.add_argument(
         "--ablation_aware",
         action="store_true",
@@ -464,7 +477,12 @@ def main() -> None:
         optimizers=(optimizer, None),
         **trainer_kwargs,
     )
-    trainer.train()
+    resume_checkpoint = args.resume_from_checkpoint
+    if resume_checkpoint is None and not args.disable_auto_resume:
+        resume_checkpoint = find_latest_checkpoint(args.output_dir)
+        if resume_checkpoint is not None and local_rank == 0:
+            print(f"Auto-resuming healing from checkpoint: {resume_checkpoint}")
+    trainer.train(resume_from_checkpoint=resume_checkpoint)
     eval_metrics = trainer.evaluate()
     final = decisions_for_model(
         trainer.model, domains, cfg["behavior_batch_size"]
@@ -482,6 +500,7 @@ def main() -> None:
     perplexity_pass = eval_perplexity <= budget
     result = {
         "source_model": args.model_path,
+        "resume_from_checkpoint": resume_checkpoint,
         "programs": args.programs,
         "program_heads": [f"{layer}.{head}" for layer, head in sorted(programs)],
         "programs_frozen": True,
@@ -515,11 +534,21 @@ def main() -> None:
         ),
         "gate_history": gate_callback.history,
         "success": agreement_pass and perplexity_pass,
+        "global_step": int(trainer.state.global_step),
+        "epoch": None if trainer.state.epoch is None else float(trainer.state.epoch),
+        "effective_global_batch_size": (
+            int(trainer.args.world_size)
+            * int(cfg["train_batch_size_per_device"])
+            * int(cfg["gradient_accumulation_steps"])
+        ),
     }
     trainer.save_model(args.output_dir)
+    trainer.save_state()
     if trainer.is_world_process_zero():
         tokenizer.save_pretrained(args.output_dir)
         save_programs(programs, os.path.join(args.output_dir, "programs.json"))
+        with open(os.path.join(args.output_dir, "run_config.json"), "w") as handle:
+            json.dump(cfg, handle, indent=2)
         source_info = load_json(os.path.join(args.model_path, "model_info.json"))
         source_info.update(
             {
