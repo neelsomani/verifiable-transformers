@@ -182,16 +182,27 @@ def fold_and_measure_in_fp32(model, sample: torch.Tensor) -> dict[str, float]:
 
 
 class NormRemovalScheduleCallback(TrainerCallback):
-    def __init__(self, entries, cfg: dict, output_dir: str):
+    def __init__(
+        self,
+        entries,
+        cfg: dict,
+        output_dir: str,
+        *,
+        fixed_step: int | None = None,
+    ):
         self.entries = entries
         self.cfg = cfg
         self.output_dir = output_dir
+        self.fixed_step = fixed_step
         self.history = []
+
+    def _effective_step(self, step: int) -> int:
+        return self.fixed_step if self.fixed_step is not None else step
 
     def _update(self, step: int) -> dict[str, float]:
         return update_attenuation_schedule(
             self.entries,
-            step,
+            self._effective_step(step),
             calibration_steps=self.cfg["calibration_steps"],
             transition_steps=self.cfg["transition_steps"],
             gap_steps=self.cfg["gap_steps"],
@@ -207,8 +218,9 @@ class NormRemovalScheduleCallback(TrainerCallback):
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         schedule = self._update(state.global_step)
+        schedule_step = self._effective_step(state.global_step)
         record = {
-            "step": state.global_step,
+            "step": schedule_step,
             "schedule": schedule,
             "fixed_std": {
                 entry.name: float(entry.module.fixed_std.item())
@@ -216,6 +228,8 @@ class NormRemovalScheduleCallback(TrainerCallback):
             },
             "logs": dict(logs or {}),
         }
+        if schedule_step != state.global_step:
+            record["trainer_step"] = state.global_step
         self.history.append(record)
         if state.is_world_process_zero:
             os.makedirs(self.output_dir, exist_ok=True)
@@ -332,7 +346,12 @@ def main() -> None:
         fp16=cfg["fp16"],
         report_to="none",
     )
-    callback = NormRemovalScheduleCallback(entries, cfg, args.output_dir)
+    callback = NormRemovalScheduleCallback(
+        entries,
+        cfg,
+        args.output_dir,
+        fixed_step=recovered_step,
+    )
     if args.postprocess_checkpoint is not None:
         history_path = os.path.join(args.output_dir, "removal_schedule.json")
         if os.path.isfile(history_path):
@@ -373,6 +392,9 @@ def main() -> None:
     attenuation_endpoint = validate_attenuation_endpoint(entries)
 
     pre_fold_metrics = trainer.evaluate()
+    # Evaluation logs use Trainer's fresh state (global_step=0) in recovery
+    # mode. Recheck here so a callback can never silently rewind the schedule.
+    validate_attenuation_endpoint(entries)
     sample = next(iter(trainer.get_eval_dataloader()))["input_ids"][
         : cfg["fold_validation_batch_size"]
     ]

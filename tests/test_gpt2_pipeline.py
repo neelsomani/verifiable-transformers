@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -8,6 +9,7 @@ from transformers import GPT2Config, GPT2LMHeadModel
 from scripts.gpt2.cluster_preflight import checkpoint_ready, processed_dataset_ready
 from scripts.gpt2.extract import load_model_with_variants
 from scripts.gpt2.remove_layernorm import (
+    NormRemovalScheduleCallback,
     fold_and_measure_in_fp32,
     load_trained_removal_checkpoint,
     validate_attenuation_endpoint,
@@ -171,6 +173,45 @@ def test_removal_recovery_rejects_incomplete_schedule(tmp_path):
     )
     with pytest.raises(ValueError, match="required at least 5000"):
         load_trained_removal_checkpoint(model, str(checkpoint), required_step=5000)
+
+
+def test_recovery_callback_does_not_rewind_at_trainer_step_zero(tmp_path):
+    config = GPT2Config(
+        vocab_size=19,
+        n_positions=8,
+        n_embd=8,
+        n_layer=1,
+        n_head=2,
+        n_inner=16,
+    )
+    model = GPT2LMHeadModel(config)
+    entries = install_attenuated_layernorms(model)
+    with torch.no_grad():
+        for entry in entries:
+            entry.module.fixed_std.fill_(0.9)
+            entry.module.set_attenuation(1.0)
+
+    callback = NormRemovalScheduleCallback(
+        entries,
+        {
+            "calibration_steps": 500,
+            "transition_steps": 500,
+            "gap_steps": 100,
+        },
+        str(tmp_path),
+        fixed_step=5000,
+    )
+    callback.on_log(
+        None,
+        SimpleNamespace(global_step=0, is_world_process_zero=False),
+        SimpleNamespace(),
+        logs={"eval_loss": 3.2},
+    )
+
+    endpoint = validate_attenuation_endpoint(entries)
+    assert all(state["attenuation"] == 1.0 for state in endpoint.values())
+    assert callback.history[-1]["step"] == 5000
+    assert callback.history[-1]["trainer_step"] == 0
 
 
 def test_cluster_preflight_requires_variant_metadata_and_complete_dataset(tmp_path):
