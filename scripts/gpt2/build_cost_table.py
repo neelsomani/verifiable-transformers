@@ -47,7 +47,7 @@ DOCUMENTED_ROWS = [
         "wikitext_perplexity": 57.18547510376165,
         "wikitext_perplexity_delta": 57.18547510376165 - 52.9820,
         "replacement_fraction": None,
-        "status": "measured; removal input; A4 run 1 of 2",
+        "status": "measured; A4 removal source",
     },
     {
         "component": "bandnorm+sparsemax+leaky_relu",

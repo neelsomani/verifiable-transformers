@@ -31,14 +31,22 @@ REQUIRED_FILES = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--processed_dataset_dir", required=True)
-    parser.add_argument("--bandnorm_model", required=True)
+    parser.add_argument(
+        "--base_model",
+        default=None,
+        help="Selected Phase C checkpoint; when supplied, this is the required model.",
+    )
+    parser.add_argument("--bandnorm_model", default=None)
     parser.add_argument("--output", required=True)
     parser.add_argument("--expected_gpus", type=int, default=8)
     parser.add_argument("--minimum_free_gb", type=float, default=200.0)
     parser.add_argument(
         "--allow_missing_bandnorm",
         action="store_true",
-        help="Development-only; the real run needs the fallback checkpoint.",
+        help=(
+            "Allow an A4 preflight without the BandNorm fallback; ignored when "
+            "--base_model supplies the already-selected Phase C checkpoint."
+        ),
     )
     return parser.parse_args()
 
@@ -120,12 +128,28 @@ def main() -> None:
         "minimum_free_gb": args.minimum_free_gb,
         "passed": free_gb >= args.minimum_free_gb,
     }
-    bandnorm_ready = checkpoint_ready(args.bandnorm_model)
+    base_model_ready = (
+        args.base_model is not None and checkpoint_ready(args.base_model)
+    )
+    checks["selected_base_model"] = {
+        "path": None if args.base_model is None else os.path.abspath(args.base_model),
+        "ready": base_model_ready,
+        "required": args.base_model is not None,
+        "passed": base_model_ready if args.base_model is not None else True,
+    }
+    bandnorm_ready = (
+        args.bandnorm_model is not None and checkpoint_ready(args.bandnorm_model)
+    )
+    bandnorm_required = args.base_model is None and not args.allow_missing_bandnorm
     checks["bandnorm_fallback"] = {
-        "path": os.path.abspath(args.bandnorm_model),
+        "path": (
+            None
+            if args.bandnorm_model is None
+            else os.path.abspath(args.bandnorm_model)
+        ),
         "ready": bandnorm_ready,
-        "required": not args.allow_missing_bandnorm,
-        "passed": bandnorm_ready or args.allow_missing_bandnorm,
+        "required": bandnorm_required,
+        "passed": bandnorm_ready or not bandnorm_required,
     }
     checks["bf16"] = {
         "supported_all_devices": bool(gpu_count) and all(

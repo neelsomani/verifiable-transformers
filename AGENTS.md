@@ -33,7 +33,7 @@ Phases A and B are independent and cheap — run them in parallel; everything ex
 
 Suggested execution order: **0.1–0.3 → A1–A3 ∥ B1–B5 → A4 → C → D.** Kill criteria worth writing down now: if A2 fails (removal incompatible with sparsemax), Phase C proceeds on BandNorm and A4 is skipped; if B4 shows migration even at toy scale, solve ablation-aware healing there before spending any GPT-2 compute; if C3 can't fit the circuit heads even partially, the salvage output is the counterexample analysis of *why* those heads resist token-level description — which is an interpretability result in its own right.
 
-## Execution Status — 2026-07-18
+## Execution Status — 2026-07-20
 
 - **Phase 0.1–0.3:** complete.
 - **A1–A3:** complete. The norm-free model retains 100% candidate accuracy, all four properties verify on both tasks, and the final robustness map is affine plus argmax.
@@ -41,5 +41,6 @@ Suggested execution order: **0.1–0.3 → A1–A3 ∥ B1–B5 → A4 → C → 
 - **Remediation Task 1:** complete. Assertion-source attribution, per-property solve times, normalized cost columns, and the available five-edge quote-close comparison are recorded; bracket type has no equal-edge pair and is explicitly skipped.
 - **Remediation Task 2:** complete. The epsilon values match at 0.01, both matched BandNorm tasks classify as branch-adjacent, and the norm-free contrast verifies at every swept radius.
 - **Remediation Task 3:** complete in one chase round. The pre-intervention drift artifact is preserved; `attn_1_h_1` was programmed; the final quote circuit has only the intended program heads, passes migration, and verifies all four properties with zero active neural-attention bilinear terms. The plain-heal failure artifact remains unchanged.
-- **A4 run 1 of 2:** complete. Sparsemax + LeakyReLU + standard LayerNorm stopped at step 200,000 with OpenWebText eval loss 3.1968865 and WikiText-103 perplexity 57.1855; removal is pending under the locked `< 3.3180` post-fold gate.
-- **Open:** A4 run 2 and Phase C remain gated GPU-scale work.
+- **A4:** complete. The sparsemax + LeakyReLU + standard-LayerNorm source stopped at step 200,000 with OpenWebText eval loss 3.1968865. Sequential attenuation reached the fixed-std endpoint for all 25 norms, and the folded norm-free model achieved post-fold loss 3.2056017 (perplexity 24.6703), only +0.0087152 loss versus its source and 0.1123983 below the locked 3.3180 gate. The fold passed in FP32 with 1.000 top-1 agreement and a 3.67e-5 eval-loss delta.
+- **C1:** complete. The preregistered selector chose `artifacts/gpt2-norm-free` as the Phase C base; BandNorm remains the documented from-scratch negative result rather than the recommended recipe.
+- **Open:** Phase C steps C2–C7 remain GPU-scale work.

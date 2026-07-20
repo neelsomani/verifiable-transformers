@@ -1,0 +1,17 @@
+{
+  "arithmetic_dtype": "float64",
+  "forward_dtype": "float32",
+  "validation_batch_size_per_rank": 1,
+  "max_abs_diff": 6.580352783203125e-05,
+  "max_abs_tolerance": 0.02,
+  "relative_l2_error": 9.091774586522661e-07,
+  "relative_l2_tolerance": 1e-05,
+  "top1_agreement": 1.0,
+  "top1_agreement_min": 1,
+  "pre_fold_eval_loss": 3.2055649757385254,
+  "post_fold_eval_loss": 3.205601692199707,
+  "eval_loss_delta": 3.6716461181640625e-05,
+  "eval_loss_delta_tolerance": 0.001,
+  "status": "passed",
+  "violations": []
+}

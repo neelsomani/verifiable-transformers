@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "evidence_archive": {
+    "filename": "a4-run2-evidence.tar.gz",
+    "sha256": "f8161d87df4a4eabaa3e11fc6d652a2b0ef8af5ebebb8b724367ea6a8435d877",
+    "size_bytes": 46278
+  },
+  "model_archive": {
+    "filename": "gpt2-norm-free-model.tar",
+    "sha256": "7f2f4dbe9ec290a52bebdd81a19ea2727107504625c8a887ea9040c4d88e3f90",
+    "size_bytes": 657469440,
+    "stored_outside_git": true
+  },
+  "postprocessing_git_commit": "24a8277216392c5a0bdfc14b241511ea8163ad42",
+  "raw_schedule_note": "removal_schedule.json preserves the failed recovery evaluation at index 222 (step 0), followed by corrected fixed-step postprocessing records at indices 223 and 224; the checkpoint itself remained at global step 5000.",
+  "model_storage_policy": "The large folded checkpoint is intentionally excluded from Git; the checksummed external archive is the Phase C restoration object."
+}

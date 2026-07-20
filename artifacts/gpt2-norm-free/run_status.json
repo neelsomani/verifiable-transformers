@@ -1,0 +1,169 @@
+{
+  "stage": "completed",
+  "updated_at_utc": "2026-07-20T18:59:11.834782+00:00",
+  "status": "passed",
+  "method": "sequential_fixed_std_attenuation_and_affine_folding",
+  "source_checkpoint": "/workspace/gpt2-sparsemax-leaky-layernorm",
+  "schedule_end": 3400,
+  "max_steps": 5000,
+  "recovered_checkpoint": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free/checkpoint-5000",
+  "recovered_step": 5000,
+  "attenuation_endpoint": {
+    "h.0.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.03070029243826866,
+      "calibrating": false
+    },
+    "h.1.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.10901372879743576,
+      "calibrating": false
+    },
+    "h.2.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.11646987497806549,
+      "calibrating": false
+    },
+    "h.3.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.12030739337205887,
+      "calibrating": false
+    },
+    "h.4.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.12526573240756989,
+      "calibrating": false
+    },
+    "h.5.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.13230031728744507,
+      "calibrating": false
+    },
+    "h.6.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.1407483071088791,
+      "calibrating": false
+    },
+    "h.7.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.15210293233394623,
+      "calibrating": false
+    },
+    "h.8.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.16533413529396057,
+      "calibrating": false
+    },
+    "h.9.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.1859506517648697,
+      "calibrating": false
+    },
+    "h.10.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.22597719728946686,
+      "calibrating": false
+    },
+    "h.11.ln_2": {
+      "attenuation": 1.0,
+      "fixed_std": 0.27171841263771057,
+      "calibrating": false
+    },
+    "h.0.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.027024956420063972,
+      "calibrating": false
+    },
+    "h.1.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.09346558153629303,
+      "calibrating": false
+    },
+    "h.2.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.1098436787724495,
+      "calibrating": false
+    },
+    "h.3.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.11504098773002625,
+      "calibrating": false
+    },
+    "h.4.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.12057076394557953,
+      "calibrating": false
+    },
+    "h.5.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.12644028663635254,
+      "calibrating": false
+    },
+    "h.6.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.13399174809455872,
+      "calibrating": false
+    },
+    "h.7.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.14413796365261078,
+      "calibrating": false
+    },
+    "h.8.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.15602833032608032,
+      "calibrating": false
+    },
+    "h.9.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.17417991161346436,
+      "calibrating": false
+    },
+    "h.10.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.2068517953157425,
+      "calibrating": false
+    },
+    "h.11.ln_1": {
+      "attenuation": 1.0,
+      "fixed_std": 0.25728389620780945,
+      "calibrating": false
+    },
+    "ln_f": {
+      "attenuation": 1.0,
+      "fixed_std": 0.303340882062912,
+      "calibrating": false
+    }
+  },
+  "fold_validation": {
+    "arithmetic_dtype": "float64",
+    "forward_dtype": "float32",
+    "validation_batch_size_per_rank": 1,
+    "max_abs_diff": 6.580352783203125e-05,
+    "max_abs_tolerance": 0.02,
+    "relative_l2_error": 9.091774586522661e-07,
+    "relative_l2_tolerance": 1e-05,
+    "top1_agreement": 1.0,
+    "top1_agreement_min": 1,
+    "pre_fold_eval_loss": 3.2055649757385254,
+    "post_fold_eval_loss": 3.205601692199707,
+    "eval_loss_delta": 3.6716461181640625e-05,
+    "eval_loss_delta_tolerance": 0.001,
+    "status": "passed",
+    "violations": []
+  },
+  "fold_max_abs_diff": 6.580352783203125e-05,
+  "fold_relative_l2_error": 9.091774586522661e-07,
+  "fold_top1_agreement": 1.0,
+  "fold_eval_loss_delta": 3.6716461181640625e-05,
+  "pre_fold_eval_loss": 3.2055649757385254,
+  "post_fold_eval_loss": 3.205601692199707,
+  "post_fold_perplexity": 24.67033950244981,
+  "baseline_eval_loss": 3.1968865394592285,
+  "bandnorm_eval_loss": 3.318,
+  "bandnorm_eval_loss_gate": 3.318,
+  "decision_rule": "Choose norm-free only if its final post-fold OpenWebText eval loss is below the preregistered BandNorm-only comparator of 3.3180; otherwise retain BandNorm.",
+  "removal_loss_delta": 0.008715152740478516,
+  "decision": "norm_free",
+  "beats_measured_bandnorm": true
+}

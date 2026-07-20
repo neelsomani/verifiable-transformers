@@ -271,6 +271,49 @@ validation criterion (`eval_loss <= 3.2`) was first met.
 The exact run configuration, summaries, and training curve are recorded under
 `artifacts/gpt2-sparsemax-leaky-layernorm/`.
 
+### LayerNorm Removal (A4 Run 2)
+
+Starting from the preceding standard-LayerNorm checkpoint, we fine-tuned for
+5,000 optimizer steps while sequentially replacing each of GPT-2-small's 25
+normalization instances with a fixed-standard-deviation affine map. The last
+transition completed at step 3,400, leaving 1,600 optimizer steps at the fully
+attenuated endpoint. With an effective global batch of 256 sequences and 1,024
+tokens per sequence, the removal run processed a nominal 1.311 billion tokens.
+
+Results after folding every affine map into its consumer were:
+
+* Pre-fold OpenWebText validation loss: **3.2055650**
+* Post-fold OpenWebText validation loss: **3.2056017** (perplexity **24.6703**)
+* Incremental removal cost versus the LayerNorm source: **+0.0087152** loss,
+  **+0.2141** perplexity (**+0.8753%**)
+* Locked BandNorm-only gate: **3.3180**
+* Gate margin: **0.1123983** loss in favor of norm-free
+
+The initially reported large absolute logit differences were a BF16 comparison
+artifact: folding reorders operations, so the two mathematically equivalent
+graphs round differently under BF16 autocast. The recovery pass first confirmed
+that every saved attenuation value was 1.0, every calibration flag was false,
+and every frozen standard deviation was finite and positive. It then performed
+the fold in FP64 and compared both graphs in FP32. Maximum absolute logit error
+was **6.58e-5**, relative L2 error was **9.09e-7**, top-1 agreement was **1.000**,
+and the pre/post-fold validation-loss delta was **3.67e-5**. All were inside the
+declared fail-closed recovery thresholds.
+
+The A4 decision is therefore **norm-free**: Phase C uses the norm-free
+sparsemax-and-LeakyReLU model, while BandNorm remains a measured from-scratch negative
+result. In the unified cost table, the `layernorm_removal` delta is the
+incremental cost relative to its LayerNorm source; its total loss delta from the
+local 3.1340 baseline is +0.0716017. WikiText-103 was not re-evaluated after
+folding. Folding the final norm also unties the output projection from the token
+embedding, so the saved model has 163,049,041 parameters; this storage cost is
+retained as part of the measured recipe.
+
+The exact schedule, endpoint state, fold validation, final decision, effective
+configuration, and checkpoint training curve are recorded under
+`artifacts/gpt2-norm-free/`. The materialized C1 choice is
+`artifacts/gpt2-phase-c-base.json`; `evidence_manifest.json` links these records
+to the checksummed, externally stored folded-model archive.
+
 ### Combined Verifiable Replacements (Norm + Attention + LeakyReLU)
 
 This combines the two verifiable components from steps 2a and 2b, in addition to replacing the GELU activation function.
