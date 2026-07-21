@@ -90,10 +90,19 @@ class ProgrammedAttention(nn.Module):
         self.c_proj = original.c_proj
 
         d_model = self.embed_dim
+        reference_weight = (
+            original.value_proj.weight if extending else original.c_attn.weight
+        )
+        factory_kwargs = {
+            "device": reference_weight.device,
+            "dtype": reference_weight.dtype,
+        }
         if extending:
             self.value_proj = original.value_proj
         else:
-            self.value_proj = nn.Linear(d_model, d_model, bias=True)
+            self.value_proj = nn.Linear(
+                d_model, d_model, bias=True, **factory_kwargs
+            )
             with torch.no_grad():
                 self.value_proj.weight.copy_(
                     original.c_attn.weight[:, 2 * d_model :].transpose(0, 1)
@@ -102,8 +111,12 @@ class ProgrammedAttention(nn.Module):
 
         neural_width = len(self.neural_heads) * self.head_dim
         if neural_width:
-            self.query_proj = nn.Linear(d_model, neural_width, bias=True)
-            self.key_proj = nn.Linear(d_model, neural_width, bias=True)
+            self.query_proj = nn.Linear(
+                d_model, neural_width, bias=True, **factory_kwargs
+            )
+            self.key_proj = nn.Linear(
+                d_model, neural_width, bias=True, **factory_kwargs
+            )
             with torch.no_grad():
                 if extending:
                     old_head_indices = {

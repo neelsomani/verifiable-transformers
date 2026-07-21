@@ -186,6 +186,37 @@ def test_installed_fully_programmed_attention_physically_deletes_qk():
     assert torch.isfinite(logits).all()
 
 
+def test_install_program_heads_inherits_existing_device_and_dtype():
+    config = GPT2Config(
+        vocab_size=17,
+        n_positions=6,
+        n_embd=8,
+        n_layer=1,
+        n_head=2,
+        n_inner=16,
+        resid_pdrop=0.0,
+        embd_pdrop=0.0,
+        attn_pdrop=0.0,
+        use_cache=False,
+    )
+    model = GPT2LMHeadModel(config).double().eval()
+    original = model.transformer.h[0].attn
+    expected_device = original.c_attn.weight.device
+    expected_dtype = original.c_attn.weight.dtype
+
+    install_program_heads(model, {(0, 0): fixed_position_program(1)})
+    attention = model.transformer.h[0].attn
+
+    assert isinstance(attention, ProgrammedAttention)
+    for projection in (attention.value_proj, attention.query_proj, attention.key_proj):
+        assert projection.weight.device == expected_device
+        assert projection.weight.dtype == expected_dtype
+    with torch.no_grad():
+        logits = model(torch.tensor([[1, 2, 3, 4]])).logits
+    assert logits.dtype == expected_dtype
+    assert torch.isfinite(logits).all()
+
+
 def test_install_program_heads_extends_an_existing_programmed_layer():
     config = GPT2Config(
         vocab_size=17,
