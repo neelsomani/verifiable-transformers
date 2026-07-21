@@ -18,13 +18,13 @@ def test_v2_splits_are_unique_balanced_disjoint_and_stable():
     )
     expected_hashes = {
         ("synthesis", "quote_close"): (
-            "a08b9e6276ff8e562a69617ed6d7901cba8ae3217bd21599c553239d72aa9560"
+            "6e361c9d49518ded905fa94f27661342b03b7532791f165b79f5f2754401e4b8"
         ),
         ("synthesis", "bracket_type"): (
             "d75263467fc9fcd4951763af37a89faab2130df290c35290c9c79c7feadff3e0"
         ),
         ("gate", "quote_close"): (
-            "f05b473cce9f02c5ac15864f76d80e1e20b9b77a1bf9939ab492a9d27c88392f"
+            "2672b5af812f70b101dcdf3be1c31a7e8c0b436f57a3b7d49a18d6cc4471c1ff"
         ),
         ("gate", "bracket_type"): (
             "85a26d808c3da14e5704e63fe1f5232ee30e6e69bf2d84eda63b21c75d062240"
@@ -41,6 +41,15 @@ def test_v2_splits_are_unique_balanced_disjoint_and_stable():
             prompts = {row.prompt for row in rows}
             assert len(rows) == len(prompts) == 256
             assert {row.split for row in rows} == {split}
+            if task == "quote_close":
+                assert all(
+                    row.correct_token == row.metadata["opener"]
+                    for row in rows
+                )
+                assert all(
+                    row.incorrect_token != row.metadata["opener"]
+                    for row in rows
+                )
             assert sorted(
                 sum(row.stratum == stratum for row in rows)
                 for stratum in {row.stratum for row in rows}

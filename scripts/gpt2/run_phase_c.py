@@ -116,6 +116,9 @@ def behavior_scan_gate(
             failures.append(
                 f"domain manifest is {recorded_path}, expected {expected_manifest}"
             )
+        expected_sha = hashlib.sha256(expected_manifest.read_bytes()).hexdigest()
+        if report.get("domain_manifest_sha256") != expected_sha:
+            failures.append("domain manifest digest is stale or missing")
     results = report.get("results", {})
     for task in TASKS:
         task_result = results.get(task, {})
@@ -740,8 +743,15 @@ class PhaseCRunner:
                 if passed:
                     self.log(f"REUSE: base model is exact on v2 {split} split")
                     continue
-                raise PipelineError(
-                    f"Behavior v2 {split} gate failed: " + "; ".join(failures)
+                report = load_json(path)
+                expected_sha = hashlib.sha256(manifest.read_bytes()).hexdigest()
+                if report.get("domain_manifest_sha256") == expected_sha:
+                    raise PipelineError(
+                        f"Behavior v2 {split} gate failed: "
+                        + "; ".join(failures)
+                    )
+                self.log(
+                    f"REBUILD: stale {split} behavior scan uses an older manifest"
                 )
             self.run_logged(
                 self.python_command(

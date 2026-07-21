@@ -342,6 +342,10 @@ def write_behavior_scan_report(
     """Write JSON and text reports."""
 
     os.makedirs(output_dir, exist_ok=True)
+    domain_manifest_sha256 = None
+    if domain_manifest is not None:
+        with open(domain_manifest, "rb") as handle:
+            domain_manifest_sha256 = hashlib.sha256(handle.read()).hexdigest()
 
     # Write JSON
     json_data = {
@@ -349,6 +353,7 @@ def write_behavior_scan_report(
         "domain_manifest": (
             None if domain_manifest is None else os.path.abspath(domain_manifest)
         ),
+        "domain_manifest_sha256": domain_manifest_sha256,
         "results": {
             name: {
                 "n_examples_requested": m.n_examples_requested,

@@ -261,7 +261,7 @@ def legacy_examples(task: str, n: int = 128) -> list[BehaviorExample]:
 
 def _task_strata(task: str) -> tuple[tuple[str, str, str], ...]:
     if task == "quote_close":
-        return (("single", "'", '"'), ("double", '"', "'"))
+        return (("single", "'", "'"), ("double", '"', '"'))
     if task == "bracket_type":
         return (("bracket", "[", "]"), ("brace", "{", "}"))
     raise ValueError(f"Unknown behavior task: {task}")
