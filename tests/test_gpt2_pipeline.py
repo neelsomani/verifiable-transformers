@@ -16,6 +16,8 @@ from scripts.gpt2.remove_layernorm import (
     validate_bandnorm_eval_loss_gate,
 )
 from scripts.gpt2.run_phase_c import (
+    PhaseCRunner,
+    PipelineError,
     behavior_scan_gate,
     circuit_artifact_complete,
     healing_state,
@@ -353,6 +355,76 @@ def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path
     result_path.write_text(json.dumps(result))
     assert healing_state(output, 24.67033950244981) == "passed"
 
+    result["success"] = False
     result["final_projected_agreement"]["bracket_type"] = 0.99
     result_path.write_text(json.dumps(result))
     assert healing_state(output, 24.67033950244981) == "failed"
+
+    runner = PhaseCRunner(
+        SimpleNamespace(
+            repo_root=str(tmp_path),
+            base_model="base",
+            processed_dataset_dir="dataset",
+            gpus="0",
+            evidence_archive="evidence.tar.gz",
+            model_archive="model.tar",
+        )
+    )
+    assert (
+        runner.ensure_healing(
+            output,
+            24.67033950244981,
+            ablation_aware=False,
+            allow_gate_failure=True,
+        )
+        == "failed"
+    )
+    with pytest.raises(PipelineError, match="failed its C4 gates"):
+        runner.ensure_healing(
+            output,
+            24.67033950244981,
+            ablation_aware=False,
+        )
+
+
+def test_phase_c_runner_selects_fallback_after_ordinary_c4_failure(
+    tmp_path, monkeypatch
+):
+    runner = PhaseCRunner(
+        SimpleNamespace(
+            repo_root=str(tmp_path),
+            base_model="artifacts/gpt2-norm-free",
+            processed_dataset_dir="dataset",
+            gpus="0",
+            evidence_archive="evidence.tar.gz",
+            model_archive="model.tar",
+        )
+    )
+    healing_calls = []
+    sweep_calls = []
+
+    def fake_healing(output_dir, _reference, *, ablation_aware, **_kwargs):
+        healing_calls.append((output_dir.name, ablation_aware))
+        return "passed" if ablation_aware else "failed"
+
+    monkeypatch.setattr(runner, "ensure_healing", fake_healing)
+    monkeypatch.setattr(
+        runner,
+        "run_sweeps",
+        lambda model, _root, label: sweep_calls.append((model.name, label)),
+    )
+    monkeypatch.setattr(runner, "ensure_selected_circuits", lambda *args, **kwargs: None)
+    monkeypatch.setattr(runner, "ensure_migration", lambda *args, **kwargs: "passed")
+    monkeypatch.setattr(runner, "update_status", lambda **kwargs: None)
+
+    model, circuits = runner.choose_healed_model(24.67033950244981, tmp_path)
+
+    assert model.name == "gpt2-program-healed-ablation-aware"
+    assert circuits.name == "healed-ablation-aware-selected"
+    assert healing_calls == [
+        ("gpt2-program-healed", False),
+        ("gpt2-program-healed-ablation-aware", True),
+    ]
+    assert sweep_calls == [
+        ("gpt2-program-healed-ablation-aware", "healed-ablation-aware")
+    ]

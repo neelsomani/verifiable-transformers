@@ -6,8 +6,10 @@ The runner is intentionally conservative:
 * completed, structurally valid artifacts are reused;
 * healing automatically resumes its newest Trainer checkpoint;
 * all threshold sweeps use one process per GPU with dynamic scheduling;
-* ordinary migration failure selects the preregistered ablation-aware fallback;
-* failed scientific gates are preserved and stop the pipeline;
+* ordinary healing-gate or migration failure selects the preregistered
+  ablation-aware fallback;
+* failed ordinary results are preserved before fallback, and a failed fallback
+  stops the pipeline;
 * interruption terminates only children owned by this runner, never the shell.
 """
 
@@ -208,13 +210,21 @@ def healing_state(output_dir: Path, reference_perplexity: float) -> str:
         return "malformed"
     structurally_valid = (
         math.isclose(recorded_reference, reference_perplexity, rel_tol=0.0, abs_tol=1e-9)
-        and all(float(agreements.get(task, -1.0)) == 1.0 for task in TASKS)
-        and final_perplexity <= budget
+        and all(task in agreements for task in TASKS)
+        and all(math.isfinite(float(agreements[task])) for task in TASKS)
+        and math.isfinite(final_perplexity)
+        and math.isfinite(budget)
         and checkpoint_ready(output_dir)
     )
-    if result.get("success") and structurally_valid:
-        return "passed"
-    return "failed"
+    if not structurally_valid:
+        return "malformed"
+    gates_pass = (
+        all(float(agreements[task]) == 1.0 for task in TASKS)
+        and final_perplexity <= budget
+    )
+    if result.get("success") is not gates_pass:
+        return "malformed"
+    return "passed" if gates_pass else "failed"
 
 
 def migration_state(path: Path) -> str:
@@ -849,13 +859,20 @@ class PhaseCRunner:
         *,
         ablation_aware: bool,
         circuit_root: Path | None = None,
-    ) -> None:
+        allow_gate_failure: bool = False,
+    ) -> str:
         state = healing_state(output_dir, reference_perplexity)
         label = "ablation-aware" if ablation_aware else "ordinary"
         if state == "passed":
             self.log(f"REUSE: passing {label} healing result")
-            return
+            return state
         if state == "failed":
+            if allow_gate_failure:
+                self.log(
+                    f"REUSE: completed {label} healing result that missed its "
+                    "C4 gates; preserving it and selecting the fallback"
+                )
+                return state
             raise PipelineError(f"The completed {label} healing run failed its C4 gates")
         command = self.torchrun_command(
             "scripts/gpt2/heal_programs.py",
@@ -878,14 +895,32 @@ class PhaseCRunner:
             command.extend(
                 ["--ablation_aware", "--circuit_root", str(circuit_root)]
             )
-        self.run_logged(
-            command,
-            log_name=f"05-heal-{label}.log",
-            extra_environment={"CUDA_VISIBLE_DEVICES": ",".join(map(str, self.gpus))},
-        )
+        try:
+            self.run_logged(
+                command,
+                log_name=f"05-heal-{label}.log",
+                extra_environment={
+                    "CUDA_VISIBLE_DEVICES": ",".join(map(str, self.gpus))
+                },
+            )
+        except PipelineError:
+            # heal_programs writes the complete model-of-record and gate report,
+            # then deliberately exits nonzero when either locked gate fails.
+            # torchrun surfaces that child exit as status 1, so the artifact is
+            # the only reliable distinction from an infrastructure crash.
+            state = healing_state(output_dir, reference_perplexity)
+            if state != "failed":
+                raise
         state = healing_state(output_dir, reference_perplexity)
-        if state != "passed":
-            raise PipelineError(f"{label.capitalize()} healing ended in state {state}")
+        if state == "passed":
+            return state
+        if state == "failed" and allow_gate_failure:
+            self.log(
+                f"Completed {label} healing missed its C4 gates; preserving "
+                "the result and selecting the fallback"
+            )
+            return state
+        raise PipelineError(f"{label.capitalize()} healing ended in state {state}")
 
     def ensure_migration(
         self,
@@ -935,28 +970,39 @@ class PhaseCRunner:
         ordinary_model = self.artifacts / "gpt2-program-healed"
         ordinary_sweeps = self.artifacts / "gpt2-circuits/healed"
         ordinary_selected = self.artifacts / "gpt2-circuits/healed-selected"
-        self.ensure_healing(
-            ordinary_model, reference_perplexity, ablation_aware=False
-        )
-        self.run_sweeps(ordinary_model, ordinary_sweeps, "healed")
-        self.ensure_selected_circuits(
+        ordinary_healing_state = self.ensure_healing(
             ordinary_model,
-            ordinary_sweeps,
-            ordinary_selected,
-            synthesis_results=synthesis_results,
+            reference_perplexity,
+            ablation_aware=False,
+            allow_gate_failure=True,
         )
-        ordinary_state = self.ensure_migration(
-            ordinary_model,
-            ordinary_selected,
-            ordinary_model / "migration_report.json",
-            require_pass=False,
-        )
-        if ordinary_state == "passed":
-            return ordinary_model, ordinary_selected
+        if ordinary_healing_state == "passed":
+            self.run_sweeps(ordinary_model, ordinary_sweeps, "healed")
+            self.ensure_selected_circuits(
+                ordinary_model,
+                ordinary_sweeps,
+                ordinary_selected,
+                synthesis_results=synthesis_results,
+            )
+            ordinary_migration_state = self.ensure_migration(
+                ordinary_model,
+                ordinary_selected,
+                ordinary_model / "migration_report.json",
+                require_pass=False,
+            )
+            if ordinary_migration_state == "passed":
+                return ordinary_model, ordinary_selected
+            fallback_reason = "ordinary_migration_failure"
+        else:
+            fallback_reason = "ordinary_c4_gate_failure"
 
+        self.update_status(
+            status="running",
+            stage="healing_and_migration",
+            fallback_reason=fallback_reason,
+        )
         self.log(
-            "Ordinary healing failed migration; selecting preregistered "
-            "ablation-aware fallback"
+            f"Selecting preregistered ablation-aware fallback: {fallback_reason}"
         )
         fallback_model = self.artifacts / "gpt2-program-healed-ablation-aware"
         fallback_sweeps = self.artifacts / "gpt2-circuits/healed-ablation-aware"

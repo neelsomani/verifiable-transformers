@@ -31,7 +31,7 @@
   "phase_c": {
     "status": "ready_after_A4",
     "one_command_runner": ".venv/bin/python scripts/gpt2/run_phase_c.py --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024",
-    "runner_behavior": "Waits for an already-running manual C2 sweep, validates and reuses completed artifacts, dynamically schedules missing sweeps across 8 GPUs, auto-resumes healing checkpoints, selects the preregistered ablation-aware fallback only after an ordinary migration failure, then verifies, builds the cost table, and packages evidence plus the selected model.",
+    "runner_behavior": "Waits for an already-running manual C2 sweep, validates and reuses completed artifacts, dynamically schedules missing sweeps across 8 GPUs, auto-resumes healing checkpoints, preserves ordinary healing as a model of record and selects the preregistered ablation-aware fallback if ordinary healing misses either locked C4 gate or later fails migration, then verifies, builds the cost table, and packages evidence plus the selected model.",
     "selected_base": "artifacts/gpt2-norm-free",
     "select_base_model": "python scripts/gpt2/select_base_model.py --removal_metrics artifacts/gpt2-norm-free/removal_metrics.json --norm_free_model artifacts/gpt2-norm-free --bandnorm_model $BANDNORM_MODEL --output artifacts/gpt2-phase-c-base.json",
     "base_model": "export BASE_MODEL=$(python -c 'import json; print(json.load(open(\"artifacts/gpt2-phase-c-base.json\"))[\"selected_model\"])'); never choose it manually.",
