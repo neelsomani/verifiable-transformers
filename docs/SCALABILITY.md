@@ -389,6 +389,48 @@ negative result.
 
 Once the verifiable model is trained, we extract pruned circuits responsible for specific behaviors and formally verify their properties using SMT solvers.
 
+### Phase C behavior-domain protocol v2
+
+The original GPT-2 task domain contained 16 unique templates per task, each
+repeated eight times to produce 128 rows. Protocol v2 replaces this with unique,
+position- and content-varied prompts while preserving the original templates as
+a labeled regression subset. The old artifacts remain protocol-v1 records and
+are not reused as protocol-v2 evidence.
+
+The deterministic protocol is fixed in
+`configs/gpt2_behavior_domain_v2.json`. It creates, for each task, 256 unique
+synthesis prompts and 256 disjoint gate prompts, balanced across the two
+candidate classes. The generator consults no model outputs. Its build step
+records the tokenizer-vocabulary hash, prompt hashes, contextual opener-token
+alignment, candidate-token checks, and the observed range of opener positions.
+The gate split is not used to select programs or program subsets.
+
+```bash
+python scripts/gpt2/build_behavior_domains.py \
+  --tokenizer_path artifacts/gpt2-norm-free \
+  --output_dir artifacts/gpt2-behavior-domains-v2 \
+  --config configs/gpt2_behavior_domain_v2.json
+```
+
+Before C2, the base model must score 1.000 against the explicit reference
+program P(x) on both splits. C2 and C3 use only `synthesis.json`. After per-head
+synthesis, `select_joint_program_subset.py` adds programs while checking the
+full and circuit-only forwards for both synthesis tasks together, then
+evaluates the fixed subset once on
+`gate.json`; a failure stops before healing and does not trigger gate-specific
+adaptation. Healing targets P(x), with the separately checked base decisions
+coinciding with P(x), and keeps the locked OpenWebText perplexity budget of
+28.617593822841776.
+
+The v2 core-aware objective applies task loss to the selected circuit, samples
+non-circuit paths, and rotates joint and individual program lesions through
+both the full graph and the preregistered circuit. Suppression visit counts are
+logged. A healing result passes only after a complete, unsampled lesion sweep
+shows exact circuit-only P(x) accuracy, individual necessity in both full and
+core forwards, and no joint bypass, in addition to exact full-model P(x)
+accuracy and the perplexity gate. `scripts/gpt2/run_phase_c.py` enforces this
+ordering and writes v2 artifacts under `artifacts/*-v2` paths.
+
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
 The behavior scanner tests 2 categories:
@@ -410,14 +452,14 @@ Run the behavior viability scan:
 
 ```bash
 python scripts/gpt2/extract.py \
-  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
+  --model_path artifacts/gpt2-norm-free \
   --scan_behaviors \
-  --n_examples 256 \
+  --domain_manifest artifacts/gpt2-behavior-domains-v2/gate.json \
   --batch_size 8 \
-  --output_dir artifacts/circuits
+  --output_dir artifacts/gpt2-circuits-v2/base-scan-gate
 ```
 
-Results (band_norm_sparsemax model @ checkpoint-240000):
+Historical protocol-v1 results (band_norm_sparsemax model @ checkpoint-240000):
 
 | Task | Binary Accuracy | Mean Logit Diff | Viability |
 |------|----------------|-----------------|-----------|
@@ -425,8 +467,8 @@ Results (band_norm_sparsemax model @ checkpoint-240000):
 | `bracket_type` | 1.000 | 4.93 | **strong** |
 
 This generates:
-- `artifacts/circuits/behavior_scan/behavior_scan.json` - Detailed metrics
-- `artifacts/circuits/behavior_scan/behavior_scan.txt` - Human-readable report
+- `artifacts/gpt2-circuits-v2/base-scan-gate/behavior_scan/behavior_scan.json` - Detailed metrics
+- `artifacts/gpt2-circuits-v2/base-scan-gate/behavior_scan/behavior_scan.txt` - Human-readable report
 
 Use the scan results to decide which tasks to extract circuits for. Focus on behaviors marked "viable" or "strong" for meaningful results.
 
@@ -483,9 +525,9 @@ where $M_T(x)$ and $C_{E,T}(x)$ are the logits restricted to the candidate token
 
 The extractor:
 
-* Defines a coarse computational graph over residual-stream components:
+* Defines a per-head computational graph over residual-stream components:
   * `emb`
-  * `attn_i`
+  * `attn_i_h_j`
   * `mlp_i`
   * `logits`
 * Runs the full model on task prompts.
@@ -505,11 +547,12 @@ Run circuit extraction:
 
 ```bash
 python scripts/gpt2/extract.py \
-  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
+  --model_path artifacts/gpt2-norm-free \
   --extract_circuit quote_close \
-  --n_examples 128 \
+  --domain_manifest artifacts/gpt2-behavior-domains-v2/synthesis.json \
   --threshold 0.01 \
-  --output_dir artifacts/circuits/quote_close
+  --min_agreement 1.0 \
+  --output_dir artifacts/gpt2-circuits-v2/quote_close_t0.01
 ```
 
 Available tasks: `quote_close`, `bracket_type`

@@ -27,6 +27,14 @@ def parse_args() -> argparse.Namespace:
             "program synthesized for this task to occur in the circuit."
         ),
     )
+    parser.add_argument(
+        "--installed_programs",
+        default=None,
+        help=(
+            "Optional programs_selected.json. When present, only this jointly "
+            "accepted subset is treated as installed."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -51,7 +59,11 @@ def main() -> None:
     if args.synthesis_results is not None:
         with open(args.synthesis_results) as handle:
             synthesis = json.load(handle)
-        installed = set(synthesis.get("programs", {}))
+        if args.installed_programs is not None:
+            with open(args.installed_programs) as handle:
+                installed = set(json.load(handle))
+        else:
+            installed = set(synthesis.get("programs", {}))
         required_heads = {
             f"attn_{key.replace('.', '_h_')}"
             for key, report in synthesis.get("tasks", {}).get(args.task, {}).items()

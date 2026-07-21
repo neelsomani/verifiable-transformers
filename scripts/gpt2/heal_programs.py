@@ -25,13 +25,14 @@ from transformers import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from scripts.gpt2.extract import (
-    BEHAVIOR_GENERATORS,
     build_circuit_graph,
     controlled_forward,
     get_candidate_token_ids,
+    load_behavior_examples,
     load_model_with_variants,
     select_last_real_logits,
 )
+from scripts.gpt2.behavior_domains import reference_program_targets
 from scripts.gpt2.synthesize_programs import projected_decisions
 from scripts.gpt2.train import (
     create_optimizer_with_weight_decay_exclusions,
@@ -70,13 +71,23 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Add short-domain circuit, stochastic non-circuit ablation, and "
-            "neural-bypass suppression losses for the C5 migration fallback."
+            "rotating joint/individual full-and-core bypass suppression."
         ),
     )
     parser.add_argument(
         "--circuit_root",
         default=None,
         help="Required with --ablation_aware; selected pre-healing task circuits.",
+    )
+    parser.add_argument(
+        "--behavior_train_manifest",
+        default=None,
+        help="Synthesis/train behavior manifest; legacy repeated rows if omitted.",
+    )
+    parser.add_argument(
+        "--behavior_gate_manifest",
+        default=None,
+        help="Untouched behavior gate manifest; defaults to the train manifest.",
     )
     return parser.parse_args()
 
@@ -86,21 +97,33 @@ def load_json(path: str) -> dict:
         return json.load(handle)
 
 
-def behavior_domain(tokenizer, cfg, device):
+def behavior_domain(tokenizer, cfg, device, manifest_path=None):
     result = {}
     for task in TASKS:
-        examples = BEHAVIOR_GENERATORS[task](cfg["behavior_examples"])
+        examples, provenance = load_behavior_examples(
+            task, cfg["behavior_examples"], manifest_path
+        )
         encoded = tokenizer(
             [example.prompt for example in examples],
             return_tensors="pt",
             padding=True,
         )
+        candidates = get_candidate_token_ids(task, tokenizer)
         result[task] = {
+            "examples": examples,
             "input_ids": encoded["input_ids"].to(device),
             "attention_mask": encoded["attention_mask"].to(device),
-            "candidates": get_candidate_token_ids(task, tokenizer),
+            "candidates": candidates,
+            "targets": reference_program_targets(
+                examples, tokenizer, candidates
+            ),
+            "provenance": provenance,
         }
     return result
+
+
+def reference_program_decisions(domains):
+    return {task: values["targets"] for task, values in domains.items()}
 
 
 def decisions_for_model(model, domains, batch_size):
@@ -117,6 +140,122 @@ def decisions_for_model(model, domains, batch_size):
     }
 
 
+def controlled_decisions_for_edges(
+    model, domains, task, edges, graph, batch_size
+):
+    values = domains[task]
+    device = next(model.parameters()).device
+    decisions = []
+    with torch.no_grad():
+        for start in range(0, values["input_ids"].size(0), batch_size):
+            input_ids = values["input_ids"][start : start + batch_size].to(device)
+            attention_mask = values["attention_mask"][
+                start : start + batch_size
+            ].to(device)
+            logits = controlled_forward(
+                model,
+                input_ids,
+                attention_mask,
+                edges,
+                graph,
+            )
+            rows = select_last_real_logits(logits, attention_mask)
+            decisions.append(
+                rows[:, values["candidates"]].argmax(dim=-1).cpu()
+            )
+    return torch.cat(decisions)
+
+
+def full_lesion_sweep(
+    model,
+    domains,
+    reference,
+    circuit_edges,
+    program_nodes,
+    batch_size,
+):
+    """Run the unsampled full/core C5 lesion matrix on the gate domain."""
+
+    base = model
+    graph = build_circuit_graph(base.config.n_layer, base.config.n_head)
+    full_edges = graph.get_edges()
+    full_decisions = decisions_for_model(base, domains, batch_size)
+    reports = {}
+    for task in TASKS:
+        core = circuit_edges[task]
+        intended = sorted(
+            node for node in program_nodes if any(node in edge for edge in core)
+        )
+        if not intended:
+            raise RuntimeError(f"{task} has no installed program in its circuit")
+        circuit_decisions = controlled_decisions_for_edges(
+            base, domains, task, core, graph, batch_size
+        )
+        individual = {}
+        for node in intended:
+            full_without = {edge for edge in full_edges if edge[0] != node}
+            core_without = {edge for edge in core if edge[0] != node}
+            full_lesion = controlled_decisions_for_edges(
+                base, domains, task, full_without, graph, batch_size
+            )
+            core_lesion = controlled_decisions_for_edges(
+                base, domains, task, core_without, graph, batch_size
+            )
+            full_agreement = float(
+                (full_lesion == full_decisions[task]).float().mean().item()
+            )
+            core_agreement = float(
+                (core_lesion == circuit_decisions).float().mean().item()
+            )
+            individual[node] = {
+                "full_agreement_after_lesion": full_agreement,
+                "core_agreement_after_lesion": core_agreement,
+                "necessary_in_full": full_agreement < 1.0,
+                "necessary_in_core": core_agreement < 1.0,
+            }
+        intended_set = set(intended)
+        joint_full = {
+            edge for edge in full_edges if edge[0] not in intended_set
+        }
+        joint_core = {edge for edge in core if edge[0] not in intended_set}
+        joint_full_decisions = controlled_decisions_for_edges(
+            base, domains, task, joint_full, graph, batch_size
+        )
+        joint_core_decisions = controlled_decisions_for_edges(
+            base, domains, task, joint_core, graph, batch_size
+        )
+        joint_full_agreement = float(
+            (joint_full_decisions == full_decisions[task]).float().mean().item()
+        )
+        joint_core_agreement = float(
+            (joint_core_decisions == circuit_decisions).float().mean().item()
+        )
+        circuit_accuracy = float(
+            (circuit_decisions == reference[task]).float().mean().item()
+        )
+        task_pass = (
+            circuit_accuracy == 1.0
+            and joint_full_agreement < 1.0
+            and joint_core_agreement < 1.0
+            and all(
+                value["necessary_in_full"] and value["necessary_in_core"]
+                for value in individual.values()
+            )
+        )
+        reports[task] = {
+            "intended_program_heads": intended,
+            "circuit_accuracy_against_P": circuit_accuracy,
+            "joint_full_agreement_after_lesion": joint_full_agreement,
+            "joint_core_agreement_after_lesion": joint_core_agreement,
+            "individual_ablations": individual,
+            "pass": task_pass,
+        }
+    return {
+        "tasks": reports,
+        "pass": all(report["pass"] for report in reports.values()),
+    }
+
+
 class HealingGateCallback(TrainerCallback):
     """Stop only when both preregistered C4 acceptance gates are satisfied."""
 
@@ -128,6 +267,7 @@ class HealingGateCallback(TrainerCallback):
         required_agreement,
         perplexity_budget,
         output_dir,
+        lesion_context=None,
     ):
         self.domains = domains
         self.reference = reference
@@ -135,6 +275,8 @@ class HealingGateCallback(TrainerCallback):
         self.required_agreement = required_agreement
         self.perplexity_budget = perplexity_budget
         self.output_dir = output_dir
+        self.lesion_context = lesion_context
+        self.ablation_trainer = None
         self.history = []
 
     def on_evaluate(self, args, state, control, metrics=None, model=None, **kwargs):
@@ -151,6 +293,38 @@ class HealingGateCallback(TrainerCallback):
             value >= self.required_agreement for value in agreements.values()
         )
         perplexity_pass = perplexity <= self.perplexity_budget
+        basic_pass = agreement_pass and perplexity_pass
+        migration_sweep = None
+        coverage_pass = True
+        coverage = None
+        if basic_pass and self.lesion_context is not None:
+            if self.ablation_trainer is None:
+                raise RuntimeError("Core-aware gate is missing its trainer")
+            coverage = {
+                task: dict(counts)
+                for task, counts in self.ablation_trainer.suppression_visit_counts.items()
+            }
+            minimum_visits = int(
+                self.lesion_context.get("minimum_suppression_visits", 1)
+            )
+            coverage_pass = all(
+                count >= minimum_visits
+                for counts in coverage.values()
+                for count in counts.values()
+            )
+            if coverage_pass:
+                migration_sweep = full_lesion_sweep(
+                    model,
+                    self.domains,
+                    self.reference,
+                    self.lesion_context["circuit_edges"],
+                    self.lesion_context["program_nodes"],
+                    self.batch_size,
+                )
+        migration_pass = (
+            True if migration_sweep is None and self.lesion_context is None
+            else bool(migration_sweep and migration_sweep["pass"])
+        )
         record = {
             "step": int(state.global_step),
             "projected_agreement": agreements,
@@ -160,7 +334,13 @@ class HealingGateCallback(TrainerCallback):
             "perplexity_budget": self.perplexity_budget,
             "agreement_pass": agreement_pass,
             "perplexity_pass": perplexity_pass,
-            "acceptance_pass": agreement_pass and perplexity_pass,
+            "suppression_visit_counts": coverage,
+            "suppression_coverage_pass": coverage_pass,
+            "full_unsampled_lesion_sweep": migration_sweep,
+            "migration_pass": migration_pass,
+            "acceptance_pass": (
+                basic_pass and coverage_pass and migration_pass
+            ),
         }
         self.history.append(record)
         if state.is_world_process_zero:
@@ -224,6 +404,10 @@ class AblationAwareProgramTrainer(Trainer):
                     f"Ablation-aware healing needs a program head in {task}'s circuit"
                 )
             self.intended_program_nodes[task] = intended
+        self.suppression_visit_counts = {
+            task: {node: 0 for node in nodes}
+            for task, nodes in self.intended_program_nodes.items()
+        }
         self.last_ablation_aware_metrics = None
 
     @staticmethod
@@ -253,13 +437,17 @@ class AblationAwareProgramTrainer(Trainer):
         step = int(self.state.global_step)
         if every < 1:
             raise ValueError("ablation_aware_aux_every_steps must be positive")
-        if step % every != 0:
+        # Trainer calls compute_loss once per gradient-accumulation microbatch.
+        # Run the expensive auxiliary matrix only on the synchronized boundary
+        # so visit counts mean optimizer steps rather than microbatches.
+        if step % every != 0 or not self.accelerator.sync_gradients:
             return (loss, outputs) if return_outputs else loss
 
         base_model = self.accelerator.unwrap_model(model)
         circuit_loss = loss.new_zeros(())
         sampled_loss = loss.new_zeros(())
-        bypass_penalty = loss.new_zeros(())
+        joint_bypass_penalty = loss.new_zeros(())
+        individual_bypass_penalty = loss.new_zeros(())
         keep_probability = float(
             self.healing_config[
                 "ablation_aware_non_circuit_keep_probability"
@@ -278,7 +466,13 @@ class AblationAwareProgramTrainer(Trainer):
             raise ValueError("ablation_aware_behavior_batch_size must be positive")
         aux_examples = {}
 
-        for task in TASKS:
+        individual_heads_per_aux = int(
+            self.healing_config.get("core_aware_individual_heads_per_aux", 1)
+        )
+        if individual_heads_per_aux < 1:
+            raise ValueError("core_aware_individual_heads_per_aux must be positive")
+
+        for task_index, task in enumerate(TASKS):
             domain = self.behavior_domains[task]
             runtime_device = next(base_model.parameters()).device
             domain_size = domain["input_ids"].size(0)
@@ -322,30 +516,95 @@ class AblationAwareProgramTrainer(Trainer):
                 sampled_logits, attention_mask, candidates, targets
             )
 
-            bypass = {
+            intended_nodes = set(self.intended_program_nodes[task])
+            bypass_full = {
                 edge
                 for edge in self.full_circuit_edges
-                if edge[0] not in self.intended_program_nodes[task]
+                if edge[0] not in intended_nodes
             }
-            bypass_logits = controlled_forward(
+            bypass_core = {
+                edge for edge in core if edge[0] not in intended_nodes
+            }
+            bypass_full_logits = controlled_forward(
                 base_model,
                 input_ids,
                 attention_mask,
-                bypass,
+                bypass_full,
                 self.circuit_graph,
             )
-            bypass_penalty = bypass_penalty + self._uniform_penalty(
-                bypass_logits, attention_mask, candidates
+            bypass_core_logits = controlled_forward(
+                base_model,
+                input_ids,
+                attention_mask,
+                bypass_core,
+                self.circuit_graph,
+            )
+            joint_bypass_penalty = (
+                joint_bypass_penalty
+                + self._uniform_penalty(
+                    bypass_full_logits, attention_mask, candidates
+                )
+                + self._uniform_penalty(
+                    bypass_core_logits, attention_mask, candidates
+                )
             )
 
+            nodes = self.intended_program_nodes[task]
+            rotation_start = (round_index * individual_heads_per_aux + task_index) % len(nodes)
+            selected_nodes = [
+                nodes[(rotation_start + offset) % len(nodes)]
+                for offset in range(min(individual_heads_per_aux, len(nodes)))
+            ]
+            for node in selected_nodes:
+                self.suppression_visit_counts[task][node] += 1
+                individual_full = {
+                    edge for edge in self.full_circuit_edges if edge[0] != node
+                }
+                individual_core = {edge for edge in core if edge[0] != node}
+                individual_full_logits = controlled_forward(
+                    base_model,
+                    input_ids,
+                    attention_mask,
+                    individual_full,
+                    self.circuit_graph,
+                )
+                individual_core_logits = controlled_forward(
+                    base_model,
+                    input_ids,
+                    attention_mask,
+                    individual_core,
+                    self.circuit_graph,
+                )
+                individual_bypass_penalty = (
+                    individual_bypass_penalty
+                    + self._uniform_penalty(
+                        individual_full_logits, attention_mask, candidates
+                    )
+                    + self._uniform_penalty(
+                        individual_core_logits, attention_mask, candidates
+                    )
+                )
+
+        joint_weight = float(
+            self.healing_config.get(
+                "core_aware_joint_bypass_penalty_weight",
+                self.healing_config["ablation_aware_bypass_penalty_weight"],
+            )
+        )
+        individual_weight = float(
+            self.healing_config.get(
+                "core_aware_individual_bypass_penalty_weight",
+                self.healing_config["ablation_aware_bypass_penalty_weight"],
+            )
+        )
         total = (
             loss
             + float(self.healing_config["ablation_aware_circuit_loss_weight"])
             * circuit_loss
             + float(self.healing_config["ablation_aware_sampled_loss_weight"])
             * sampled_loss
-            + float(self.healing_config["ablation_aware_bypass_penalty_weight"])
-            * bypass_penalty
+            + joint_weight * joint_bypass_penalty
+            + individual_weight * individual_bypass_penalty
         )
         self.last_ablation_aware_metrics = {
             "step": step,
@@ -353,7 +612,16 @@ class AblationAwareProgramTrainer(Trainer):
             "owt_loss": float(loss.detach().item()),
             "circuit_loss": float(circuit_loss.detach().item()),
             "sampled_loss": float(sampled_loss.detach().item()),
-            "bypass_penalty": float(bypass_penalty.detach().item()),
+            "joint_bypass_penalty": float(
+                joint_bypass_penalty.detach().item()
+            ),
+            "individual_bypass_penalty": float(
+                individual_bypass_penalty.detach().item()
+            ),
+            "suppression_visit_counts": {
+                task: dict(counts)
+                for task, counts in self.suppression_visit_counts.items()
+            },
             "total_loss": float(total.detach().item()),
         }
         return (total, outputs) if return_outputs else total
@@ -373,10 +641,42 @@ def main() -> None:
     model.config.use_cache = False
     tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
     tokenizer.pad_token = tokenizer.eos_token
-    domains = behavior_domain(tokenizer, cfg, device)
-    reference = decisions_for_model(
-        model, domains, cfg["behavior_batch_size"]
+    train_domains = behavior_domain(
+        tokenizer, cfg, device, args.behavior_train_manifest
     )
+    gate_manifest = args.behavior_gate_manifest or args.behavior_train_manifest
+    gate_domains = behavior_domain(tokenizer, cfg, device, gate_manifest)
+    train_reference = reference_program_decisions(train_domains)
+    gate_reference = reference_program_decisions(gate_domains)
+    base_train = decisions_for_model(
+        model, train_domains, cfg["behavior_batch_size"]
+    )
+    base_gate = decisions_for_model(
+        model, gate_domains, cfg["behavior_batch_size"]
+    )
+    base_accuracy = {
+        "train": {
+            task: float(
+                (base_train[task] == train_reference[task]).float().mean().item()
+            )
+            for task in TASKS
+        },
+        "gate": {
+            task: float(
+                (base_gate[task] == gate_reference[task]).float().mean().item()
+            )
+            for task in TASKS
+        },
+    }
+    if args.behavior_train_manifest and any(
+        value != 1.0
+        for split in base_accuracy.values()
+        for value in split.values()
+    ):
+        raise RuntimeError(
+            "The base model is not exact against P(x) on the locked v2 domain. "
+            "Do not filter failing examples or start healing."
+        )
 
     programs = load_programs(args.programs)
     if not programs:
@@ -388,11 +688,53 @@ def main() -> None:
         os.path.join(args.model_path, "model_info.json")
     ).get("attn_variant", "sparsemax")
     install_program_heads(model, programs, attention_variant=variant)
-    initial = decisions_for_model(model, domains, cfg["behavior_batch_size"])
+    initial = decisions_for_model(model, gate_domains, cfg["behavior_batch_size"])
     initial_agreement = {
-        task: float((initial[task] == reference[task]).float().mean().item())
+        task: float(
+            (initial[task] == gate_reference[task]).float().mean().item()
+        )
         for task in TASKS
     }
+    if args.behavior_gate_manifest and any(
+        value != 1.0 for value in initial_agreement.values()
+    ):
+        raise RuntimeError(
+            "The jointly selected programs are not exact against P(x) on the "
+            "locked gate split. Stop before OWT healing."
+        )
+    loaded_circuit_edges = (
+        load_circuit_edges(args.circuit_root) if args.ablation_aware else None
+    )
+    initial_circuit_accuracy = None
+    if args.ablation_aware:
+        graph = build_circuit_graph(model.config.n_layer, model.config.n_head)
+        initial_circuit_accuracy = {"train": {}, "gate": {}}
+        for split, split_domains, split_reference in (
+            ("train", train_domains, train_reference),
+            ("gate", gate_domains, gate_reference),
+        ):
+            for task in TASKS:
+                decisions = controlled_decisions_for_edges(
+                    model,
+                    split_domains,
+                    task,
+                    loaded_circuit_edges[task],
+                    graph,
+                    cfg["behavior_batch_size"],
+                )
+                accuracy = float(
+                    (decisions == split_reference[task]).float().mean().item()
+                )
+                initial_circuit_accuracy[split][task] = accuracy
+        if any(
+            value != 1.0
+            for split in initial_circuit_accuracy.values()
+            for value in split.values()
+        ):
+            raise RuntimeError(
+                "The programmed circuit-only forward is not exact against P(x) "
+                "before healing. Repair program composition first."
+            )
 
     datasets = load_from_disk(args.processed_dataset_dir)
     train_dataset = datasets["train"]
@@ -444,25 +786,36 @@ def main() -> None:
     perplexity_budget = args.reference_eval_perplexity * (
         1 + cfg["relative_perplexity_increase_budget"]
     )
+    installed_program_nodes = {
+        f"attn_{layer}_h_{head}" for layer, head in programs
+    }
+    lesion_context = None
+    if args.ablation_aware:
+        lesion_context = {
+            "circuit_edges": loaded_circuit_edges,
+            "program_nodes": installed_program_nodes,
+            "minimum_suppression_visits": int(
+                cfg.get("core_aware_minimum_suppression_visits", 1)
+            ),
+        }
     gate_callback = HealingGateCallback(
-        domains,
-        reference,
+        gate_domains,
+        gate_reference,
         cfg["behavior_batch_size"],
         cfg["projected_agreement_required"],
         perplexity_budget,
         args.output_dir,
+        lesion_context=lesion_context,
     )
     trainer_class = AblationAwareProgramTrainer if args.ablation_aware else Trainer
     trainer_kwargs = {}
     if args.ablation_aware:
         trainer_kwargs.update(
             {
-                "behavior_domains": domains,
-                "reference_decisions": reference,
-                "circuit_edges": load_circuit_edges(args.circuit_root),
-                "program_nodes": {
-                    f"attn_{layer}_h_{head}" for layer, head in programs
-                },
+                "behavior_domains": train_domains,
+                "reference_decisions": train_reference,
+                "circuit_edges": loaded_circuit_edges,
+                "program_nodes": installed_program_nodes,
                 "healing_config": cfg,
             }
         )
@@ -477,6 +830,8 @@ def main() -> None:
         optimizers=(optimizer, None),
         **trainer_kwargs,
     )
+    if args.ablation_aware:
+        gate_callback.ablation_trainer = trainer
     resume_checkpoint = args.resume_from_checkpoint
     if resume_checkpoint is None and not args.disable_auto_resume:
         resume_checkpoint = find_latest_checkpoint(args.output_dir)
@@ -485,10 +840,12 @@ def main() -> None:
     trainer.train(resume_from_checkpoint=resume_checkpoint)
     eval_metrics = trainer.evaluate()
     final = decisions_for_model(
-        trainer.model, domains, cfg["behavior_batch_size"]
+        trainer.model, gate_domains, cfg["behavior_batch_size"]
     )
     final_agreement = {
-        task: float((final[task] == reference[task]).float().mean().item())
+        task: float(
+            (final[task] == gate_reference[task]).float().mean().item()
+        )
         for task in TASKS
     }
     eval_perplexity = math.exp(float(eval_metrics["eval_loss"]))
@@ -498,23 +855,54 @@ def main() -> None:
         for value in final_agreement.values()
     )
     perplexity_pass = eval_perplexity <= budget
+    final_gate_record = gate_callback.history[-1] if gate_callback.history else None
+    migration_pass = (
+        bool(final_gate_record and final_gate_record.get("migration_pass"))
+        if args.ablation_aware
+        else True
+    )
+    suppression_coverage_pass = (
+        bool(
+            final_gate_record
+            and final_gate_record.get("suppression_coverage_pass")
+        )
+        if args.ablation_aware
+        else True
+    )
     result = {
         "source_model": args.model_path,
         "resume_from_checkpoint": resume_checkpoint,
         "programs": args.programs,
         "program_heads": [f"{layer}.{head}" for layer, head in sorted(programs)],
+        "replacement_fraction": (
+            len(programs) / model.config.n_layer / model.config.n_head
+        ),
         "programs_frozen": True,
         "method": (
-            "owt_plus_exact_short_domain_stochastic_edge_ablation_and_bypass_suppression"
+            "owt_plus_exact_P_targets_stochastic_edge_ablation_and_"
+            "rotating_joint_and_individual_full_and_core_bypass_suppression"
             if args.ablation_aware
             else "owt_healing"
         ),
         "ablation_aware": args.ablation_aware,
         "circuit_root": args.circuit_root,
+        "behavior_train_manifest": args.behavior_train_manifest,
+        "behavior_gate_manifest": gate_manifest,
+        "behavior_domain": {
+            "train": {
+                task: train_domains[task]["provenance"] for task in TASKS
+            },
+            "gate": {
+                task: gate_domains[task]["provenance"] for task in TASKS
+            },
+        },
+        "reference_target": "explicit_reference_program_P(x)",
+        "base_projected_accuracy": base_accuracy,
         "ablation_aware_last_metrics": getattr(
             trainer, "last_ablation_aware_metrics", None
         ),
         "initial_projected_agreement": initial_agreement,
+        "initial_circuit_accuracy_against_P": initial_circuit_accuracy,
         "final_projected_agreement": final_agreement,
         "projected_agreement_required": cfg["projected_agreement_required"],
         "reference_eval_perplexity": args.reference_eval_perplexity,
@@ -527,13 +915,26 @@ def main() -> None:
         "perplexity_budget_provenance": cfg["perplexity_budget_provenance"],
         "agreement_pass": agreement_pass,
         "perplexity_pass": perplexity_pass,
+        "migration_pass": migration_pass,
+        "suppression_coverage_pass": suppression_coverage_pass,
+        "full_unsampled_lesion_sweep": (
+            None
+            if final_gate_record is None
+            else final_gate_record.get("full_unsampled_lesion_sweep")
+        ),
         "stopping_criteria": (
-            "projected agreement on both registered behavior domains must equal "
-            "the configured threshold and eval perplexity must stay within the "
-            "pre-registered budget"
+            "projected accuracy against P(x) on both locked gate domains must "
+            "equal the configured threshold; eval perplexity must stay within "
+            "the pre-registered budget; core-aware runs also require suppression "
+            "coverage and the complete unsampled full/core lesion sweep"
         ),
         "gate_history": gate_callback.history,
-        "success": agreement_pass and perplexity_pass,
+        "success": (
+            agreement_pass
+            and perplexity_pass
+            and migration_pass
+            and suppression_coverage_pass
+        ),
         "global_step": int(trainer.state.global_step),
         "epoch": None if trainer.state.epoch is None else float(trainer.state.epoch),
         "effective_global_batch_size": (

@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import sys
+import hashlib
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Any, Set, Optional
 
@@ -22,18 +23,15 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
 # Import model variant loading
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from scripts.gpt2.train import apply_model_variants, validate_checkpoint_compatibility
+from scripts.gpt2.behavior_domains import (
+    BehaviorExample,
+    legacy_examples,
+    load_domain_manifest,
+)
 from scripts.circuits import (
     CircuitGraph as PerHeadCircuitGraph,
     controlled_forward as per_head_controlled_forward,
 )
-
-
-@dataclass
-class BehaviorExample:
-    """Single example for a behavior test."""
-    prompt: str
-    correct_token: str
-    incorrect_token: str
 
 
 @dataclass
@@ -52,95 +50,47 @@ class BehaviorMetrics:
 
 
 def generate_quote_close_examples(n: int) -> List[BehaviorExample]:
-    """Generate single vs double quote closing examples."""
-    # Templates for single and double quote examples
-    single_templates = [
-        "x = 'hello world",
-        "print('hello world",
-        "message = 'foo bar",
-        "return 'some text",
-        "data.append('value",
-        "name = 'alice",
-        "s = 'test string",
-        "key = 'item",
-    ]
-
-    double_templates = [
-        'x = "hello world',
-        'print("hello world',
-        'message = "foo bar',
-        'return "some text',
-        'data.append("value',
-        'name = "alice',
-        's = "test string',
-        'key = "item',
-    ]
-
-    examples = []
-    for i in range(n // 2):
-        # Single quote example
-        examples.append(BehaviorExample(
-            prompt=single_templates[i % len(single_templates)],
-            correct_token="'",
-            incorrect_token='"'
-        ))
-    for i in range(n // 2):
-        # Double quote example
-        examples.append(BehaviorExample(
-            prompt=double_templates[i % len(double_templates)],
-            correct_token='"',
-            incorrect_token="'"
-        ))
-    return examples
+    """Generate the legacy-v1 quote domain for regression compatibility."""
+    return legacy_examples("quote_close", n)
 
 
 def generate_bracket_type_examples(n: int) -> List[BehaviorExample]:
-    """Generate bracket vs brace examples."""
-    # Templates for bracket and brace examples
-    bracket_templates = [
-        "x = [a, b, c",
-        "items = [foo, bar",
-        "return [x, y, z",
-        "data = [one, two",
-        "arr = [p, q, r",
-        "vals = [red, blue",
-        "tmp = [left, right",
-        "out = [first, second",
-    ]
-
-    brace_templates = [
-        "x = {a, b, c",
-        "items = {foo, bar",
-        "return {x, y, z",
-        "data = {one, two",
-        "arr = {p, q, r",
-        "vals = {red, blue",
-        "tmp = {left, right",
-        "out = {first, second",
-    ]
-
-    examples = []
-    for i in range(n // 2):
-        # Bracket example
-        examples.append(BehaviorExample(
-            prompt=bracket_templates[i % len(bracket_templates)],
-            correct_token=']',
-            incorrect_token='}'
-        ))
-    for i in range(n // 2):
-        # Brace example
-        examples.append(BehaviorExample(
-            prompt=brace_templates[i % len(brace_templates)],
-            correct_token='}',
-            incorrect_token=']'
-        ))
-    return examples
+    """Generate the legacy-v1 bracket domain for regression compatibility."""
+    return legacy_examples("bracket_type", n)
 
 
 BEHAVIOR_GENERATORS = {
     'quote_close': generate_quote_close_examples,
     'bracket_type': generate_bracket_type_examples,
 }
+
+
+def load_behavior_examples(
+    task: str,
+    n_examples: int,
+    domain_manifest: str | None = None,
+) -> tuple[List[BehaviorExample], Dict[str, Any]]:
+    """Load one task domain and return its immutable provenance."""
+
+    if domain_manifest is None:
+        examples = BEHAVIOR_GENERATORS[task](n_examples)
+        return examples, {
+            "protocol_id": "legacy_v1",
+            "split": "legacy_repeated_rows",
+            "rows": len(examples),
+            "unique_prompts": len({example.prompt for example in examples}),
+        }
+    manifest = load_domain_manifest(domain_manifest)
+    examples = manifest["loaded_examples"][task]
+    with open(domain_manifest, "rb") as handle:
+        manifest_sha256 = hashlib.sha256(handle.read()).hexdigest()
+    return examples, {
+        "protocol_id": manifest["protocol_id"],
+        "split": manifest["split"],
+        "manifest_path": os.path.abspath(domain_manifest),
+        "manifest_sha256": manifest_sha256,
+        **manifest["summary"][task],
+    }
 
 
 def get_single_token_id(tokenizer: GPT2Tokenizer, token_text: str) -> int | None:
@@ -349,7 +299,8 @@ def scan_behaviors(
     model_path: str,
     n_examples: int,
     batch_size: int,
-    device: str
+    device: str,
+    domain_manifest: str | None = None,
 ) -> Dict[str, BehaviorMetrics]:
     """Scan all behaviors and return metrics."""
 
@@ -358,12 +309,18 @@ def scan_behaviors(
     tokenizer = GPT2Tokenizer.from_pretrained(model_path)
     tokenizer.pad_token = tokenizer.eos_token
 
-    print(f"\nScanning {len(BEHAVIOR_GENERATORS)} behaviors with {n_examples} examples each...")
+    print(f"\nScanning {len(BEHAVIOR_GENERATORS)} behaviors...")
 
     results = {}
     for behavior_name, generator in BEHAVIOR_GENERATORS.items():
         print(f"\nEvaluating {behavior_name}...")
-        examples = generator(n_examples)
+        examples, provenance = load_behavior_examples(
+            behavior_name, n_examples, domain_manifest
+        )
+        print(
+            f"  Domain: {provenance['protocol_id']}/{provenance['split']} "
+            f"({len(examples)} rows, {len({row.prompt for row in examples})} unique)"
+        )
         metrics = evaluate_behavior(model, tokenizer, examples, batch_size, device)
         results[behavior_name] = metrics
 
@@ -379,7 +336,8 @@ def scan_behaviors(
 def write_behavior_scan_report(
     model_path: str,
     results: Dict[str, BehaviorMetrics],
-    output_dir: str
+    output_dir: str,
+    domain_manifest: str | None = None,
 ):
     """Write JSON and text reports."""
 
@@ -388,6 +346,9 @@ def write_behavior_scan_report(
     # Write JSON
     json_data = {
         "model_path": model_path,
+        "domain_manifest": (
+            None if domain_manifest is None else os.path.abspath(domain_manifest)
+        ),
         "results": {
             name: {
                 "n_examples_requested": m.n_examples_requested,
@@ -1218,6 +1179,7 @@ def write_circuit_outputs(
     mean_cache_path: Optional[str],
     trim_rounds: int,
     n_examples: int,
+    domain_provenance: Optional[Dict[str, Any]] = None,
 ):
     """Write circuit JSON, DOT, and summary."""
     os.makedirs(output_dir, exist_ok=True)
@@ -1232,6 +1194,7 @@ def write_circuit_outputs(
         "ablation": ablation_mode,
         "trim_rounds": trim_rounds,
         "n_examples": n_examples,
+        "domain": domain_provenance,
         "n_layers": graph.n_layers,
         "n_heads": graph.n_heads,
         "granularity": "head",
@@ -1311,6 +1274,7 @@ def extract_circuit_for_task(
     trim_rounds: int,
     output_dir: str,
     device: str,
+    domain_manifest: str | None = None,
 ):
     """Extract circuit for a specific task."""
     print(f"\n{'=' * 80}")
@@ -1327,9 +1291,14 @@ def extract_circuit_for_task(
     if task not in BEHAVIOR_GENERATORS:
         raise ValueError(f"Unknown task: {task}. Available: {list(BEHAVIOR_GENERATORS.keys())}")
 
-    generator = BEHAVIOR_GENERATORS[task]
-    examples = generator(n_examples)
-    print(f"Generated {len(examples)} examples for task: {task}")
+    examples, domain_provenance = load_behavior_examples(
+        task, n_examples, domain_manifest
+    )
+    print(
+        f"Loaded {len(examples)} examples for {task} from "
+        f"{domain_provenance['protocol_id']}/{domain_provenance['split']} "
+        f"({len({row.prompt for row in examples})} unique prompts)"
+    )
 
     # Build graph
     n_layers = model.config.n_layer
@@ -1478,7 +1447,8 @@ def extract_circuit_for_task(
     write_circuit_outputs(
         output_dir, model_path, task, edges_to_keep, edge_log, graph,
         full_metrics, circuit_metrics, ablated_metrics, inverse_metrics,
-        threshold, metric, min_agreement, ablation_mode, mean_cache_path, trim_rounds, n_examples
+        threshold, metric, min_agreement, ablation_mode, mean_cache_path,
+        trim_rounds, len(examples), domain_provenance
     )
 
     print(f"\nCircuit extraction complete!")
@@ -1502,6 +1472,11 @@ def main():
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size for evaluation")
     parser.add_argument("--output_dir", type=str, default="artifacts/circuits",
                         help="Output directory for reports")
+    parser.add_argument(
+        "--domain_manifest",
+        default=None,
+        help="Versioned behavior-domain manifest; legacy generators are used if omitted.",
+    )
 
     # Circuit extraction args
     parser.add_argument("--threshold", type=float, default=0.01,
@@ -1522,15 +1497,24 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.scan_behaviors:
-        results = scan_behaviors(args.model_path, args.n_examples, args.batch_size, device)
+        results = scan_behaviors(
+            args.model_path,
+            args.n_examples,
+            args.batch_size,
+            device,
+            args.domain_manifest,
+        )
         scan_output_dir = os.path.join(args.output_dir, "behavior_scan")
-        write_behavior_scan_report(args.model_path, results, scan_output_dir)
+        write_behavior_scan_report(
+            args.model_path, results, scan_output_dir, args.domain_manifest
+        )
 
     elif args.extract_circuit:
         task = args.extract_circuit
         extract_circuit_for_task(
             args.model_path, task, args.n_examples, args.threshold,
-            args.metric, args.min_agreement, args.ablation, args.trim_rounds, args.output_dir, device
+            args.metric, args.min_agreement, args.ablation, args.trim_rounds,
+            args.output_dir, device, args.domain_manifest
         )
 
     else:

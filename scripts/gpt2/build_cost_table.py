@@ -177,6 +177,9 @@ def main() -> None:
         reference_loss = math.log(programs["reference_eval_perplexity"])
         final_perplexity = programs["final_eval_perplexity"]
         reference_perplexity = programs["reference_eval_perplexity"]
+        replacement_fraction = programs.get("replacement_fraction")
+        if replacement_fraction is None and synthesis is not None:
+            replacement_fraction = synthesis.get("replacement_fraction")
         rows.append(
             {
                 "component": "program_heads",
@@ -189,9 +192,7 @@ def main() -> None:
                 ),
                 "wikitext_perplexity": None,
                 "wikitext_perplexity_delta": None,
-                "replacement_fraction": (
-                    None if synthesis is None else synthesis.get("replacement_fraction")
-                ),
+                "replacement_fraction": replacement_fraction,
                 "status": "accepted" if programs["success"] else "rejected",
             }
         )

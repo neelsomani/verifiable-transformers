@@ -6,10 +6,11 @@ The runner is intentionally conservative:
 * completed, structurally valid artifacts are reused;
 * healing automatically resumes its newest Trainer checkpoint;
 * all threshold sweeps use one process per GPU with dynamic scheduling;
-* ordinary healing-gate or migration failure selects the preregistered
-  ablation-aware fallback;
-* failed ordinary results are preserved before fallback, and a failed fallback
-  stops the pipeline;
+* protocol-v1 evidence remains untouched in its original artifact paths;
+* protocol v2 uses disjoint unique synthesis/gate manifests and checks programs
+  jointly before any healing starts;
+* healing uses the toy-proven core-aware objective and a complete unsampled
+  lesion gate; a failed run stops the pipeline;
 * interruption terminates only children owned by this runner, never the shell.
 """
 
@@ -85,7 +86,11 @@ def checkpoint_ready(path: Path) -> bool:
 
 
 def behavior_scan_gate(
-    path: Path, expected_model: Path | None = None
+    path: Path,
+    expected_model: Path | None = None,
+    *,
+    expected_rows: int = 128,
+    expected_manifest: Path | None = None,
 ) -> tuple[bool, list[str]]:
     try:
         report = load_json(path)
@@ -101,18 +106,28 @@ def behavior_scan_gate(
             failures.append(
                 f"model path is {recorded_model}, expected {expected_model}"
             )
+    if expected_manifest is not None:
+        recorded = report.get("domain_manifest")
+        try:
+            recorded_path = resolved(recorded) if recorded else None
+        except (OSError, RuntimeError):
+            recorded_path = None
+        if recorded_path != expected_manifest:
+            failures.append(
+                f"domain manifest is {recorded_path}, expected {expected_manifest}"
+            )
     results = report.get("results", {})
     for task in TASKS:
         task_result = results.get(task, {})
-        if task_result.get("n_examples_used") != 128:
+        if task_result.get("n_examples_used") != expected_rows:
             failures.append(
-                f"{task} used {task_result.get('n_examples_used')} of 128 examples"
+                f"{task} used {task_result.get('n_examples_used')} of "
+                f"{expected_rows} examples"
             )
-        if task_result.get("viability") != "strong":
+        if float(task_result.get("binary_accuracy", math.nan)) != 1.0:
             failures.append(
-                f"{task} viability={task_result.get('viability')!r}, "
-                f"accuracy={task_result.get('binary_accuracy')!r}, "
-                f"margin={task_result.get('mean_logit_diff')!r}"
+                f"{task} accuracy against P(x)="
+                f"{task_result.get('binary_accuracy')!r}; required 1.0"
             )
     return not failures, failures
 
@@ -123,6 +138,7 @@ def circuit_artifact_complete(
     task: str,
     threshold: float,
     model_path: Path,
+    domain_manifest: Path | None = None,
 ) -> bool:
     try:
         circuit = load_json(path)
@@ -133,13 +149,28 @@ def circuit_artifact_complete(
         model_matches = recorded_model is not None and resolved(recorded_model) == model_path
     except (OSError, RuntimeError):
         model_matches = False
+    domain_matches = True
+    expected_rows = 128
+    if domain_manifest is not None:
+        try:
+            manifest = load_json(domain_manifest)
+            expected_rows = int(manifest["summary"][task]["rows"])
+            expected_sha = hashlib.sha256(domain_manifest.read_bytes()).hexdigest()
+            domain_matches = (
+                circuit.get("domain", {}).get("manifest_sha256") == expected_sha
+                and circuit.get("domain", {}).get("protocol_id")
+                == "gpt2_behavior_domain_v2"
+            )
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            domain_matches = False
     return (
         model_matches
         and circuit.get("task") == task
         and circuit.get("metric") == "candidate_kl"
         and math.isclose(float(circuit.get("threshold", math.nan)), threshold)
         and float(circuit.get("min_agreement", math.nan)) == 1.0
-        and int(circuit.get("n_examples", -1)) == 128
+        and int(circuit.get("n_examples", -1)) == expected_rows
+        and domain_matches
         and circuit.get("granularity") == "head"
         and int(circuit.get("n_heads", -1)) > 1
         and isinstance(circuit.get("edges"), list)
@@ -178,7 +209,9 @@ def selected_circuit_complete(
     )
 
 
-def synthesis_state(output_dir: Path, base_model: Path) -> str:
+def synthesis_state(
+    output_dir: Path, base_model: Path, domain_manifest: Path | None = None
+) -> str:
     result_path = output_dir / "synthesis_results.json"
     programs_path = output_dir / "programs.json"
     if not result_path.is_file() or not programs_path.is_file():
@@ -189,14 +222,113 @@ def synthesis_state(output_dir: Path, base_model: Path) -> str:
         model_matches = resolved(result["model_path"]) == base_model
     except (OSError, KeyError, ValueError, json.JSONDecodeError):
         return "malformed"
-    if not model_matches or int(result.get("num_examples", -1)) != 128:
+    domain_matches = True
+    if domain_manifest is not None:
+        expected_sha = hashlib.sha256(domain_manifest.read_bytes()).hexdigest()
+        domain_matches = (
+            result.get("domain_manifest") == str(domain_manifest)
+            and all(
+                result.get("domain", {})
+                .get(task, {})
+                .get("manifest_sha256")
+                == expected_sha
+                for task in TASKS
+            )
+        )
+    if not model_matches or not domain_matches:
         return "malformed"
     if result.get("success") and programs:
         return "passed"
     return "failed"
 
 
-def healing_state(output_dir: Path, reference_perplexity: float) -> str:
+def behavior_domains_complete(directory: Path, config_path: Path | None = None) -> bool:
+    try:
+        synthesis = load_json(directory / "synthesis.json")
+        gate = load_json(directory / "gate.json")
+        legacy = load_json(directory / "legacy_regression.json")
+        index = load_json(directory / "manifest_index.json")
+        if index.get("protocol_id") != "gpt2_behavior_domain_v2":
+            return False
+        if config_path is not None:
+            config = load_json(config_path)
+            config_digest = hashlib.sha256(
+                json.dumps(
+                    config, sort_keys=True, separators=(",", ":")
+                ).encode("utf-8")
+            ).hexdigest()
+            if index.get("config_sha256") != config_digest:
+                return False
+            for split in ("synthesis", "gate", "legacy_regression"):
+                path = directory / f"{split}.json"
+                if (
+                    index.get("manifests", {}).get(split, {}).get("sha256")
+                    != hashlib.sha256(path.read_bytes()).hexdigest()
+                ):
+                    return False
+        synthesis_prompts = set()
+        gate_prompts = set()
+        for task in TASKS:
+            synthesis_rows = synthesis["examples"][task]
+            gate_rows = gate["examples"][task]
+            legacy_rows = legacy["examples"][task]
+            if len(synthesis_rows) != 256 or len(gate_rows) != 256:
+                return False
+            if len({row["prompt"] for row in synthesis_rows}) != 256:
+                return False
+            if len({row["prompt"] for row in gate_rows}) != 256:
+                return False
+            if len(legacy_rows) != 16 or len(
+                {row["prompt"] for row in legacy_rows}
+            ) != 16:
+                return False
+            synthesis_prompts.update(row["prompt"] for row in synthesis_rows)
+            gate_prompts.update(row["prompt"] for row in gate_rows)
+        return synthesis_prompts.isdisjoint(gate_prompts)
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+
+
+def joint_program_state(
+    output_dir: Path,
+    synthesis_manifest: Path | None = None,
+    gate_manifest: Path | None = None,
+) -> str:
+    report_path = output_dir / "joint_program_report.json"
+    programs_path = output_dir / "programs_selected.json"
+    if not report_path.is_file() or not programs_path.is_file():
+        return "missing"
+    try:
+        report = load_json(report_path)
+        programs = load_json(programs_path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return "malformed"
+    if not programs or not isinstance(report.get("final_gate"), dict):
+        return "failed"
+    if synthesis_manifest is not None and gate_manifest is not None:
+        synthesis_sha = hashlib.sha256(synthesis_manifest.read_bytes()).hexdigest()
+        gate_sha = hashlib.sha256(gate_manifest.read_bytes()).hexdigest()
+        if not all(
+            report.get("synthesis_manifest", {})
+            .get(task, {})
+            .get("manifest_sha256")
+            == synthesis_sha
+            and report.get("gate_manifest", {})
+            .get(task, {})
+            .get("manifest_sha256")
+            == gate_sha
+            for task in TASKS
+        ):
+            return "malformed"
+    return "passed" if report.get("success") is True else "failed"
+
+
+def healing_state(
+    output_dir: Path,
+    reference_perplexity: float,
+    train_manifest: Path | None = None,
+    gate_manifest: Path | None = None,
+) -> str:
     result_path = output_dir / "healing_results.json"
     if not result_path.is_file():
         return "missing"
@@ -214,13 +346,37 @@ def healing_state(output_dir: Path, reference_perplexity: float) -> str:
         and all(math.isfinite(float(agreements[task])) for task in TASKS)
         and math.isfinite(final_perplexity)
         and math.isfinite(budget)
+        and result.get("reference_target")
+        == "explicit_reference_program_P(x)"
+        and isinstance(result.get("behavior_train_manifest"), str)
+        and isinstance(result.get("behavior_gate_manifest"), str)
+        and result.get("migration_pass") in {True, False}
+        and result.get("suppression_coverage_pass") in {True, False}
         and checkpoint_ready(output_dir)
     )
+    if train_manifest is not None and gate_manifest is not None:
+        train_sha = hashlib.sha256(train_manifest.read_bytes()).hexdigest()
+        gate_sha = hashlib.sha256(gate_manifest.read_bytes()).hexdigest()
+        structurally_valid = structurally_valid and all(
+            result.get("behavior_domain", {})
+            .get("train", {})
+            .get(task, {})
+            .get("manifest_sha256")
+            == train_sha
+            and result.get("behavior_domain", {})
+            .get("gate", {})
+            .get(task, {})
+            .get("manifest_sha256")
+            == gate_sha
+            for task in TASKS
+        )
     if not structurally_valid:
         return "malformed"
     gates_pass = (
         all(float(agreements[task]) == 1.0 for task in TASKS)
         and final_perplexity <= budget
+        and result.get("migration_pass") is True
+        and result.get("suppression_coverage_pass") is True
     )
     if result.get("success") is not gates_pass:
         return "malformed"
@@ -270,13 +426,17 @@ class PhaseCRunner:
         self.args = args
         self.root = resolved(args.repo_root)
         self.artifacts = self.root / "artifacts"
-        self.run_dir = self.artifacts / "gpt2-phase-c-run"
+        self.run_dir = self.artifacts / "gpt2-phase-c-v2-run"
         self.log_dir = self.run_dir / "logs"
         self.status_path = self.run_dir / "run_status.json"
         self.base_model = self.resolve_from_root(args.base_model)
         self.dataset = self.resolve_from_root(args.processed_dataset_dir)
         self.gpus = tuple(int(value) for value in args.gpus.split(",") if value.strip())
         self.heal_config = self.run_dir / "gpt2_program_healing_h100.json"
+        self.domain_dir = self.artifacts / "gpt2-behavior-domains-v2"
+        self.synthesis_manifest = self.domain_dir / "synthesis.json"
+        self.gate_manifest = self.domain_dir / "gate.json"
+        self.legacy_manifest = self.domain_dir / "legacy_regression.json"
         self.children: set[subprocess.Popen] = set()
         self.children_lock = threading.Lock()
         self.print_lock = threading.Lock()
@@ -543,36 +703,75 @@ class PhaseCRunner:
             log_name="00-preflight.log",
         )
 
-    def ensure_behavior_scan(self) -> None:
-        path = self.artifacts / "gpt2-circuits/base/behavior_scan/behavior_scan.json"
-        if path.is_file():
-            passed, failures = behavior_scan_gate(path, self.base_model)
-            if passed:
-                self.log("REUSE: folded-model behavior scan passed")
-                return
-            raise PipelineError("Behavior viability gate failed: " + "; ".join(failures))
+    def ensure_behavior_domains(self) -> None:
+        config_path = self.root / "configs/gpt2_behavior_domain_v2.json"
+        if behavior_domains_complete(self.domain_dir, config_path):
+            self.log("REUSE: locked unique behavior-domain v2 manifests")
+            return
         self.run_logged(
             self.python_command(
-                "scripts/gpt2/extract.py",
-                "--model_path",
+                "scripts/gpt2/build_behavior_domains.py",
+                "--tokenizer_path",
                 str(self.base_model),
-                "--scan_behaviors",
-                "--n_examples",
-                "128",
-                "--batch_size",
-                "16",
                 "--output_dir",
-                "artifacts/gpt2-circuits/base",
+                str(self.domain_dir),
+                "--config",
+                "configs/gpt2_behavior_domain_v2.json",
             ),
-            log_name="01-behavior-scan.log",
-            extra_environment={
-                "CUDA_VISIBLE_DEVICES": str(self.gpus[0]),
-                "NVIDIA_TF32_OVERRIDE": "0",
-            },
+            log_name="00-build-behavior-domains.log",
         )
-        passed, failures = behavior_scan_gate(path, self.base_model)
-        if not passed:
-            raise PipelineError("Behavior viability gate failed: " + "; ".join(failures))
+        if not behavior_domains_complete(self.domain_dir, config_path):
+            raise PipelineError("Behavior-domain v2 manifests failed validation")
+
+    def ensure_behavior_scan(self) -> None:
+        for split, manifest in (
+            ("synthesis", self.synthesis_manifest),
+            ("gate", self.gate_manifest),
+        ):
+            output_root = self.artifacts / f"gpt2-circuits-v2/base-scan-{split}"
+            path = output_root / "behavior_scan/behavior_scan.json"
+            if path.is_file():
+                passed, failures = behavior_scan_gate(
+                    path,
+                    self.base_model,
+                    expected_rows=256,
+                    expected_manifest=manifest,
+                )
+                if passed:
+                    self.log(f"REUSE: base model is exact on v2 {split} split")
+                    continue
+                raise PipelineError(
+                    f"Behavior v2 {split} gate failed: " + "; ".join(failures)
+                )
+            self.run_logged(
+                self.python_command(
+                    "scripts/gpt2/extract.py",
+                    "--model_path",
+                    str(self.base_model),
+                    "--scan_behaviors",
+                    "--domain_manifest",
+                    str(manifest),
+                    "--batch_size",
+                    "16",
+                    "--output_dir",
+                    str(output_root),
+                ),
+                log_name=f"01-behavior-scan-{split}.log",
+                extra_environment={
+                    "CUDA_VISIBLE_DEVICES": str(self.gpus[0]),
+                    "NVIDIA_TF32_OVERRIDE": "0",
+                },
+            )
+            passed, failures = behavior_scan_gate(
+                path,
+                self.base_model,
+                expected_rows=256,
+                expected_manifest=manifest,
+            )
+            if not passed:
+                raise PipelineError(
+                    f"Behavior v2 {split} gate failed: " + "; ".join(failures)
+                )
 
     def reference_metrics(self) -> dict:
         return load_json(self.artifacts / "gpt2-phase-c-reference-eval.json")
@@ -634,6 +833,7 @@ class PhaseCRunner:
                     task=task,
                     threshold=threshold,
                     model_path=model,
+                    domain_manifest=self.synthesis_manifest,
                 ):
                     if announce_reuse:
                         self.log(
@@ -669,7 +869,9 @@ class PhaseCRunner:
                         "--extract_circuit",
                         task,
                         "--n_examples",
-                        "128",
+                        "256",
+                        "--domain_manifest",
+                        str(self.synthesis_manifest),
                         "--threshold",
                         str(threshold),
                         "--metric",
@@ -694,6 +896,7 @@ class PhaseCRunner:
                     task=task,
                     threshold=threshold,
                     model_path=model,
+                    domain_manifest=self.synthesis_manifest,
                 ):
                     raise PipelineError(
                         f"Sweep produced an invalid circuit artifact: {circuit_path}"
@@ -770,13 +973,17 @@ class PhaseCRunner:
         selected_root: Path,
         *,
         synthesis_results: Path | None = None,
+        installed_programs_path: Path | None = None,
     ) -> None:
         selected_root.mkdir(parents=True, exist_ok=True)
         synthesis = None
         installed_programs = set()
         if synthesis_results is not None:
             synthesis = load_json(synthesis_results)
-            installed_programs = set(synthesis.get("programs", {}))
+            if installed_programs_path is not None:
+                installed_programs = set(load_json(installed_programs_path))
+            else:
+                installed_programs = set(synthesis.get("programs", {}))
         for task in TASKS:
             circuit_path = selected_root / task / "circuit.json"
             selection_path = selected_root / task / "selection.json"
@@ -806,6 +1013,10 @@ class PhaseCRunner:
             )
             if synthesis_results is not None:
                 command.extend(["--synthesis_results", str(synthesis_results)])
+            if installed_programs_path is not None:
+                command.extend(
+                    ["--installed_programs", str(installed_programs_path)]
+                )
             self.run_logged(
                 command,
                 log_name=f"select-{selected_root.name}-{task}.log",
@@ -819,8 +1030,10 @@ class PhaseCRunner:
                 raise PipelineError(f"Invalid selected circuit: {circuit_path}")
 
     def ensure_synthesis(self, selected_root: Path) -> None:
-        output_dir = self.artifacts / "gpt2-programs"
-        state = synthesis_state(output_dir, self.base_model)
+        output_dir = self.artifacts / "gpt2-programs-v2"
+        state = synthesis_state(
+            output_dir, self.base_model, self.synthesis_manifest
+        )
         if state == "passed":
             self.log("REUSE: accepted restricted-DSL synthesis")
             return
@@ -838,7 +1051,9 @@ class PhaseCRunner:
                 "--output_dir",
                 str(output_dir),
                 "--num_examples",
-                "128",
+                "256",
+                "--domain_manifest",
+                str(self.synthesis_manifest),
                 "--healable_agreement",
                 "1.0",
             ),
@@ -848,9 +1063,152 @@ class PhaseCRunner:
                 "NVIDIA_TF32_OVERRIDE": "0",
             },
         )
-        state = synthesis_state(output_dir, self.base_model)
+        state = synthesis_state(
+            output_dir, self.base_model, self.synthesis_manifest
+        )
         if state != "passed":
             raise PipelineError(f"C3 synthesis ended in state {state}")
+
+    def ensure_joint_programs(self) -> Path:
+        programs_root = self.artifacts / "gpt2-programs-v2"
+        output_dir = programs_root / "joint"
+        state = joint_program_state(
+            output_dir, self.synthesis_manifest, self.gate_manifest
+        )
+        if state == "passed":
+            self.log("REUSE: globally exact joint program subset on v2 gate")
+            return output_dir / "programs_selected.json"
+        if state == "failed":
+            raise PipelineError(
+                "C3 programs are not jointly exact on the untouched v2 gate; "
+                "preserve the report and repair synthesis before healing"
+            )
+        return_code = self.run_logged(
+            self.python_command(
+                "scripts/gpt2/select_joint_program_subset.py",
+                "--model_path",
+                str(self.base_model),
+                "--synthesis_results",
+                str(programs_root / "synthesis_results.json"),
+                "--circuit_root",
+                str(self.artifacts / "gpt2-circuits-v2/base-selected"),
+                "--programs",
+                str(programs_root / "programs.json"),
+                "--synthesis_manifest",
+                str(self.synthesis_manifest),
+                "--gate_manifest",
+                str(self.gate_manifest),
+                "--output_dir",
+                str(output_dir),
+                "--batch_size",
+                "32",
+            ),
+            log_name="04b-select-joint-program-subset.log",
+            extra_environment={
+                "CUDA_VISIBLE_DEVICES": str(self.gpus[0]),
+                "NVIDIA_TF32_OVERRIDE": "0",
+            },
+            accepted=(0, 2),
+        )
+        state = joint_program_state(
+            output_dir, self.synthesis_manifest, self.gate_manifest
+        )
+        expected = "passed" if return_code == 0 else "failed"
+        if state != expected or state != "passed":
+            raise PipelineError(
+                "Joint program composition did not pass both locked v2 tasks; "
+                f"state={state}"
+            )
+        return output_dir / "programs_selected.json"
+
+    def ensure_diagnostic(
+        self,
+        *,
+        base_model: Path,
+        programs: Path,
+        circuits: Path,
+        manifest: Path,
+        output: Path,
+        healed_model: Path | None = None,
+    ) -> None:
+        if output.is_file():
+            try:
+                report = load_json(output)
+                expected_manifest_sha = hashlib.sha256(
+                    manifest.read_bytes()
+                ).hexdigest()
+                domain_matches = all(
+                    report["domain"][task]["manifest_sha256"]
+                    == expected_manifest_sha
+                    for task in TASKS
+                )
+                matches = (
+                    resolved(report["base_model"]) == base_model
+                    and resolved(report["programs"]) == programs
+                    and resolved(report["circuit_root"]) == circuits
+                    and domain_matches
+                    and (
+                        healed_model is None
+                        or resolved(report["healed_model"]) == healed_model
+                    )
+                )
+            except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+                matches = False
+            if matches:
+                self.log(f"REUSE: program-composition diagnostic {output}")
+                return
+        command = self.python_command(
+            "scripts/gpt2/diagnose_program_composition.py",
+            "--base_model",
+            str(base_model),
+            "--programs",
+            str(programs),
+            "--circuit_root",
+            str(circuits),
+            "--domain_manifest",
+            str(manifest),
+            "--output",
+            str(output),
+            "--batch_size",
+            "32",
+        )
+        if healed_model is not None:
+            command.extend(["--healed_model", str(healed_model)])
+        self.run_logged(
+            command,
+            log_name=f"diagnostic-{output.parent.name}-{output.stem}.log",
+            extra_environment={
+                "CUDA_VISIBLE_DEVICES": str(self.gpus[0]),
+                "NVIDIA_TF32_OVERRIDE": "0",
+            },
+        )
+
+    def ensure_preheal_diagnostics(
+        self, base_selected: Path, selected_programs: Path
+    ) -> None:
+        # Preserve and diagnose v1 if its remote artifacts are present. Missing
+        # v1 files do not block the v2 pipeline.
+        old_programs = self.artifacts / "gpt2-programs/programs.json"
+        old_circuits = self.artifacts / "gpt2-circuits/base-selected"
+        old_healed = self.artifacts / "gpt2-program-healed"
+        if old_programs.is_file() and old_circuits.is_dir():
+            self.ensure_diagnostic(
+                base_model=self.base_model,
+                programs=old_programs,
+                circuits=old_circuits,
+                manifest=self.legacy_manifest,
+                output=self.artifacts
+                / "gpt2-program-diagnostics-v1/composition.json",
+                healed_model=old_healed if checkpoint_ready(old_healed) else None,
+            )
+        self.ensure_diagnostic(
+            base_model=self.base_model,
+            programs=selected_programs,
+            circuits=base_selected,
+            manifest=self.synthesis_manifest,
+            output=self.artifacts
+            / "gpt2-programs-v2/preheal_composition_diagnostic.json",
+        )
 
     def ensure_healing(
         self,
@@ -858,10 +1216,20 @@ class PhaseCRunner:
         reference_perplexity: float,
         *,
         ablation_aware: bool,
+        programs: Path,
         circuit_root: Path | None = None,
         allow_gate_failure: bool = False,
     ) -> str:
-        state = healing_state(output_dir, reference_perplexity)
+        train_manifest = (
+            self.synthesis_manifest if self.synthesis_manifest.is_file() else None
+        )
+        gate_manifest = self.gate_manifest if self.gate_manifest.is_file() else None
+        state = healing_state(
+            output_dir,
+            reference_perplexity,
+            train_manifest,
+            gate_manifest,
+        )
         label = "ablation-aware" if ablation_aware else "ordinary"
         if state == "passed":
             self.log(f"REUSE: passing {label} healing result")
@@ -879,7 +1247,7 @@ class PhaseCRunner:
             "--model_path",
             str(self.base_model),
             "--programs",
-            "artifacts/gpt2-programs/programs.json",
+            str(programs),
             "--processed_dataset_dir",
             str(self.dataset),
             "--output_dir",
@@ -888,6 +1256,10 @@ class PhaseCRunner:
             str(reference_perplexity),
             "--config",
             str(self.heal_config),
+            "--behavior_train_manifest",
+            str(self.synthesis_manifest),
+            "--behavior_gate_manifest",
+            str(self.gate_manifest),
         )
         if ablation_aware:
             if circuit_root is None:
@@ -908,10 +1280,20 @@ class PhaseCRunner:
             # then deliberately exits nonzero when either locked gate fails.
             # torchrun surfaces that child exit as status 1, so the artifact is
             # the only reliable distinction from an infrastructure crash.
-            state = healing_state(output_dir, reference_perplexity)
+            state = healing_state(
+                output_dir,
+                reference_perplexity,
+                train_manifest,
+                gate_manifest,
+            )
             if state != "failed":
                 raise
-        state = healing_state(output_dir, reference_perplexity)
+        state = healing_state(
+            output_dir,
+            reference_perplexity,
+            train_manifest,
+            gate_manifest,
+        )
         if state == "passed":
             return state
         if state == "failed" and allow_gate_failure:
@@ -944,7 +1326,9 @@ class PhaseCRunner:
                     "--output",
                     str(report_path),
                     "--num_examples",
-                    "128",
+                    "256",
+                    "--domain_manifest",
+                    str(self.gate_manifest),
                 ),
                 log_name=f"migration-{model.name}.log",
                 extra_environment={
@@ -964,63 +1348,41 @@ class PhaseCRunner:
         return state
 
     def choose_healed_model(
-        self, reference_perplexity: float, base_selected: Path
+        self,
+        reference_perplexity: float,
+        base_selected: Path,
+        selected_programs: Path,
     ) -> tuple[Path, Path]:
-        synthesis_results = self.artifacts / "gpt2-programs/synthesis_results.json"
-        ordinary_model = self.artifacts / "gpt2-program-healed"
-        ordinary_sweeps = self.artifacts / "gpt2-circuits/healed"
-        ordinary_selected = self.artifacts / "gpt2-circuits/healed-selected"
-        ordinary_healing_state = self.ensure_healing(
-            ordinary_model,
-            reference_perplexity,
-            ablation_aware=False,
-            allow_gate_failure=True,
+        synthesis_results = (
+            self.artifacts / "gpt2-programs-v2/synthesis_results.json"
         )
-        if ordinary_healing_state == "passed":
-            self.run_sweeps(ordinary_model, ordinary_sweeps, "healed")
-            self.ensure_selected_circuits(
-                ordinary_model,
-                ordinary_sweeps,
-                ordinary_selected,
-                synthesis_results=synthesis_results,
-            )
-            ordinary_migration_state = self.ensure_migration(
-                ordinary_model,
-                ordinary_selected,
-                ordinary_model / "migration_report.json",
-                require_pass=False,
-            )
-            if ordinary_migration_state == "passed":
-                return ordinary_model, ordinary_selected
-            fallback_reason = "ordinary_migration_failure"
-        else:
-            fallback_reason = "ordinary_c4_gate_failure"
-
-        self.update_status(
-            status="running",
-            stage="healing_and_migration",
-            fallback_reason=fallback_reason,
-        )
-        self.log(
-            f"Selecting preregistered ablation-aware fallback: {fallback_reason}"
-        )
-        fallback_model = self.artifacts / "gpt2-program-healed-ablation-aware"
-        fallback_sweeps = self.artifacts / "gpt2-circuits/healed-ablation-aware"
-        fallback_selected = (
-            self.artifacts / "gpt2-circuits/healed-ablation-aware-selected"
+        fallback_model = self.artifacts / "gpt2-program-healed-v2-core-aware"
+        fallback_sweeps = self.artifacts / "gpt2-circuits-v2/healed-core-aware"
+        fallback_selected = self.artifacts / (
+            "gpt2-circuits-v2/healed-core-aware-selected"
         )
         self.ensure_healing(
             fallback_model,
             reference_perplexity,
             ablation_aware=True,
+            programs=selected_programs,
             circuit_root=base_selected,
         )
-        self.run_sweeps(fallback_model, fallback_sweeps, "healed-ablation-aware")
+        self.ensure_diagnostic(
+            base_model=self.base_model,
+            programs=selected_programs,
+            circuits=base_selected,
+            manifest=self.gate_manifest,
+            output=fallback_model / "composition_diagnostic_gate.json",
+            healed_model=fallback_model,
+        )
+        self.run_sweeps(fallback_model, fallback_sweeps, "healed-v2-core-aware")
         self.ensure_selected_circuits(
             fallback_model,
             fallback_sweeps,
             fallback_selected,
             synthesis_results=synthesis_results,
+            installed_programs_path=selected_programs,
         )
         self.ensure_migration(
             fallback_model,
@@ -1093,7 +1455,7 @@ class PhaseCRunner:
                 "--program_metrics",
                 str(healed_model / "healing_results.json"),
                 "--synthesis_metrics",
-                "artifacts/gpt2-programs/synthesis_results.json",
+                "artifacts/gpt2-programs-v2/synthesis_results.json",
                 "--output_json",
                 "artifacts/gpt2-unified-cost-table.json",
                 "--output_csv",
@@ -1127,10 +1489,11 @@ class PhaseCRunner:
             self.artifacts / "gpt2-unified-cost-table.json",
             self.artifacts / "gpt2-unified-cost-table.csv",
             self.artifacts / "gpt2-norm-free/wikitext_eval_final.json",
-            self.artifacts / "gpt2-circuits",
-            self.artifacts / "gpt2-programs",
-            self.artifacts / "gpt2-program-healed",
-            self.artifacts / "gpt2-program-healed-ablation-aware",
+            self.artifacts / "gpt2-behavior-domains-v2",
+            self.artifacts / "gpt2-circuits-v2",
+            self.artifacts / "gpt2-programs-v2",
+            self.artifacts / "gpt2-program-diagnostics-v1",
+            self.artifacts / "gpt2-program-healed-v2-core-aware",
             self.run_dir,
         ]
         relative_paths = [
@@ -1201,11 +1564,12 @@ class PhaseCRunner:
         self.update_status(status="running", stage="waiting_for_existing_extraction")
         self.wait_for_external_extraction()
         self.stage("preflight", self.run_preflight)
+        self.stage("behavior_domain_v2", self.ensure_behavior_domains)
         self.stage("behavior_scan", self.ensure_behavior_scan)
         self.stage("reference_eval", self.ensure_reference)
 
-        base_sweeps = self.artifacts / "gpt2-circuits/base"
-        base_selected = self.artifacts / "gpt2-circuits/base-selected"
+        base_sweeps = self.artifacts / "gpt2-circuits-v2/base"
+        base_selected = self.artifacts / "gpt2-circuits-v2/base-selected"
         self.stage(
             "base_circuit_sweeps",
             lambda: self.run_sweeps(self.base_model, base_sweeps, "base"),
@@ -1217,11 +1581,22 @@ class PhaseCRunner:
             ),
         )
         self.stage("program_synthesis", lambda: self.ensure_synthesis(base_selected))
+        selected_programs = self.stage(
+            "joint_program_gate", self.ensure_joint_programs
+        )
+        self.stage(
+            "preheal_diagnostics",
+            lambda: self.ensure_preheal_diagnostics(
+                base_selected, selected_programs
+            ),
+        )
 
         reference_perplexity = float(self.reference_metrics()["eval_perplexity"])
         healed_model, healed_circuits = self.stage(
             "healing_and_migration",
-            lambda: self.choose_healed_model(reference_perplexity, base_selected),
+            lambda: self.choose_healed_model(
+                reference_perplexity, base_selected, selected_programs
+            ),
         )
         self.update_status(
             status="running",

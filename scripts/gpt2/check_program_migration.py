@@ -15,13 +15,14 @@ from transformers import GPT2Tokenizer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from scripts.gpt2.extract import (
-    BEHAVIOR_GENERATORS,
     build_circuit_graph,
     controlled_forward,
     get_candidate_token_ids,
+    load_behavior_examples,
     load_model_with_variants,
     select_last_real_logits,
 )
+from scripts.gpt2.behavior_domains import reference_program_targets
 from scripts.programs import load_programs
 
 
@@ -35,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--circuit_root", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--num_examples", type=int, default=128)
+    parser.add_argument(
+        "--domain_manifest",
+        default=None,
+        help="Locked gate-domain manifest; legacy repeated rows if omitted.",
+    )
     parser.add_argument("--device", default=None)
     return parser.parse_args()
 
@@ -48,12 +54,14 @@ def circuit_edges(circuit: dict) -> set[tuple[str, str]]:
     }
 
 
-def projected_metrics(reference, candidate, attention_mask, candidates):
+def projected_metrics(
+    reference, candidate, attention_mask, candidates, targets=None
+):
     reference_last = select_last_real_logits(reference, attention_mask)[:, candidates]
     candidate_last = select_last_real_logits(candidate, attention_mask)[:, candidates]
     reference_decision = reference_last.argmax(dim=-1)
     candidate_decision = candidate_last.argmax(dim=-1)
-    return {
+    result = {
         "projected_agreement": float(
             (reference_decision == candidate_decision).float().mean().item()
         ),
@@ -65,6 +73,11 @@ def projected_metrics(reference, candidate, attention_mask, candidates):
             ).item()
         ),
     }
+    if targets is not None:
+        result["candidate_accuracy_against_P"] = float(
+            (candidate_decision.cpu() == targets).float().mean().item()
+        )
+    return result
 
 
 def main() -> None:
@@ -90,7 +103,9 @@ def main() -> None:
         )
         if not intended:
             raise RuntimeError(f"{task} circuit contains no program head")
-        examples = BEHAVIOR_GENERATORS[task](args.num_examples)
+        examples, provenance = load_behavior_examples(
+            task, args.num_examples, args.domain_manifest
+        )
         encoded = tokenizer(
             [example.prompt for example in examples],
             return_tensors="pt",
@@ -99,6 +114,7 @@ def main() -> None:
         input_ids = encoded["input_ids"].to(device)
         attention_mask = encoded["attention_mask"].to(device)
         candidates = get_candidate_token_ids(task, tokenizer)
+        targets = reference_program_targets(examples, tokenizer, candidates)
         with torch.no_grad():
             reference = controlled_forward(
                 model, input_ids, attention_mask, full_edges, graph
@@ -137,9 +153,22 @@ def main() -> None:
             reference, intended_logits, attention_mask, candidates
         )
         reports[task] = {
+            "domain": provenance,
             "intended_program_heads": intended,
             "circuit": projected_metrics(
-                reference, circuit_logits, attention_mask, candidates
+                reference,
+                circuit_logits,
+                attention_mask,
+                candidates,
+                targets,
+            ),
+            "full_candidate_accuracy_against_P": float(
+                (
+                    select_last_real_logits(reference, attention_mask)[
+                        :, candidates
+                    ].argmax(dim=-1).cpu()
+                    == targets
+                ).float().mean().item()
             ),
             "individual_ablations": individual,
             "without_intended_program_heads": intended_metrics,
@@ -155,9 +184,13 @@ def main() -> None:
         "circuit_root": args.circuit_root,
         "program_nodes": sorted(program_nodes),
         "num_examples": args.num_examples,
+        "domain_manifest": args.domain_manifest,
+        "reference_target": "explicit_reference_program_P(x)",
         "tasks": reports,
         "migration_pass": all(
-            report["circuit"]["projected_agreement"] == 1.0
+            report["full_candidate_accuracy_against_P"] == 1.0
+            and report["circuit"]["candidate_accuracy_against_P"] == 1.0
+            and report["circuit"]["projected_agreement"] == 1.0
             and report["necessary"]
             and report["non_bypassed"]
             for report in reports.values()

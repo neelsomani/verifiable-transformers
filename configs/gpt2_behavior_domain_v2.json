@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "protocol_id": "gpt2_behavior_domain_v2",
+  "seed": 1337,
+  "split_sizes_per_task": {
+    "synthesis": 256,
+    "gate": 256
+  },
+  "legacy_regression_rows_per_task": 16,
+  "requirements": {
+    "unique_prompts_within_v2": true,
+    "disjoint_synthesis_and_gate": true,
+    "balanced_binary_strata": true,
+    "single_token_candidates": true,
+    "minimum_distinct_opener_token_positions": 4,
+    "base_projected_accuracy_required": 1.0,
+    "program_projected_agreement_required": 1.0
+  },
+  "healing_gate": {
+    "projected_accuracy_against_reference_program": 1.0,
+    "relative_perplexity_increase_budget": 0.16,
+    "reference_eval_perplexity": 24.67033950244981,
+    "absolute_perplexity_budget": 28.617593822841776
+  },
+  "notes": [
+    "No model predictions are used to generate, select, or filter examples.",
+    "The gate split is not used to select programs or program subsets.",
+    "The original 16 unique prompts per task are retained only as a labeled regression subset."
+  ]
+}

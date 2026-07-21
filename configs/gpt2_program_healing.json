@@ -29,6 +29,10 @@
   "ablation_aware_circuit_loss_weight": 1.0,
   "ablation_aware_sampled_loss_weight": 1.0,
   "ablation_aware_bypass_penalty_weight": 1.0,
+  "core_aware_joint_bypass_penalty_weight": 1.0,
+  "core_aware_individual_bypass_penalty_weight": 1.0,
+  "core_aware_individual_heads_per_aux": 2,
+  "core_aware_minimum_suppression_visits": 2,
   "relative_perplexity_increase_budget": 0.16,
   "perplexity_budget_provenance": "Pre-registered before C4; no more than Hayes-style +16% at the measured replacement fraction."
 }

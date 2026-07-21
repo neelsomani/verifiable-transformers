@@ -347,6 +347,11 @@ def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path
         "reference_eval_perplexity": 24.67033950244981,
         "final_eval_perplexity": 27.0,
         "perplexity_budget": 28.617593822841776,
+        "reference_target": "explicit_reference_program_P(x)",
+        "behavior_train_manifest": "synthesis.json",
+        "behavior_gate_manifest": "gate.json",
+        "migration_pass": True,
+        "suppression_coverage_pass": True,
         "final_projected_agreement": {
             "quote_close": 1.0,
             "bracket_type": 1.0,
@@ -375,6 +380,7 @@ def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path
             output,
             24.67033950244981,
             ablation_aware=False,
+            programs=tmp_path / "programs.json",
             allow_gate_failure=True,
         )
         == "failed"
@@ -384,10 +390,11 @@ def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path
             output,
             24.67033950244981,
             ablation_aware=False,
+            programs=tmp_path / "programs.json",
         )
 
 
-def test_phase_c_runner_selects_fallback_after_ordinary_c4_failure(
+def test_phase_c_runner_runs_v2_core_aware_healing_directly(
     tmp_path, monkeypatch
 ):
     runner = PhaseCRunner(
@@ -405,7 +412,7 @@ def test_phase_c_runner_selects_fallback_after_ordinary_c4_failure(
 
     def fake_healing(output_dir, _reference, *, ablation_aware, **_kwargs):
         healing_calls.append((output_dir.name, ablation_aware))
-        return "passed" if ablation_aware else "failed"
+        return "passed"
 
     monkeypatch.setattr(runner, "ensure_healing", fake_healing)
     monkeypatch.setattr(
@@ -415,16 +422,18 @@ def test_phase_c_runner_selects_fallback_after_ordinary_c4_failure(
     )
     monkeypatch.setattr(runner, "ensure_selected_circuits", lambda *args, **kwargs: None)
     monkeypatch.setattr(runner, "ensure_migration", lambda *args, **kwargs: "passed")
+    monkeypatch.setattr(runner, "ensure_diagnostic", lambda *args, **kwargs: None)
     monkeypatch.setattr(runner, "update_status", lambda **kwargs: None)
 
-    model, circuits = runner.choose_healed_model(24.67033950244981, tmp_path)
+    model, circuits = runner.choose_healed_model(
+        24.67033950244981,
+        tmp_path,
+        tmp_path / "programs_selected.json",
+    )
 
-    assert model.name == "gpt2-program-healed-ablation-aware"
-    assert circuits.name == "healed-ablation-aware-selected"
-    assert healing_calls == [
-        ("gpt2-program-healed", False),
-        ("gpt2-program-healed-ablation-aware", True),
-    ]
+    assert model.name == "gpt2-program-healed-v2-core-aware"
+    assert circuits.name == "healed-core-aware-selected"
+    assert healing_calls == [("gpt2-program-healed-v2-core-aware", True)]
     assert sweep_calls == [
-        ("gpt2-program-healed-ablation-aware", "healed-ablation-aware")
+        ("gpt2-program-healed-v2-core-aware", "healed-v2-core-aware")
     ]

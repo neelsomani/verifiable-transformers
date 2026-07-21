@@ -16,10 +16,11 @@ from transformers import GPT2Tokenizer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from scripts.gpt2.extract import (
-    BEHAVIOR_GENERATORS,
     get_candidate_token_ids,
+    load_behavior_examples,
     load_model_with_variants,
 )
+from scripts.gpt2.behavior_domains import reference_program_targets
 from scripts.programs import (
     CommandProgramProposer,
     SynthesisHarness,
@@ -36,6 +37,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--circuit_root", required=True)
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--num_examples", type=int, default=128)
+    parser.add_argument(
+        "--domain_manifest",
+        default=None,
+        help="Locked synthesis-domain manifest; legacy repeated rows if omitted.",
+    )
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--healable_agreement", type=float, default=1.0)
     parser.add_argument("--device", default=None)
@@ -128,12 +134,17 @@ def main() -> None:
         if args.lm_proposer_command
         else None
     )
+    domain_provenance = {}
+    base_accuracy_against_reference = {}
 
     for task in ("quote_close", "bracket_type"):
         with open(os.path.join(args.circuit_root, task, "circuit.json")) as handle:
             circuit = json.load(handle)
         heads = retained_heads(circuit)
-        examples = BEHAVIOR_GENERATORS[task](args.num_examples)
+        examples, task_domain = load_behavior_examples(
+            task, args.num_examples, args.domain_manifest
+        )
+        domain_provenance[task] = task_domain
         encoded = tokenizer(
             [example.prompt for example in examples],
             return_tensors="pt",
@@ -142,13 +153,22 @@ def main() -> None:
         input_ids = encoded["input_ids"].to(device)
         attention_mask = encoded["attention_mask"].to(device)
         candidates = get_candidate_token_ids(task, tokenizer)
-        reference = projected_decisions(
+        base_decisions = projected_decisions(
             model,
             input_ids,
             attention_mask,
             candidates,
             args.batch_size,
         )
+        reference = reference_program_targets(examples, tokenizer, candidates)
+        base_accuracy = float((base_decisions == reference).float().mean().item())
+        base_accuracy_against_reference[task] = base_accuracy
+        if base_accuracy != 1.0:
+            raise RuntimeError(
+                f"{task} base-model accuracy against P(x) is {base_accuracy:.6f}; "
+                "v2 forbids filtering examples or synthesizing against an "
+                "incorrect base reference"
+            )
         task_heads = {}
 
         for layer, head in sorted(heads):
@@ -233,7 +253,13 @@ def main() -> None:
     output = {
         "model_path": args.model_path,
         "circuit_root": args.circuit_root,
-        "num_examples": args.num_examples,
+        "num_examples": {
+            task: domain_provenance[task]["rows"] for task in domain_provenance
+        },
+        "domain_manifest": args.domain_manifest,
+        "domain": domain_provenance,
+        "reference_target": "explicit_reference_program_P(x)",
+        "base_accuracy_against_reference": base_accuracy_against_reference,
         "acceptance_metric": "exact_projected_agreement",
         "healable_agreement": args.healable_agreement,
         "lm_proposer": proposer.provenance() if proposer is not None else None,
