@@ -153,7 +153,7 @@ The norm itself is: mean subtraction, bounded PWL clamp, fixed scale `0.5`, and 
 - it solves the main late-stage instability problem
 - but it is still **substantially worse than the local GPT-2 baseline** on both OWT (4.1350 @ ~300k step) and WikiText (189.3 @ 400k), so the main result here is stability rather than parity with standard LayerNorm
 
-**Signed L1 Band Norm: Projection-Based Normalization (Recommended)**
+**Signed L1 Band Norm: Projection-Based Normalization (Best Replacement; Superseded by Removal)**
 
 v3's failure mode was elementwise saturation: every coordinate was independently clamped, which destroyed dynamic range and prevented the model from learning useful representations. The v1-v3 progression tried to approximate LayerNorm by multiplying centered inputs by a scale factor (whether data-dependent buckets, soft clamps, or bounded PWL). This approach fundamentally conflicts with SMT-friendliness because proper normalization requires dividing by a data-dependent variance estimate.
 
@@ -205,6 +205,7 @@ Interpretation:
 * It substantially closes the gap introduced by earlier clamp-based verifiable normalizers.
 * It remains worse than standard LayerNorm and sparsemax-only, so normalization is still the main performance bottleneck.
 * Projection-based normalization appears much more viable than elementwise clamp-based normalization.
+* Superseded: the A4 LayerNorm-removal result below beats BandNorm by 0.1124 loss, so Phase C uses the norm-free model; BandNorm is retained as the measured from-scratch replacement result.
 
 ### Attention Replacement Only (Sparsemax)
 
@@ -589,7 +590,7 @@ bash scripts/gpt2/sweep_thresholds.sh quote_close
 
 # Compare results and get recommendation
 python scripts/gpt2/compare_sweeps.py \
-  --sweep_dir artifacts/circuits_sweep \
+  --sweep_dir artifacts/gpt2-circuits-v3/base \
   --task quote_close
 ```
 
@@ -605,9 +606,8 @@ Candidate set: T = {', "}
 
 Reference behavior: If the prompt contains an unmatched single quote, predict `'`. If the prompt contains an unmatched double quote, predict `"`.
 
-Recommended extraction domain: single-quote and double-quote prompts with varied but token-aligned content
-
-Example prompts:
+Illustrative prompts (protocol v1; current extraction uses the deterministic
+v2/v3 domain manifests with varied opener positions, lengths, and content):
 
 ```text
 x = 'hello world
@@ -638,7 +638,8 @@ Candidate set: T is the set containing ] and }
 
 Reference behavior: If the prompt opens with `[`, predict `]`. If the prompt opens with `{`, predict `}`.
 
-Recommended extraction domain: Use token-aligned bracket/brace pairs:
+Illustrative prompts (protocol v1; current extraction uses the deterministic
+v2/v3 domain manifests with varied opener positions, lengths, and content):
 
 ```text
 x = [a, b, c
@@ -666,6 +667,13 @@ Formal properties to verify after extraction:
 5. **Continuous robustness**: For every perturbation $\eta$ to the final residual with $\max_i |\eta_i| \le \epsilon$, the projected decision remains unchanged: $\forall x \in D_b,\ \forall \eta \in \mathbb{R}^d,\ \max_i |\eta_i| \le \epsilon \Rightarrow G_T(r_E(x)+\eta)=P_b(x)$, where $D_b$ is the bracket domain, $P_b$ is the bracket reference program, and $G_T(r)$ is the projected decision after final normalization and unembedding.
 
 ### Circuit Quality Results
+
+**Historical protocol-v1 results.** The tables below are from the BandNorm+sparsemax
+checkpoint using the earlier block-level graph (325 possible edges) and the
+duplicated 16-template v1 domain. They are preserved as protocol-v1 records.
+Current circuits use the norm-free base, the per-head graph, and the v2/v3
+domain manifests; their sweeps and selections are recorded under
+`artifacts/gpt2-circuits-v2/` and `artifacts/gpt2-circuits-v3/`.
 
 Circuits extracted using zero ablation, candidate_kl metric, and min_agreement=1.0 guard.
 
@@ -711,7 +719,7 @@ Threshold sweep results:
 
 Once circuits are extracted, we can in theory formally verify their properties using SMT solvers. The properties vary by circuit and are described above in 3b.
 
-The problem is that while the circuit is SMT-representable, it is still not efficiently encodable. The result is that we cannot (yet) prove properties on the extracted circuits from the GPT-2 scale model. Nonetheless, the implementation below would in principle prove the desired results if it were tractable.
+Naive SMT encoding of extracted *neural* GPT-2-scale circuits is not currently tractable: the retained heads contribute bilinear QK and value-aggregation terms at hidden width 768. This is the motivation for the program-replacement route in [VERIFIED_DISTILLATION.md](VERIFIED_DISTILLATION.md): replacing a circuit's attention heads with token/position programs removes those bilinear terms entirely, which at small scale roughly halved per-edge encoding cost and made all four properties provable. Verifying a program-healed GPT-2-scale circuit is the goal of Phase C; the commands below exercise the encoder path and would in principle prove the target properties given a tractable circuit.
 
 The SMT verification system is implemented in `/scripts/smt/` (core encoders) and `/scripts/gpt2/` (GPT-2 specific) with the following modules:
 
@@ -733,15 +741,15 @@ Scripts to run sanity tests to verify SMT encoder matches PyTorch circuit:
 ```bash
 # Sanity test for quote_close
 python scripts/gpt2/test_smt_encoder.py \
-  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
-  --circuit_path artifacts/circuits_sweep/quote_close_t0.02/circuit.json \
+  --model_path artifacts/gpt2-norm-free \
+  --circuit_path artifacts/gpt2-circuits-v3/base-selected/quote_close/circuit.json \
   --task quote_close \
   --tolerance 1e-2
 
 # Sanity test for bracket_type
 python scripts/gpt2/test_smt_encoder.py \
-  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
-  --circuit_path artifacts/circuits_sweep/bracket_type_t0.2/circuit.json \
+  --model_path artifacts/gpt2-norm-free \
+  --circuit_path artifacts/gpt2-circuits-v3/base-selected/bracket_type/circuit.json \
   --task bracket_type \
   --tolerance 1e-2
 ```
@@ -751,19 +759,19 @@ Scripts to run formal verification, starting with `--max_length 3`:
 ```bash
 # Verify quote_close circuit at length 3
 python scripts/gpt2/verify.py \
-  --circuit_path artifacts/circuits_sweep/quote_close_t0.02/circuit.json \
+  --circuit_path artifacts/gpt2-circuits-v3/base-selected/quote_close/circuit.json \
   --task quote_close \
   --output_dir artifacts/verification/quote_close \
-  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
+  --model_path artifacts/gpt2-norm-free \
   --max_length 3 \
   --timeout_ms 60000
 
 # Verify bracket_type circuit at length 3
 python scripts/gpt2/verify.py \
-  --circuit_path artifacts/circuits_sweep/bracket_type_t0.2/circuit.json \
+  --circuit_path artifacts/gpt2-circuits-v3/base-selected/bracket_type/circuit.json \
   --task bracket_type \
   --output_dir artifacts/verification/bracket_type \
-  --model_path artifacts/band-norm-sparsemax/checkpoint-240000 \
+  --model_path artifacts/gpt2-norm-free \
   --max_length 3 \
   --timeout_ms 60000
 ```

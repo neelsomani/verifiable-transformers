@@ -4,14 +4,18 @@
 # Usage:
 #   bash scripts/gpt2/sweep_thresholds.sh quote_close
 #   bash scripts/gpt2/sweep_thresholds.sh bracket_type
+#
+# Optional positional arguments:
+#   task model_path n_examples metric output_root domain_manifest
 
 set -e
 
 TASK="${1:-quote_close}"
-MODEL_PATH="${2:-artifacts/band-norm-sparsemax/checkpoint-240000}"
-N_EXAMPLES="${3:-128}"
+MODEL_PATH="${2:-artifacts/gpt2-norm-free}"
+N_EXAMPLES="${3:-512}"
 METRIC="${4:-candidate_kl}"
-OUTPUT_BASE="${5:-artifacts/circuits_sweep}"
+OUTPUT_BASE="${5:-artifacts/gpt2-circuits-v3/base}"
+DOMAIN_MANIFEST="${6:-artifacts/gpt2-behavior-domains-v3/development.json}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 echo "=========================================="
@@ -20,6 +24,7 @@ echo "=========================================="
 echo "Model: $MODEL_PATH"
 echo "Metric: $METRIC"
 echo "N examples: $N_EXAMPLES"
+echo "Domain: $DOMAIN_MANIFEST"
 echo ""
 
 # Run sweep
@@ -34,6 +39,7 @@ for THRESH in 0.005 0.01 0.02 0.05 0.1 0.2; do
     --model_path "$MODEL_PATH" \
     --extract_circuit "$TASK" \
     --n_examples "$N_EXAMPLES" \
+    --domain_manifest "$DOMAIN_MANIFEST" \
     --threshold "$THRESH" \
     --metric "$METRIC" \
     --min_agreement 1.0 \
