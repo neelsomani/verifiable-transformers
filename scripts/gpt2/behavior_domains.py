@@ -1,9 +1,9 @@
 """Versioned behavior domains for GPT-2 circuit experiments.
 
 Protocol v1 is retained byte-for-byte for regression measurements. Protocols
-v2 and v3 are deterministic, unique-prompt domains with disjoint development
-and gate material. The generator never consults model predictions when
-constructing or selecting examples.
+v2 through v4 are deterministic, unique-prompt domains with disjoint
+development and gate material. The generator never consults model predictions
+when constructing or selecting examples.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ PROTOCOL_ID = "gpt2_behavior_domain_v2"
 SUPPORTED_PROTOCOL_IDS = {
     "gpt2_behavior_domain_v2",
     "gpt2_behavior_domain_v3",
+    "gpt2_behavior_domain_v4",
 }
 SCHEMA_VERSION = 2
 
@@ -325,6 +326,20 @@ def _candidate_pool(
             key=lambda row: row.metadata["selection_hash"],
         )
     return pools
+
+
+def candidate_pool_capacity(
+    *, seed: int, protocol_id: str = PROTOCOL_ID
+) -> dict[str, dict[str, int]]:
+    """Return deterministic unique-prompt capacity for every task stratum."""
+
+    return {
+        task: {
+            stratum: len(rows)
+            for stratum, rows in _candidate_pool(task, seed, protocol_id).items()
+        }
+        for task in TASKS
+    }
 
 
 def generate_v2_splits(

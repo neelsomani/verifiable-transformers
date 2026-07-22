@@ -12,10 +12,10 @@ set -e
 
 TASK="${1:-quote_close}"
 MODEL_PATH="${2:-artifacts/gpt2-norm-free}"
-N_EXAMPLES="${3:-512}"
+N_EXAMPLES="${3:-768}"
 METRIC="${4:-candidate_kl}"
-OUTPUT_BASE="${5:-artifacts/gpt2-circuits-v3/base}"
-DOMAIN_MANIFEST="${6:-artifacts/gpt2-behavior-domains-v3/development.json}"
+OUTPUT_BASE="${5:-artifacts/gpt2-circuits-v4/base}"
+DOMAIN_MANIFEST="${6:-artifacts/gpt2-behavior-domains-v4/development.json}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 echo "=========================================="

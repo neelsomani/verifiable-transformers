@@ -674,7 +674,7 @@ def main() -> None:
         for value in split.values()
     ):
         raise RuntimeError(
-            "The base model is not exact against P(x) on the locked v2 domain. "
+            "The base model is not exact against P(x) on the locked behavior domain. "
             "Do not filter failing examples or start healing."
         )
 

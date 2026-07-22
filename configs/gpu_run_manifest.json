@@ -13,9 +13,9 @@
   "shared": {
     "gpu_count": 8,
     "processed_dataset_dir": "SET_BEFORE_LAUNCH",
-    "extraction_domain_protocol": "gpt2_behavior_domain_v3",
-    "development_examples_per_task": 512,
-    "untouched_gate_examples_per_task": 256,
+    "extraction_domain_protocol": "gpt2_behavior_domain_v4",
+    "development_examples_per_task": 768,
+    "untouched_gate_examples_per_task": 512,
     "legacy_regression_examples_per_task": 16,
     "min_projected_agreement": 1.0
   },
@@ -32,31 +32,33 @@
     "gate_margin": 0.11239830780029303
   },
   "phase_c": {
-    "status": "protocol_v3_ready_after_v2_circuit_gate_failure",
+    "status": "protocol_v4_final_gate_ready_after_v3_circuit_gate_failure",
     "one_command_runner": ".venv/bin/python scripts/gpt2/run_phase_c.py --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024",
-    "runner_behavior": "Preserves protocol-v1 and v2 artifacts. Protocol v3 permanently demotes the failed v2 gate into a 512-row development set with v2 synthesis, tests the v2 threshold circuits against that development set using the predeclared exact-then-fewest-edges-then-lower-threshold rule, and reruns C2 only for tasks with no exact existing candidate. The next 256 deterministic generator rows form a fresh disjoint gate and are first evaluated only after circuit selection. C3 resynthesizes on all 512 development rows, checks the fixed joint subset once on the fresh gate, then runs core-aware healing, migration, verification, cost-table generation, and packaging.",
+    "runner_behavior": "Preserves protocol-v1 through v3 artifacts. Protocol v4 permanently demotes all 768 previously evaluated prompts to development data, evaluates every available v2/v3 threshold circuit, and among exact candidates maximizes worst-case signed correct-token margin before minimizing edges and threshold. If no candidate is exact, C2 reruns only for that task on 768 rows. The next 512 generator rows are a hash-locked, balanced final gate opened only after selection. C3 resynthesizes on all 768 development rows before the one-shot final gate, then proceeds to core-aware healing only if exactness holds.",
     "selected_base": "artifacts/gpt2-norm-free",
     "protocol_v2_result": "The selected bracket_type circuit was exact on 256 v2 synthesis rows and scored 247/256 on the untouched v2 gate; the run stopped before joint program selection or healing.",
-    "domain_config": "configs/gpt2_behavior_domain_v3.json",
-    "domain_artifacts": "artifacts/gpt2-behavior-domains-v3/{development,gate,legacy_regression}.json",
-    "c2_artifacts": "artifacts/gpt2-circuits-v3",
-    "c3_artifacts": "artifacts/gpt2-programs-v3",
-    "c4_model": "artifacts/gpt2-program-healed-v3-core-aware",
+    "protocol_v3_result": "The selected bracket_type circuit was exact on all 512 v3 development rows and scored 255/256 on the untouched v3 gate; the full model and quote circuit remained exact, and the run stopped before joint program selection or healing.",
+    "domain_config": "configs/gpt2_behavior_domain_v4.json",
+    "domain_artifacts": "artifacts/gpt2-behavior-domains-v4/{development,gate,legacy_regression}.json",
+    "c2_artifacts": "artifacts/gpt2-circuits-v4",
+    "c3_artifacts": "artifacts/gpt2-programs-v4",
+    "c4_model": "artifacts/gpt2-program-healed-v4-core-aware",
     "reference_target": "explicit reference program P(x), not cached base decisions; the runner separately requires the base decisions to equal P(x)",
-    "joint_program_gate": "Full and circuit-only forwards are exact on both 512-row development tasks throughout deterministic subset selection and exact on both untouched v3 gate tasks; the gate result never changes the selected subset.",
+    "joint_program_gate": "Full and circuit-only forwards are exact on both 768-row development tasks throughout deterministic subset selection and exact on both final 512-row v4 gate tasks; the gate result never changes the selected subset.",
+    "final_gate_stop_policy": "No protocol v5. If the v4 gate fails, stop the exact-generalization track, report measured per-task and per-stratum agreement as near-exact faithfulness, scope claims accordingly, and do not select another circuit against the gate.",
     "core_aware_gate": "Exact P(x) accuracy on both gate tasks, perplexity <= 28.617593822841776, minimum rotating suppression coverage, exact circuit-only P(x) accuracy, every installed circuit program individually necessary in full and core forwards, and joint program removal non-bypassed in full and core forwards.",
     "perplexity_budget": {
       "relative_increase": 0.16,
       "locked_before_run": true,
       "reference_perplexity": 24.67033950244981,
       "absolute_budget": 28.617593822841776,
-      "artifact": "artifacts/gpt2-program-healed-v3-core-aware/healing_results.json"
+      "artifact": "artifacts/gpt2-program-healed-v4-core-aware/healing_results.json"
     }
   },
   "kill_and_fallback_criteria": {
     "a4_removal_failure": "Use BandNorm and skip norm-free as the C base.",
     "c3_partial_fit": "Retain resistant heads as neural, then require the selected replacement set to pass joint synthesis and untouched-gate checks before healing.",
-    "c3_joint_failure": "Stop before healing and preserve the joint-program report; repair composition or synthesis without adapting to the untouched gate.",
+    "c3_joint_failure": "On the final v4 gate, stop before healing, preserve per-task and per-stratum results, and do not create protocol v5 or adapt selection to the gate.",
     "c5_migration_failure": "Stop and preserve the core-aware model and complete lesion report; do not claim migration success from circuit inclusion alone.",
     "c6_solver_limit": "Record the largest proven length and all timeout/unknown outcomes without moving the goalpost."
   }

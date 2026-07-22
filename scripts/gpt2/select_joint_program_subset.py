@@ -131,6 +131,31 @@ def evaluate(model, domains, batch_size, edges_by_task=None):
                     )
             decisions = torch.cat(decision_batches)
         targets = values["targets"]
+        by_stratum = {}
+        for stratum in sorted(
+            {example.stratum for example in values["examples"]}
+        ):
+            indices = [
+                index
+                for index, example in enumerate(values["examples"])
+                if example.stratum == stratum
+            ]
+            stratum_decisions = decisions[indices]
+            stratum_targets = targets[indices]
+            by_stratum[stratum] = {
+                "accuracy_against_P": float(
+                    (stratum_decisions == stratum_targets).float().mean().item()
+                ),
+                "correct": int(
+                    (stratum_decisions == stratum_targets).sum().item()
+                ),
+                "rows": len(indices),
+                "mismatch_example_ids": [
+                    values["examples"][index].example_id
+                    for index in indices
+                    if decisions[index] != targets[index]
+                ],
+            }
         output[task] = {
             "accuracy_against_P": float(
                 (decisions == targets).float().mean().item()
@@ -144,6 +169,7 @@ def evaluate(model, domains, batch_size, edges_by_task=None):
                 )
                 if decision != target
             ],
+            "by_stratum": by_stratum,
         }
     output["exact_both_tasks"] = all(
         output[task]["accuracy_against_P"] == 1.0 for task in TASKS
@@ -235,6 +261,7 @@ def main() -> None:
                                 "mismatch_example_ids": task_report[
                                     "mismatch_example_ids"
                                 ],
+                                "by_stratum": task_report["by_stratum"],
                             }
                         )
         report = {
@@ -242,7 +269,7 @@ def main() -> None:
             "success": False,
             "failure_reason": (
                 "base full model or synthesis-selected circuit is not exact "
-                "against P(x) on the locked v2 domain"
+                "against P(x) on the locked behavior domain"
             ),
             "selection_or_filtering_performed": False,
             "model_path": args.model_path,
@@ -357,6 +384,7 @@ def main() -> None:
     save_programs(selected_programs, output_dir / "programs_selected.json")
     report = {
         "method": "deterministic_forward_add_then_one_readd",
+        "selection_or_filtering_performed": True,
         "selection_split": "synthesis",
         "gate_split_used_for_selection": False,
         "reference_target": "explicit_reference_program_P(x)",

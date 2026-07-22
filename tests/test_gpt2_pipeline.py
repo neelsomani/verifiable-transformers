@@ -25,7 +25,10 @@ from scripts.gpt2.run_phase_c import (
     selected_circuit_complete,
 )
 from scripts.gpt2.select_base_model import select
-from scripts.gpt2.select_sweep_circuit import validate_candidate_exposure
+from scripts.gpt2.select_sweep_circuit import (
+    select_best_candidate,
+    validate_candidate_exposure,
+)
 from scripts.norm_removal import install_attenuated_layernorms
 
 
@@ -340,7 +343,7 @@ def test_phase_c_runner_selected_circuit_requires_exact_agreement_and_programs(
     )
 
 
-def test_v3_candidate_selection_rejects_prior_gate_exposure(tmp_path):
+def test_candidate_selection_rejects_prior_gate_exposure(tmp_path):
     manifest = tmp_path / "synthesis.json"
     manifest.write_text(
         json.dumps(
@@ -367,13 +370,84 @@ def test_v3_candidate_selection_rejects_prior_gate_exposure(tmp_path):
     )
     results = [{"path": str(candidate)}]
     provenance = validate_candidate_exposure(results, str(manifest))
-    assert provenance["split"] == "synthesis"
+    assert provenance[0]["split"] == "synthesis"
 
     payload = json.loads(circuit_path.read_text())
     payload["domain"]["split"] = "gate"
     circuit_path.write_text(json.dumps(payload))
     with pytest.raises(RuntimeError, match="not extracted exclusively"):
         validate_candidate_exposure(results, str(manifest))
+
+
+def test_v4_selection_maximizes_worst_case_margin_before_sparsity():
+    candidates = [
+        {
+            "threshold": 0.02,
+            "num_edges": 10,
+            "domain_validation": {"minimum_signed_correct_margin": 0.1},
+        },
+        {
+            "threshold": 0.01,
+            "num_edges": 30,
+            "domain_validation": {"minimum_signed_correct_margin": 0.5},
+        },
+        {
+            "threshold": 0.005,
+            "num_edges": 20,
+            "domain_validation": {"minimum_signed_correct_margin": 0.5},
+        },
+    ]
+    best = select_best_candidate(
+        candidates,
+        "bracket_type",
+        "worst_case_margin",
+        independently_validated=True,
+    )
+    assert best["threshold"] == 0.005
+
+
+def test_v4_final_gate_failure_records_no_v5_stop(tmp_path):
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    (config_dir / "gpt2_behavior_domain_v4.json").write_text(
+        json.dumps(
+            {
+                "protocol_id": "gpt2_behavior_domain_v4",
+                "stop_policy": {
+                    "no_protocol_v5": True,
+                    "on_v4_gate_failure": "report near-exact faithfulness",
+                },
+            }
+        )
+    )
+    runner = PhaseCRunner(
+        SimpleNamespace(
+            repo_root=str(tmp_path),
+            base_model="base",
+            processed_dataset_dir="dataset",
+            gpus="0",
+            evidence_archive="evidence.tar.gz",
+            model_archive="model.tar",
+        )
+    )
+    joint = tmp_path / "joint"
+    joint.mkdir()
+    (joint / "joint_program_report.json").write_text(
+        json.dumps(
+            {
+                "selection_or_filtering_performed": False,
+                "failures": [{"task": "bracket_type", "correct": 511}],
+                "base_gate": {"circuit": {"bracket_type": {"by_stratum": {}}}},
+            }
+        )
+    )
+    runner.record_final_gate_stop(joint)
+    summary = json.loads(
+        (runner.run_dir / "final_gate_failure_summary.json").read_text()
+    )
+    assert summary["status"] == "exact_generalization_track_stopped"
+    assert summary["no_protocol_v5"] is True
+    assert summary["failures"][0]["task"] == "bracket_type"
 
 
 def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path):
@@ -432,7 +506,7 @@ def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path
         )
 
 
-def test_phase_c_runner_runs_v3_core_aware_healing_directly(
+def test_phase_c_runner_runs_v4_core_aware_healing_directly(
     tmp_path, monkeypatch
 ):
     runner = PhaseCRunner(
@@ -469,9 +543,9 @@ def test_phase_c_runner_runs_v3_core_aware_healing_directly(
         tmp_path / "programs_selected.json",
     )
 
-    assert model.name == "gpt2-program-healed-v3-core-aware"
+    assert model.name == "gpt2-program-healed-v4-core-aware"
     assert circuits.name == "healed-core-aware-selected"
-    assert healing_calls == [("gpt2-program-healed-v3-core-aware", True)]
+    assert healing_calls == [("gpt2-program-healed-v4-core-aware", True)]
     assert sweep_calls == [
-        ("gpt2-program-healed-v3-core-aware", "healed-v3-core-aware")
+        ("gpt2-program-healed-v4-core-aware", "healed-v4-core-aware")
     ]

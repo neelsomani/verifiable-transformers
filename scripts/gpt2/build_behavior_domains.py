@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from scripts.gpt2.behavior_domains import (
     SUPPORTED_PROTOCOL_IDS,
     TASKS,
+    candidate_pool_capacity,
     canonical_json_sha256,
     generate_v2_splits,
     legacy_examples,
@@ -56,6 +57,7 @@ def validate_examples(tokenizer, tasks, requirements, *, enforce_position_range=
             raise ValueError(f"{task} manifest contains repeated prompts")
         positions = set()
         contextual_openers = set()
+        stratum_coverage = {}
         for row in rows:
             for token in (row.correct_token, row.incorrect_token):
                 if len(tokenizer.encode(token, add_special_tokens=False)) != 1:
@@ -85,6 +87,54 @@ def validate_examples(tokenizer, tasks, requirements, *, enforce_position_range=
                 encoded.input_ids[token_index]
             )
             row.metadata["prompt_token_count"] = len(encoded.input_ids)
+        for stratum in sorted({row.stratum for row in rows}):
+            stratum_rows = [row for row in rows if row.stratum == stratum]
+            stratum_positions = {
+                int(row.metadata["opener_token_index"]) for row in stratum_rows
+            }
+            stratum_lengths = {
+                int(row.metadata["prompt_token_count"]) for row in stratum_rows
+            }
+            template_ids = sorted({row.template_id for row in stratum_rows})
+            minimum_positions = int(
+                requirements.get(
+                    "minimum_distinct_opener_token_positions_per_stratum", 0
+                )
+            )
+            minimum_lengths = int(
+                requirements.get(
+                    "minimum_distinct_prompt_token_lengths_per_stratum", 0
+                )
+            )
+            required_templates = set(
+                requirements.get("required_template_ids_per_stratum", [])
+            )
+            if enforce_position_range and len(stratum_positions) < minimum_positions:
+                raise ValueError(
+                    f"{task}/{stratum} has {len(stratum_positions)} opener "
+                    f"positions; requires {minimum_positions}"
+                )
+            if enforce_position_range and len(stratum_lengths) < minimum_lengths:
+                raise ValueError(
+                    f"{task}/{stratum} has {len(stratum_lengths)} prompt-token "
+                    f"lengths; requires {minimum_lengths}"
+                )
+            if enforce_position_range and not required_templates.issubset(
+                template_ids
+            ):
+                raise ValueError(
+                    f"{task}/{stratum} is missing templates "
+                    f"{sorted(required_templates - set(template_ids))}"
+                )
+            stratum_coverage[stratum] = {
+                "rows": len(stratum_rows),
+                "correct_token": stratum_rows[0].correct_token,
+                "opener_token_positions": sorted(stratum_positions),
+                "distinct_opener_token_positions": len(stratum_positions),
+                "prompt_token_lengths": sorted(stratum_lengths),
+                "distinct_prompt_token_lengths": len(stratum_lengths),
+                "template_ids": template_ids,
+            }
         minimum = int(requirements["minimum_distinct_opener_token_positions"])
         if enforce_position_range and len(positions) < minimum:
             raise ValueError(
@@ -96,6 +146,7 @@ def validate_examples(tokenizer, tasks, requirements, *, enforce_position_range=
             "opener_token_positions": sorted(positions),
             "distinct_opener_token_positions": len(positions),
             "contextual_opener_token_ids": sorted(contextual_openers),
+            "strata": stratum_coverage,
         }
     return result
 
@@ -118,6 +169,48 @@ def main() -> None:
         protocol_id=protocol_id,
     )
     requirements = config["requirements"]
+    capacity = candidate_pool_capacity(
+        seed=int(config["seed"]), protocol_id=protocol_id
+    )
+    expected_capacity = config.get("generator_capacity_per_stratum")
+    if expected_capacity is not None and capacity != expected_capacity:
+        raise ValueError(
+            f"Generator capacity changed: {capacity} != {expected_capacity}"
+        )
+    capacity_budget = config.get("capacity_budget_per_stratum")
+    capacity_audit = None
+    if capacity_budget is not None:
+        development_per_stratum = int(
+            config["split_sizes_per_task"]["development"] // 2
+        )
+        gate_per_stratum = int(config["split_sizes_per_task"]["gate"] // 2)
+        total = development_per_stratum + gate_per_stratum
+        if (
+            development_per_stratum
+            != int(capacity_budget["development_rows"])
+            or gate_per_stratum != int(capacity_budget["fresh_gate_rows"])
+            or total != int(capacity_budget["total_consumed"])
+        ):
+            raise ValueError("Configured per-stratum capacity arithmetic is stale")
+        minimum_remaining = int(
+            capacity_budget["minimum_remaining_after_gate"]
+        )
+        capacity_audit = {}
+        for task, strata in capacity.items():
+            capacity_audit[task] = {}
+            for stratum, available in strata.items():
+                if available - total < minimum_remaining:
+                    raise ValueError(
+                        f"Insufficient fresh capacity for {task}/{stratum}: "
+                        f"{available} available, {total} consumed"
+                    )
+                capacity_audit[task][stratum] = {
+                    "available": available,
+                    "development_rows": development_per_stratum,
+                    "fresh_gate_rows": gate_per_stratum,
+                    "total_consumed": total,
+                    "remaining_after_gate": available - total,
+                }
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer_meta = tokenizer_fingerprint(tokenizer)
@@ -127,6 +220,11 @@ def main() -> None:
         "config": str(Path(args.config).resolve()),
         "config_sha256": canonical_json_sha256(config),
         "tokenizer": tokenizer_meta,
+        "generator_capacity_per_stratum": capacity,
+        "generator_capacity_audit": capacity_audit,
+        "protocol_provenance": config.get("provenance"),
+        "selection_rule": config.get("selection_rule"),
+        "stop_policy": config.get("stop_policy"),
         "manifests": {},
     }
     for split, tasks in splits.items():

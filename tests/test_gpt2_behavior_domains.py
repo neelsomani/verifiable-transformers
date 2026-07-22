@@ -1,6 +1,7 @@
 import json
 
 from scripts.gpt2.behavior_domains import (
+    candidate_pool_capacity,
     generate_v2_splits,
     legacy_examples,
     load_domain_manifest,
@@ -96,6 +97,58 @@ def test_v3_promotes_all_v2_rows_and_locks_the_next_fresh_gate():
         assert fresh_gate.isdisjoint(burned)
         for split in ("development", "gate"):
             assert prompt_set_sha256(v3[split][task]) == expected_hashes[(split, task)]
+
+
+def test_v4_promotes_all_v3_rows_and_has_balanced_final_gate_capacity():
+    v3 = generate_v2_splits(
+        seed=1337,
+        split_sizes={"development": 512, "gate": 256},
+        protocol_id="gpt2_behavior_domain_v3",
+    )
+    v4 = generate_v2_splits(
+        seed=1337,
+        split_sizes={"development": 768, "gate": 512},
+        protocol_id="gpt2_behavior_domain_v4",
+    )
+    capacity = candidate_pool_capacity(
+        seed=1337, protocol_id="gpt2_behavior_domain_v4"
+    )
+    assert capacity == {
+        "quote_close": {"single": 1184, "double": 1184},
+        "bracket_type": {"bracket": 1187, "brace": 1187},
+    }
+    expected_hashes = {
+        ("development", "quote_close"): (
+            "67e3d82e4c4bfaa15075e634c30432049e115b6af84cce3f19fe51d70c2f3f76"
+        ),
+        ("development", "bracket_type"): (
+            "22b090e4bdb2094fd739fd25111bed6129ff6310961468915cc9bba0b07a023d"
+        ),
+        ("gate", "quote_close"): (
+            "de3f65cd2496a2735d12e735a5b9fd26d2afc163048aeb4eb9ae6d4811b930ec"
+        ),
+        ("gate", "bracket_type"): (
+            "f6b710cd3f468781884b7e78d58f2cfd618923cf8f44952df5db0feb27749e74"
+        ),
+    }
+    for task in TASKS:
+        burned = {
+            row.prompt
+            for split in ("development", "gate")
+            for row in v3[split][task]
+        }
+        development = {row.prompt for row in v4["development"][task]}
+        fresh_gate = {row.prompt for row in v4["gate"][task]}
+        assert development == burned
+        assert fresh_gate.isdisjoint(burned)
+        assert len(development) == 768
+        assert len(fresh_gate) == 512
+        assert sorted(
+            sum(row.stratum == stratum for row in v4["gate"][task])
+            for stratum in {row.stratum for row in v4["gate"][task]}
+        ) == [256, 256]
+        for split in ("development", "gate"):
+            assert prompt_set_sha256(v4[split][task]) == expected_hashes[(split, task)]
 
 
 def test_legacy_v1_128_rows_are_sixteen_prompts_repeated_eight_times():

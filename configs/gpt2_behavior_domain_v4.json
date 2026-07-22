@@ -1,0 +1,100 @@
+{
+  "schema_version": 2,
+  "protocol_id": "gpt2_behavior_domain_v4",
+  "generator_revision": 4,
+  "seed": 1337,
+  "split_sizes_per_task": {
+    "development": 768,
+    "gate": 512
+  },
+  "legacy_regression_rows_per_task": 16,
+  "generator_capacity_per_stratum": {
+    "quote_close": {
+      "single": 1184,
+      "double": 1184
+    },
+    "bracket_type": {
+      "bracket": 1187,
+      "brace": 1187
+    }
+  },
+  "capacity_budget_per_stratum": {
+    "development_rows": 384,
+    "fresh_gate_rows": 256,
+    "total_consumed": 640,
+    "minimum_remaining_after_gate": 544
+  },
+  "locked_prompt_set_sha256": {
+    "development": {
+      "quote_close": "67e3d82e4c4bfaa15075e634c30432049e115b6af84cce3f19fe51d70c2f3f76",
+      "bracket_type": "22b090e4bdb2094fd739fd25111bed6129ff6310961468915cc9bba0b07a023d"
+    },
+    "gate": {
+      "quote_close": "de3f65cd2496a2735d12e735a5b9fd26d2afc163048aeb4eb9ae6d4811b930ec",
+      "bracket_type": "f6b710cd3f468781884b7e78d58f2cfd618923cf8f44952df5db0feb27749e74"
+    }
+  },
+  "requirements": {
+    "unique_prompts_within_protocol": true,
+    "disjoint_development_and_gate": true,
+    "balanced_binary_strata": true,
+    "single_token_candidates": true,
+    "minimum_distinct_opener_token_positions": 4,
+    "minimum_distinct_opener_token_positions_per_stratum": 12,
+    "minimum_distinct_prompt_token_lengths_per_stratum": 14,
+    "required_template_ids_per_stratum": [
+      "append",
+      "assign",
+      "attribute",
+      "branch",
+      "call",
+      "log",
+      "return",
+      "two_statement"
+    ],
+    "base_projected_accuracy_required": 1.0,
+    "circuit_projected_accuracy_required": 1.0,
+    "program_projected_agreement_required": 1.0
+  },
+  "selection_rule": {
+    "candidate_source": "all protocol-v2 and protocol-v3 threshold circuits",
+    "candidate_exposure": "candidate circuits were extracted only on their protocol development data and never on the v4 gate",
+    "development_domain": "exact union of protocol-v3 development and gate prompts; all 768 are permanently burned as gate material",
+    "choice": "among circuits exact against P(x) on all 768 development prompts, maximize the minimum per-example signed correct-token margin; break ties by minimum edge count, then lower threshold",
+    "justification": "bracket_type circuits were exact on development but missed 9/256 and then 1/256 on consecutive fresh gates, while the full model and quote circuit remained exact; robustness-first selection targets boundary slack rather than parsimony",
+    "fallback": "if no existing threshold circuit is exact, rerun extraction only for the failing task on the 768-prompt development domain",
+    "gate_use": "the final 512-prompt gate is evaluated only after selection and never changes the selected circuit or program subset"
+  },
+  "healing_gate": {
+    "projected_accuracy_against_reference_program": 1.0,
+    "relative_perplexity_increase_budget": 0.16,
+    "reference_eval_perplexity": 24.67033950244981,
+    "absolute_perplexity_budget": 28.617593822841776
+  },
+  "stop_policy": {
+    "no_protocol_v5": true,
+    "on_v4_gate_failure": "stop the exact-generalization track; report measured per-task and per-stratum gate agreement as a near-exact faithfulness result, scope all claims accordingly, and do not heal or verify an exact circuit claim",
+    "larger_circuit_policy": "larger or lower-threshold circuits require a separately preregistered future study with new evaluation data; they are not selected against the v4 gate"
+  },
+  "retrospective_diagnostic": {
+    "prior_development_manifest": "artifacts/gpt2-behavior-domains-v3/development.json",
+    "prior_failure_manifest": "artifacts/gpt2-behavior-domains-v3/gate.json",
+    "prior_failure_example_ids": {
+      "bracket_type": [
+        "v3:bracket_type:brace:3f11c4f940d6dc4d"
+      ]
+    },
+    "purpose": "record the failing prompt stratum and every candidate circuit margin, including whether an alternative exact-on-v3-development candidate would have classified it correctly"
+  },
+  "provenance": {
+    "protocol_v2_result": "bracket_type circuit scored 247/256 on the untouched v2 gate",
+    "protocol_v3_result": "bracket_type circuit scored 255/256 on the untouched v3 gate; full model and quote circuit remained exact",
+    "burned_rows": "all 768 protocol-v3 development plus gate prompts are v4 development data and are permanently unavailable as gate material",
+    "protocol_v4_gate_source": "the next 512 deterministic generator rows after all 768 burned prompts, balanced 256/256 across each task's two classes"
+  },
+  "notes": [
+    "No model predictions are used to generate, select, or filter examples.",
+    "The v4 gate is the final untouched gate and is not used to select circuits, programs, or program subsets.",
+    "Protocol-v2 and protocol-v3 artifacts remain unchanged as failed held-out-generalization records."
+  ]
+}

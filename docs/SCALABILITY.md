@@ -456,6 +456,46 @@ changes a circuit or program subset.
 The locked protocol is `configs/gpt2_behavior_domain_v3.json`; new artifacts
 are written under `artifacts/*-v3`, while all v2 artifacts are preserved.
 
+The v3 run also stopped before healing. The selected `bracket_type` circuit was
+exact on all 512 development prompts but correct on 255 of 256 fresh gate
+prompts; the full model and quote circuit remained exact. Together with v2's
+247/256 result, this indicates that bracket type is less localized under
+zero-ablation than quote closing: low-scoring contributions pruned on
+development remain load-bearing for a small held-out subset.
+
+### Final Phase C behavior-domain protocol v4
+
+Protocol v4 is the final exact-generalization attempt; there is no protocol
+v5. All 768 v3 development and gate prompts are permanently burned as gate
+material and become v4 development data. The next 512 deterministic prompts
+per task are the final untouched gate, balanced 256/256 across the two classes.
+The finite generator has ample capacity: each quote stratum contains 1,184
+unique prompts and each bracket stratum 1,187, while v4 consumes 640 per
+stratum. Every development and gate stratum contains all eight templates, at
+least 12 opener-token positions, and at least 14 token-length values. Prompt
+digests and these coverage requirements are locked in
+`configs/gpt2_behavior_domain_v4.json`.
+
+V4 evaluates every available v2/v3 threshold circuit on the 768-row
+development domain. Among exact circuits it first maximizes the minimum
+per-example signed correct-token margin, then minimizes edge count, then uses
+the lower threshold. This robustness-first ordering is preregistered because
+the consecutive bracket failures occurred at the circuit boundary despite
+exact development agreement; it selects for boundary slack rather than
+parsimony. If no existing candidate is exact, only the failing task is
+re-extracted on all 768 rows. Programs are then resynthesized on those rows.
+
+The v3 failing brace prompt is recorded retrospectively with its stratum,
+template, prior selected-circuit margin, and every alternative candidate's
+margin. The report also states whether robustness-first selection among the
+v3-development-exact candidates would have classified it correctly.
+
+If the final v4 gate fails, Phase C stops before healing. The result is reported
+as measured near-exact faithfulness, including per-task and per-stratum gate
+agreement, and no exact circuit claim is made. Larger or lower-threshold
+circuits require a separate future preregistration with new evaluation data;
+they are not selected against the v4 gate.
+
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
 The behavior scanner tests 2 categories:
@@ -479,9 +519,9 @@ Run the behavior viability scan:
 python scripts/gpt2/extract.py \
   --model_path artifacts/gpt2-norm-free \
   --scan_behaviors \
-  --domain_manifest artifacts/gpt2-behavior-domains-v2/gate.json \
+  --domain_manifest artifacts/gpt2-behavior-domains-v4/development.json \
   --batch_size 8 \
-  --output_dir artifacts/gpt2-circuits-v2/base-scan-gate
+  --output_dir artifacts/gpt2-circuits-v4/base-scan-development
 ```
 
 Historical protocol-v1 results (band_norm_sparsemax model @ checkpoint-240000):
@@ -492,8 +532,8 @@ Historical protocol-v1 results (band_norm_sparsemax model @ checkpoint-240000):
 | `bracket_type` | 1.000 | 4.93 | **strong** |
 
 This generates:
-- `artifacts/gpt2-circuits-v2/base-scan-gate/behavior_scan/behavior_scan.json` - Detailed metrics
-- `artifacts/gpt2-circuits-v2/base-scan-gate/behavior_scan/behavior_scan.txt` - Human-readable report
+- `artifacts/gpt2-circuits-v4/base-scan-development/behavior_scan/behavior_scan.json` - Detailed metrics
+- `artifacts/gpt2-circuits-v4/base-scan-development/behavior_scan/behavior_scan.txt` - Human-readable report
 
 Use the scan results to decide which tasks to extract circuits for. Focus on behaviors marked "viable" or "strong" for meaningful results.
 
@@ -574,10 +614,11 @@ Run circuit extraction:
 python scripts/gpt2/extract.py \
   --model_path artifacts/gpt2-norm-free \
   --extract_circuit quote_close \
-  --domain_manifest artifacts/gpt2-behavior-domains-v2/synthesis.json \
+  --n_examples 768 \
+  --domain_manifest artifacts/gpt2-behavior-domains-v4/development.json \
   --threshold 0.01 \
   --min_agreement 1.0 \
-  --output_dir artifacts/gpt2-circuits-v2/quote_close_t0.01
+  --output_dir artifacts/gpt2-circuits-v4/base/quote_close_t0.01
 ```
 
 Available tasks: `quote_close`, `bracket_type`
@@ -590,7 +631,7 @@ bash scripts/gpt2/sweep_thresholds.sh quote_close
 
 # Compare results and get recommendation
 python scripts/gpt2/compare_sweeps.py \
-  --sweep_dir artifacts/gpt2-circuits-v3/base \
+  --sweep_dir artifacts/gpt2-circuits-v4/base \
   --task quote_close
 ```
 
@@ -607,7 +648,7 @@ Candidate set: T = {', "}
 Reference behavior: If the prompt contains an unmatched single quote, predict `'`. If the prompt contains an unmatched double quote, predict `"`.
 
 Illustrative prompts (protocol v1; current extraction uses the deterministic
-v2/v3 domain manifests with varied opener positions, lengths, and content):
+v2-v4 domain manifests with varied opener positions, lengths, and content):
 
 ```text
 x = 'hello world
@@ -639,7 +680,7 @@ Candidate set: T is the set containing ] and }
 Reference behavior: If the prompt opens with `[`, predict `]`. If the prompt opens with `{`, predict `}`.
 
 Illustrative prompts (protocol v1; current extraction uses the deterministic
-v2/v3 domain manifests with varied opener positions, lengths, and content):
+v2-v4 domain manifests with varied opener positions, lengths, and content):
 
 ```text
 x = [a, b, c
@@ -671,9 +712,10 @@ Formal properties to verify after extraction:
 **Historical protocol-v1 results.** The tables below are from the BandNorm+sparsemax
 checkpoint using the earlier block-level graph (325 possible edges) and the
 duplicated 16-template v1 domain. They are preserved as protocol-v1 records.
-Current circuits use the norm-free base, the per-head graph, and the v2/v3
+Current circuits use the norm-free base, the per-head graph, and the v2-v4
 domain manifests; their sweeps and selections are recorded under
-`artifacts/gpt2-circuits-v2/` and `artifacts/gpt2-circuits-v3/`.
+`artifacts/gpt2-circuits-v2/`, `artifacts/gpt2-circuits-v3/`, and
+`artifacts/gpt2-circuits-v4/`.
 
 Circuits extracted using zero ablation, candidate_kl metric, and min_agreement=1.0 guard.
 
@@ -742,14 +784,14 @@ Scripts to run sanity tests to verify SMT encoder matches PyTorch circuit:
 # Sanity test for quote_close
 python scripts/gpt2/test_smt_encoder.py \
   --model_path artifacts/gpt2-norm-free \
-  --circuit_path artifacts/gpt2-circuits-v3/base-selected/quote_close/circuit.json \
+  --circuit_path artifacts/gpt2-circuits-v4/base-selected/quote_close/circuit.json \
   --task quote_close \
   --tolerance 1e-2
 
 # Sanity test for bracket_type
 python scripts/gpt2/test_smt_encoder.py \
   --model_path artifacts/gpt2-norm-free \
-  --circuit_path artifacts/gpt2-circuits-v3/base-selected/bracket_type/circuit.json \
+  --circuit_path artifacts/gpt2-circuits-v4/base-selected/bracket_type/circuit.json \
   --task bracket_type \
   --tolerance 1e-2
 ```
@@ -759,7 +801,7 @@ Scripts to run formal verification, starting with `--max_length 3`:
 ```bash
 # Verify quote_close circuit at length 3
 python scripts/gpt2/verify.py \
-  --circuit_path artifacts/gpt2-circuits-v3/base-selected/quote_close/circuit.json \
+  --circuit_path artifacts/gpt2-circuits-v4/base-selected/quote_close/circuit.json \
   --task quote_close \
   --output_dir artifacts/verification/quote_close \
   --model_path artifacts/gpt2-norm-free \
@@ -768,7 +810,7 @@ python scripts/gpt2/verify.py \
 
 # Verify bracket_type circuit at length 3
 python scripts/gpt2/verify.py \
-  --circuit_path artifacts/gpt2-circuits-v3/base-selected/bracket_type/circuit.json \
+  --circuit_path artifacts/gpt2-circuits-v4/base-selected/bracket_type/circuit.json \
   --task bracket_type \
   --output_dir artifacts/verification/bracket_type \
   --model_path artifacts/gpt2-norm-free \
