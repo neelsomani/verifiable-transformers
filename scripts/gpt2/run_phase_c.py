@@ -299,15 +299,12 @@ def joint_program_state(
 ) -> str:
     report_path = output_dir / "joint_program_report.json"
     programs_path = output_dir / "programs_selected.json"
-    if not report_path.is_file() or not programs_path.is_file():
+    if not report_path.is_file():
         return "missing"
     try:
         report = load_json(report_path)
-        programs = load_json(programs_path)
     except (OSError, ValueError, json.JSONDecodeError):
         return "malformed"
-    if not programs or not isinstance(report.get("final_gate"), dict):
-        return "failed"
     if synthesis_manifest is not None and gate_manifest is not None:
         synthesis_sha = hashlib.sha256(synthesis_manifest.read_bytes()).hexdigest()
         gate_sha = hashlib.sha256(gate_manifest.read_bytes()).hexdigest()
@@ -323,6 +320,16 @@ def joint_program_state(
             for task in TASKS
         ):
             return "malformed"
+    if report.get("success") is False:
+        return "failed"
+    if not programs_path.is_file():
+        return "malformed"
+    try:
+        programs = load_json(programs_path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return "malformed"
+    if not programs or not isinstance(report.get("final_gate"), dict):
+        return "failed"
     return "passed" if report.get("success") is True else "failed"
 
 

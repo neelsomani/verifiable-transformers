@@ -190,6 +190,8 @@ def candidate_order(programs, synthesis_results):
 
 def main() -> None:
     args = parse_args()
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     base = load_model_with_variants(args.model_path, device).eval()
     tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
@@ -211,11 +213,51 @@ def main() -> None:
         not base_synthesis["exact_full_and_circuit"]
         or not base_gate["exact_full_and_circuit"]
     ):
-        raise RuntimeError(
-            "The base full model or its selected circuit is not exact against "
-            "P(x) on the preregistered v2 domain. Preserve this result; do not "
-            "filter the failing prompts."
-        )
+        failures = []
+        for split, report in (
+            ("synthesis", base_synthesis),
+            ("gate", base_gate),
+        ):
+            for forward in ("full", "circuit"):
+                for task in TASKS:
+                    task_report = report[forward][task]
+                    if task_report["accuracy_against_P"] != 1.0:
+                        failures.append(
+                            {
+                                "split": split,
+                                "forward": forward,
+                                "task": task,
+                                "accuracy_against_P": task_report[
+                                    "accuracy_against_P"
+                                ],
+                                "correct": task_report["correct"],
+                                "rows": task_report["rows"],
+                                "mismatch_example_ids": task_report[
+                                    "mismatch_example_ids"
+                                ],
+                            }
+                        )
+        report = {
+            "stage": "base_full_and_circuit_preflight",
+            "success": False,
+            "failure_reason": (
+                "base full model or synthesis-selected circuit is not exact "
+                "against P(x) on the locked v2 domain"
+            ),
+            "selection_or_filtering_performed": False,
+            "model_path": args.model_path,
+            "circuit_root": args.circuit_root,
+            "synthesis_manifest": synthesis_provenance,
+            "gate_manifest": gate_provenance,
+            "base_synthesis": base_synthesis,
+            "base_gate": base_gate,
+            "failures": failures,
+        }
+        with open(output_dir / "joint_program_report.json", "w") as handle:
+            json.dump(report, handle, indent=2)
+            handle.write("\n")
+        print(json.dumps(report, indent=2))
+        raise SystemExit(2)
 
     programs = load_programs(args.programs)
     with open(args.synthesis_results) as handle:
@@ -312,8 +354,6 @@ def main() -> None:
         and final_synthesis["exact_full_and_circuit"]
         and final_gate["exact_full_and_circuit"]
     )
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
     save_programs(selected_programs, output_dir / "programs_selected.json")
     report = {
         "method": "deterministic_forward_add_then_one_readd",
