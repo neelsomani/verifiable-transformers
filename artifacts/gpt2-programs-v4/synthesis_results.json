@@ -1,0 +1,3126 @@
+{
+  "model_path": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+  "circuit_root": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v4/base-selected",
+  "num_examples": {
+    "quote_close": 768,
+    "bracket_type": 768
+  },
+  "domain_manifest": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/development.json",
+  "domain": {
+    "quote_close": {
+      "protocol_id": "gpt2_behavior_domain_v4",
+      "split": "development",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/development.json",
+      "manifest_sha256": "a021773a306343b3b6639a54563e353093a33d9bb2914cb71a08ea9bd2fdd37d",
+      "rows": 768,
+      "unique_prompts": 768,
+      "prompt_set_sha256": "67e3d82e4c4bfaa15075e634c30432049e115b6af84cce3f19fe51d70c2f3f76",
+      "strata": {
+        "double": 384,
+        "single": 384
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "bracket_type": {
+      "protocol_id": "gpt2_behavior_domain_v4",
+      "split": "development",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/development.json",
+      "manifest_sha256": "a021773a306343b3b6639a54563e353093a33d9bb2914cb71a08ea9bd2fdd37d",
+      "rows": 768,
+      "unique_prompts": 768,
+      "prompt_set_sha256": "22b090e4bdb2094fd739fd25111bed6129ff6310961468915cc9bba0b07a023d",
+      "strata": {
+        "brace": 384,
+        "bracket": 384
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "reference_target": "explicit_reference_program_P(x)",
+  "base_accuracy_against_reference": {
+    "quote_close": 1.0,
+    "bracket_type": 1.0
+  },
+  "acceptance_metric": "exact_projected_agreement",
+  "healable_agreement": 1.0,
+  "lm_proposer": null,
+  "lm_proposer_rounds": 2,
+  "programs": {
+    "0.1": {
+      "dsl_version": 1,
+      "name": "distance_le_18",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 18
+            }
+          ]
+        }
+      ]
+    },
+    "0.2": {
+      "dsl_version": 1,
+      "name": "distance_le_15+distance_le_13",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 13
+            }
+          ]
+        }
+      ]
+    },
+    "0.6": {
+      "dsl_version": 1,
+      "name": "uniform_causal+distance_le_13",
+      "default_weight": "1",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 13
+            }
+          ]
+        }
+      ]
+    },
+    "0.8": {
+      "dsl_version": 1,
+      "name": "distance_le_10+distance_le_9",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 10
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 9
+            }
+          ]
+        }
+      ]
+    },
+    "0.9": {
+      "dsl_version": 1,
+      "name": "distance_le_18",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 18
+            }
+          ]
+        }
+      ]
+    },
+    "0.10": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "0.11": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.0": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.1": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.3": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.4": {
+      "dsl_version": 1,
+      "name": "uniform_causal+distance_le_12",
+      "default_weight": "1",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 12
+            }
+          ]
+        }
+      ]
+    },
+    "1.5": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.6": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.7": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.8": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.9": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "1.11": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.0": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.1": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.2": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.3": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.4": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.5": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.6": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.7": {
+      "dsl_version": 1,
+      "name": "distance_le_5",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 5
+            }
+          ]
+        }
+      ]
+    },
+    "2.8": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "2.11": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.0": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.1": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.2": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.3": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.4": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.5": {
+      "dsl_version": 1,
+      "name": "distance_le_13+distance_le_11",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 13
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 11
+            }
+          ]
+        }
+      ]
+    },
+    "3.6": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.7": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.8": {
+      "dsl_version": 1,
+      "name": "distance_le_4+distance_le_2",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 4
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 2
+            }
+          ]
+        }
+      ]
+    },
+    "3.9": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "3.10": {
+      "dsl_version": 1,
+      "name": "distance_le_13+distance_le_11",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 13
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 11
+            }
+          ]
+        }
+      ]
+    },
+    "4.1": {
+      "dsl_version": 1,
+      "name": "distance_le_9+distance_le_8",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 9
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 8
+            }
+          ]
+        }
+      ]
+    },
+    "4.4": {
+      "dsl_version": 1,
+      "name": "distance_le_8+distance_le_6",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 8
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 6
+            }
+          ]
+        }
+      ]
+    },
+    "4.5": {
+      "dsl_version": 1,
+      "name": "distance_le_2+relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "4.8": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "4.10": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "4.11": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "5.1": {
+      "dsl_version": 1,
+      "name": "distance_le_3+distance_le_2",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 2
+            }
+          ]
+        }
+      ]
+    },
+    "5.2": {
+      "dsl_version": 1,
+      "name": "distance_le_6+distance_le_5",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 6
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 5
+            }
+          ]
+        }
+      ]
+    },
+    "5.3": {
+      "dsl_version": 1,
+      "name": "distance_le_2+relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "5.6": {
+      "dsl_version": 1,
+      "name": "distance_le_7+distance_le_6",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 7
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 6
+            }
+          ]
+        }
+      ]
+    },
+    "5.7": {
+      "dsl_version": 1,
+      "name": "distance_le_6+distance_le_4",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 6
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 4
+            }
+          ]
+        }
+      ]
+    },
+    "5.8": {
+      "dsl_version": 1,
+      "name": "distance_le_2+distance_le_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "5.9": {
+      "dsl_version": 1,
+      "name": "distance_le_2+relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "5.10": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "5.11": {
+      "dsl_version": 1,
+      "name": "distance_le_5+distance_le_3",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 3
+            }
+          ]
+        }
+      ]
+    },
+    "6.0": {
+      "dsl_version": 1,
+      "name": "distance_le_5+distance_le_4",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 4
+            }
+          ]
+        }
+      ]
+    },
+    "6.1": {
+      "dsl_version": 1,
+      "name": "distance_le_3+relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "6.2": {
+      "dsl_version": 1,
+      "name": "distance_le_3+distance_le_2",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 2
+            }
+          ]
+        }
+      ]
+    },
+    "6.9": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "6.11": {
+      "dsl_version": 1,
+      "name": "distance_le_1+relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "7.2": {
+      "dsl_version": 1,
+      "name": "distance_le_4",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 4
+            }
+          ]
+        }
+      ]
+    },
+    "7.7": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "7.8": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "7.9": {
+      "dsl_version": 1,
+      "name": "relative_1",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "==",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "8.1": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "8.3": {
+      "dsl_version": 1,
+      "name": "key_position_0",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    },
+    "8.4": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "8.5": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "8.6": {
+      "dsl_version": 1,
+      "name": "key_position_0",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    },
+    "8.7": {
+      "dsl_version": 1,
+      "name": "key_position_0",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    },
+    "8.8": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "8.10": {
+      "dsl_version": 1,
+      "name": "distance_le_5+distance_le_4",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "relative_distance",
+              "operator": "<=",
+              "value": 4
+            }
+          ]
+        }
+      ]
+    },
+    "8.11": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "9.0": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "9.2": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "9.4": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "9.6": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "9.8": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    },
+    "10.2": {
+      "dsl_version": 1,
+      "name": "key_position_0",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_position",
+              "operator": "==",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "replacement_fraction": 0.5347222222222222,
+  "success": true,
+  "resistant_heads": [],
+  "conflicting_heads": [
+    {
+      "head": "7.11",
+      "task": "bracket_type",
+      "reason": "task domains synthesized different programs"
+    },
+    {
+      "head": "11.8",
+      "task": "bracket_type",
+      "reason": "task domains synthesized different programs"
+    }
+  ],
+  "tasks": {
+    "quote_close": {
+      "7.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 257,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7441893219947815,
+        "mean_absolute_error": 0.09193689376115799,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_13+distance_le_10",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 13
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 10
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7555804252624512
+      },
+      "11.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 257,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9130132794380188,
+        "mean_absolute_error": 0.05117219686508179,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal+distance_le_10",
+          "default_weight": "1",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 10
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.5756467580795288
+      }
+    },
+    "bracket_type": {
+      "0.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9536389112472534,
+        "mean_absolute_error": 0.035568807274103165,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_18",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 18
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.5254262089729309
+      },
+      "0.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9431752562522888,
+        "mean_absolute_error": 0.03696708381175995,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_15+distance_le_13",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 15
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 13
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.538242518901825
+      },
+      "0.6": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9935542345046997,
+        "mean_absolute_error": 0.020960014313459396,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal+distance_le_13",
+          "default_weight": "1",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 13
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.47152024507522583
+      },
+      "0.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9375268816947937,
+        "mean_absolute_error": 0.03644346073269844,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_10+distance_le_9",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 10
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 9
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.5463280081748962
+      },
+      "0.9": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9637898802757263,
+        "mean_absolute_error": 0.031116986647248268,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_18",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 18
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.5138915181159973
+      },
+      "0.10": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9710785746574402,
+        "mean_absolute_error": 0.03583226725459099,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5025632381439209
+      },
+      "0.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9648304581642151,
+        "mean_absolute_error": 0.03391382470726967,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5111992359161377
+      },
+      "1.0": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9769840240478516,
+        "mean_absolute_error": 0.03833862766623497,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.4949422776699066
+      },
+      "1.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9832027554512024,
+        "mean_absolute_error": 0.03492313250899315,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.4898587763309479
+      },
+      "1.3": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9937208890914917,
+        "mean_absolute_error": 0.026558255776762962,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.47012677788734436
+      },
+      "1.4": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8963338732719421,
+        "mean_absolute_error": 0.05035841837525368,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal+distance_le_12",
+          "default_weight": "1",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 12
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.602969229221344
+      },
+      "1.5": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9946359395980835,
+        "mean_absolute_error": 0.02399158850312233,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.469739705324173
+      },
+      "1.6": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9999438524246216,
+        "mean_absolute_error": 0.03389034420251846,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.46067366003990173
+      },
+      "1.7": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 1.0,
+        "mean_absolute_error": 0.019782742485404015,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.46057045459747314
+      },
+      "1.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8918113708496094,
+        "mean_absolute_error": 0.05045633390545845,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.598014771938324
+      },
+      "1.9": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9795761108398438,
+        "mean_absolute_error": 0.031728748232126236,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.4923704266548157
+      },
+      "1.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9999675750732422,
+        "mean_absolute_error": 0.03244214132428169,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.46063926815986633
+      },
+      "2.0": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9553424119949341,
+        "mean_absolute_error": 0.05704754590988159,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5296925902366638
+      },
+      "2.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9984754920005798,
+        "mean_absolute_error": 0.03366590663790703,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.46327993273735046
+      },
+      "2.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9727775454521179,
+        "mean_absolute_error": 0.06675216555595398,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.4923962354660034
+      },
+      "2.3": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9561309218406677,
+        "mean_absolute_error": 0.0566546693444252,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5187084078788757
+      },
+      "2.4": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9722435474395752,
+        "mean_absolute_error": 0.053343385457992554,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5001634359359741
+      },
+      "2.5": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9958733320236206,
+        "mean_absolute_error": 0.04250289127230644,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.4656367599964142
+      },
+      "2.6": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.996871829032898,
+        "mean_absolute_error": 0.025430237874388695,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.46647971868515015
+      },
+      "2.7": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8597481846809387,
+        "mean_absolute_error": 0.06473817676305771,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_5",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 5
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.6353885531425476
+      },
+      "2.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9886762499809265,
+        "mean_absolute_error": 0.04573008418083191,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.47736069560050964
+      },
+      "2.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8882440328598022,
+        "mean_absolute_error": 0.06073949486017227,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5891293287277222
+      },
+      "3.0": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9268905520439148,
+        "mean_absolute_error": 0.060894355177879333,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5429303646087646
+      },
+      "3.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9922642111778259,
+        "mean_absolute_error": 0.027895839884877205,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.47373083233833313
+      },
+      "3.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9046409130096436,
+        "mean_absolute_error": 0.04872939735651016,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5876756906509399
+      },
+      "3.3": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7541531920433044,
+        "mean_absolute_error": 0.07623572647571564,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7457293272018433
+      },
+      "3.4": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7304308414459229,
+        "mean_absolute_error": 0.07934030890464783,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7560082077980042
+      },
+      "3.5": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8813076615333557,
+        "mean_absolute_error": 0.06271199136972427,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_13+distance_le_11",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 13
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 11
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.599365234375
+      },
+      "3.6": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9592075347900391,
+        "mean_absolute_error": 0.06478022038936615,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5119389891624451
+      },
+      "3.7": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9372966885566711,
+        "mean_absolute_error": 0.05558377504348755,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5396875739097595
+      },
+      "3.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8560570478439331,
+        "mean_absolute_error": 0.0492183119058609,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_4+distance_le_2",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 4
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 2
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7141358256340027
+      },
+      "3.9": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9934808611869812,
+        "mean_absolute_error": 0.027491876855492592,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.4718987047672272
+      },
+      "3.10": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8155901432037354,
+        "mean_absolute_error": 0.0740356296300888,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_13+distance_le_11",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 13
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 11
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.6898277997970581
+      },
+      "4.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8648084998130798,
+        "mean_absolute_error": 0.059498731046915054,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_9+distance_le_8",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 9
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 8
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.6151576638221741
+      },
+      "4.4": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8968033194541931,
+        "mean_absolute_error": 0.051176317036151886,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_8+distance_le_6",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 8
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 6
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.5935677289962769
+      },
+      "4.5": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8278884887695312,
+        "mean_absolute_error": 0.04783497378230095,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_2+relative_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 2
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "==",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.8145245909690857
+      },
+      "4.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9074143171310425,
+        "mean_absolute_error": 0.05034106969833374,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5765280723571777
+      },
+      "4.10": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9087018370628357,
+        "mean_absolute_error": 0.05963873490691185,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5740336179733276
+      },
+      "4.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.761207640171051,
+        "mean_absolute_error": 0.07981864362955093,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7354074716567993
+      },
+      "5.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7543701529502869,
+        "mean_absolute_error": 0.07292602211236954,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_3+distance_le_2",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 3
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 2
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7837998270988464
+      },
+      "5.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7979432344436646,
+        "mean_absolute_error": 0.06851106137037277,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_6+distance_le_5",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 6
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 5
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7027559280395508
+      },
+      "5.3": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7836854457855225,
+        "mean_absolute_error": 0.05491005629301071,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_2+relative_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 2
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "==",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.822859525680542
+      },
+      "5.6": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.881614625453949,
+        "mean_absolute_error": 0.05394146591424942,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_7+distance_le_6",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 7
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 6
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.6214110255241394
+      },
+      "5.7": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8005858063697815,
+        "mean_absolute_error": 0.06789696961641312,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_6+distance_le_4",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 6
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 4
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7007690072059631
+      },
+      "5.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7836935520172119,
+        "mean_absolute_error": 0.06039606034755707,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_2+distance_le_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 2
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.8224294185638428
+      },
+      "5.9": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8040101528167725,
+        "mean_absolute_error": 0.05214109271764755,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_2+relative_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 2
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "==",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.8117806911468506
+      },
+      "5.10": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8483917713165283,
+        "mean_absolute_error": 0.0757041648030281,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.6300641894340515
+      },
+      "5.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8415613770484924,
+        "mean_absolute_error": 0.05566147714853287,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_5+distance_le_3",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 5
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 3
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7122520804405212
+      },
+      "6.0": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.730870246887207,
+        "mean_absolute_error": 0.08092041313648224,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_5+distance_le_4",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 5
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 4
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7745015621185303
+      },
+      "6.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.770309567451477,
+        "mean_absolute_error": 0.061026476323604584,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_3+relative_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 3
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "==",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.822050929069519
+      },
+      "6.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7754744291305542,
+        "mean_absolute_error": 0.07004670053720474,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_3+distance_le_2",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 3
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 2
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7929604649543762
+      },
+      "6.9": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8861993551254272,
+        "mean_absolute_error": 0.05517131835222244,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5972406268119812
+      },
+      "6.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8047417402267456,
+        "mean_absolute_error": 0.04603393003344536,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_1+relative_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "==",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.8600096106529236
+      },
+      "7.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7505166530609131,
+        "mean_absolute_error": 0.08124198764562607,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_4",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 4
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7801785469055176
+      },
+      "7.7": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8088827729225159,
+        "mean_absolute_error": 0.07623469829559326,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.6768136620521545
+      },
+      "7.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8777531981468201,
+        "mean_absolute_error": 0.05476905778050423,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.6238710284233093
+      },
+      "7.9": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 1.0,
+        "mean_absolute_error": 1.9892482105987597e-10,
+        "exact_attention_agreement": true,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "relative_1",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "==",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.9211409091949463
+      },
+      "7.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7358253002166748,
+        "mean_absolute_error": 0.07824768871068954,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_15+distance_le_13",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 15
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 13
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7537201642990112
+      },
+      "8.1": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7934924960136414,
+        "mean_absolute_error": 0.06798148900270462,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7186688184738159
+      },
+      "8.3": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9305881261825562,
+        "mean_absolute_error": 0.006929974537342787,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "key_position_0",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_position",
+                  "operator": "==",
+                  "value": 0
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.9019164443016052
+      },
+      "8.4": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9472084641456604,
+        "mean_absolute_error": 0.04166402295231819,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5315074920654297
+      },
+      "8.5": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7254594564437866,
+        "mean_absolute_error": 0.09244193136692047,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7755165100097656
+      },
+      "8.6": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7746251225471497,
+        "mean_absolute_error": 0.03737352788448334,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "key_position_0",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_position",
+                  "operator": "==",
+                  "value": 0
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.8468750715255737
+      },
+      "8.7": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8833245635032654,
+        "mean_absolute_error": 0.00659386208280921,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "key_position_0",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_position",
+                  "operator": "==",
+                  "value": 0
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.8862186074256897
+      },
+      "8.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9007639288902283,
+        "mean_absolute_error": 0.058054227381944656,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5970857739448547
+      },
+      "8.10": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.6855798363685608,
+        "mean_absolute_error": 0.09436468034982681,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "distance_le_5+distance_le_4",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 5
+                }
+              ]
+            },
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 4
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.83234703540802
+      },
+      "8.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8227106928825378,
+        "mean_absolute_error": 0.08437958359718323,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.6777511835098267
+      },
+      "9.0": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8152093887329102,
+        "mean_absolute_error": 0.06714262068271637,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.6827831268310547
+      },
+      "9.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9282432794570923,
+        "mean_absolute_error": 0.05458766594529152,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.5591099262237549
+      },
+      "9.4": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.8197174668312073,
+        "mean_absolute_error": 0.08268965780735016,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.6801424622535706
+      },
+      "9.6": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7229182124137878,
+        "mean_absolute_error": 0.08845723420381546,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7864663004875183
+      },
+      "9.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7623651623725891,
+        "mean_absolute_error": 0.091660276055336,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7369385361671448
+      },
+      "10.2": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7454180121421814,
+        "mean_absolute_error": 0.036896396428346634,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "key_position_0",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_position",
+                  "operator": "==",
+                  "value": 0
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7976139187812805
+      },
+      "11.8": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 266,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.9061921238899231,
+        "mean_absolute_error": 0.0454254113137722,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal+distance_le_18",
+          "default_weight": "1",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "relative_distance",
+                  "operator": "<=",
+                  "value": 18
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.5842780470848083
+      }
+    }
+  }
+}

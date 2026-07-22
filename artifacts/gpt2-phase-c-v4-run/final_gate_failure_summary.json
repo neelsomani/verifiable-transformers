@@ -1,0 +1,136 @@
+{
+  "status": "exact_generalization_track_stopped",
+  "protocol_id": "gpt2_behavior_domain_v4",
+  "no_protocol_v5": true,
+  "stop_policy": {
+    "no_protocol_v5": true,
+    "on_v4_gate_failure": "stop the exact-generalization track; report measured per-task and per-stratum gate agreement as a near-exact faithfulness result, scope all claims accordingly, and do not heal or verify an exact circuit claim",
+    "larger_circuit_policy": "larger or lower-threshold circuits require a separately preregistered future study with new evaluation data; they are not selected against the v4 gate"
+  },
+  "joint_program_report": "/workspace/verifiable-transformers/artifacts/gpt2-programs-v4/joint/joint_program_report.json",
+  "failures": [
+    {
+      "split": "gate",
+      "forward": "circuit",
+      "task": "quote_close",
+      "accuracy_against_P": 0.998046875,
+      "correct": 511,
+      "rows": 512,
+      "mismatch_example_ids": [
+        "v4:quote_close:double:88ee2f642c32fef2"
+      ],
+      "by_stratum": {
+        "double": {
+          "accuracy_against_P": 0.99609375,
+          "correct": 255,
+          "rows": 256,
+          "mismatch_example_ids": [
+            "v4:quote_close:double:88ee2f642c32fef2"
+          ]
+        },
+        "single": {
+          "accuracy_against_P": 1.0,
+          "correct": 256,
+          "rows": 256,
+          "mismatch_example_ids": []
+        }
+      }
+    }
+  ],
+  "base_gate": {
+    "full": {
+      "quote_close": {
+        "accuracy_against_P": 1.0,
+        "correct": 512,
+        "rows": 512,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "bracket_type": {
+        "accuracy_against_P": 1.0,
+        "correct": 512,
+        "rows": 512,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "brace": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          },
+          "bracket": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_both_tasks": true
+    },
+    "circuit": {
+      "quote_close": {
+        "accuracy_against_P": 0.998046875,
+        "correct": 511,
+        "rows": 512,
+        "mismatch_example_ids": [
+          "v4:quote_close:double:88ee2f642c32fef2"
+        ],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 0.99609375,
+            "correct": 255,
+            "rows": 256,
+            "mismatch_example_ids": [
+              "v4:quote_close:double:88ee2f642c32fef2"
+            ]
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "bracket_type": {
+        "accuracy_against_P": 1.0,
+        "correct": 512,
+        "rows": 512,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "brace": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          },
+          "bracket": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_both_tasks": false
+    },
+    "exact_full_and_circuit": false
+  },
+  "final_gate": null,
+  "selection_or_filtering_performed": false,
+  "recorded_at_utc": "2026-07-22T21:18:57.279871+00:00"
+}

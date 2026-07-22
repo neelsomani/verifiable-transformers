@@ -496,6 +496,25 @@ agreement, and no exact circuit claim is made. Larger or lower-threshold
 circuits require a separate future preregistration with new evaluation data;
 they are not selected against the v4 gate.
 
+The final v4 run stopped under that rule on 2026-07-22. Robustness-first
+selection chose a 17-edge quote-close circuit at threshold 0.01 and, after the
+existing candidates were insufficient, a newly extracted 340-edge bracket-type
+circuit at threshold 0.01. Both were exact against P(x) on all 768 development
+prompts. On the untouched 512-prompt gate, the full norm-free model was exact
+on both tasks and the bracket-type circuit was exact (512/512), while the
+quote-close circuit scored 511/512 overall: 256/256 for single quotes and
+255/256 for double quotes. The sole mismatch was
+`v4:quote_close:double:88ee2f642c32fef2`.
+
+The failure occurred during the base-full-and-circuit preflight. Candidate
+program synthesis had completed, but no joint program subset was selected or
+filtered, no program was installed, and healing, migration checks, and SMT
+verification did not run. Therefore this is a near-exact zero-ablation circuit
+result, not a program-composition or healing result. The exact-generalization
+track is closed with no protocol v5. The locked manifests, selected circuits,
+synthesis output, and stop report are preserved under the corresponding
+`artifacts/gpt2-*-v4/` paths.
+
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
 The behavior scanner tests 2 categories:

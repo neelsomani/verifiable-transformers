@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "stage": "joint_program_gate",
+  "started_at_utc": "2026-07-22T17:37:00.990619+00:00",
+  "updated_at_utc": "2026-07-22T21:18:57.288879+00:00",
+  "completed_stages": [
+    "preflight",
+    "behavior_domain_v4",
+    "behavior_scan_development",
+    "reference_eval",
+    "base_circuit_selection",
+    "behavior_scan_gate",
+    "program_synthesis"
+  ],
+  "base_model": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+  "processed_dataset_dir": "/dev/shm/openwebtext-gpt2-block1024",
+  "gpus": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "error": "Joint program composition did not pass both locked v4 tasks; state=failed",
+  "traceback": "Traceback (most recent call last):\n  File \"/workspace/verifiable-transformers/scripts/gpt2/run_phase_c.py\", line 2022, in main\n    runner.execute()\n  File \"/workspace/verifiable-transformers/scripts/gpt2/run_phase_c.py\", line 1939, in execute\n    selected_programs = self.stage(\n                        ^^^^^^^^^^^\n  File \"/workspace/verifiable-transformers/scripts/gpt2/run_phase_c.py\", line 1915, in stage\n    result = function()\n             ^^^^^^^^^^\n  File \"/workspace/verifiable-transformers/scripts/gpt2/run_phase_c.py\", line 1940, in <lambda>\n    \"joint_program_gate\", lambda: self.ensure_joint_programs(base_selected)\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/verifiable-transformers/scripts/gpt2/run_phase_c.py\", line 1442, in ensure_joint_programs\n    raise PipelineError(\nPipelineError: Joint program composition did not pass both locked v4 tasks; state=failed\n"
+}

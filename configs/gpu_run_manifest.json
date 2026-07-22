@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "status": "phase_c_ready",
+  "status": "phase_c_v4_stopped_near_exact",
   "pre_gpu_results": {
     "small_layernorm_removal": "passed",
     "small_program_healing": "passed_after_ablation_aware_countermeasure",
@@ -32,27 +32,34 @@
     "gate_margin": 0.11239830780029303
   },
   "phase_c": {
-    "status": "protocol_v4_final_gate_ready_after_v3_circuit_gate_failure",
+    "status": "stopped_at_final_v4_base_circuit_gate_near_exact",
     "one_command_runner": ".venv/bin/python scripts/gpt2/run_phase_c.py --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024",
     "runner_behavior": "Preserves protocol-v1 through v3 artifacts. Protocol v4 permanently demotes all 768 previously evaluated prompts to development data, evaluates every available v2/v3 threshold circuit, and among exact candidates maximizes worst-case signed correct-token margin before minimizing edges and threshold. If no candidate is exact, C2 reruns only for that task on 768 rows. The next 512 generator rows are a hash-locked, balanced final gate opened only after selection. C3 resynthesizes on all 768 development rows before the one-shot final gate, then proceeds to core-aware healing only if exactness holds.",
     "selected_base": "artifacts/gpt2-norm-free",
     "protocol_v2_result": "The selected bracket_type circuit was exact on 256 v2 synthesis rows and scored 247/256 on the untouched v2 gate; the run stopped before joint program selection or healing.",
     "protocol_v3_result": "The selected bracket_type circuit was exact on all 512 v3 development rows and scored 255/256 on the untouched v3 gate; the full model and quote circuit remained exact, and the run stopped before joint program selection or healing.",
+    "protocol_v4_result": "Both selected circuits were exact on all 768 development rows. On the final untouched 512-row gate, the full model was exact on both tasks, the bracket_type circuit was exact at 512/512, and the quote_close circuit scored 511/512 (single 256/256; double 255/256). The base-full-and-circuit preflight failed before any program selection or filtering, so the exact-generalization track stopped with no protocol v5.",
     "domain_config": "configs/gpt2_behavior_domain_v4.json",
     "domain_artifacts": "artifacts/gpt2-behavior-domains-v4/{development,gate,legacy_regression}.json",
     "c2_artifacts": "artifacts/gpt2-circuits-v4",
     "c3_artifacts": "artifacts/gpt2-programs-v4",
-    "c4_model": "artifacts/gpt2-program-healed-v4-core-aware",
+    "c4_model": null,
+    "planned_c4_model": "artifacts/gpt2-program-healed-v4-core-aware",
     "reference_target": "explicit reference program P(x), not cached base decisions; the runner separately requires the base decisions to equal P(x)",
-    "joint_program_gate": "Full and circuit-only forwards are exact on both 768-row development tasks throughout deterministic subset selection and exact on both final 512-row v4 gate tasks; the gate result never changes the selected subset.",
+    "joint_program_gate": "Required full and circuit-only exactness on both tasks. The v4 run failed the base-full-and-circuit preflight because quote_close circuit accuracy was 511/512 on the final gate; selection_or_filtering_performed was false.",
     "final_gate_stop_policy": "No protocol v5. If the v4 gate fails, stop the exact-generalization track, report measured per-task and per-stratum agreement as near-exact faithfulness, scope claims accordingly, and do not select another circuit against the gate.",
+    "program_synthesis_status": "Candidate programs were synthesized on the 768-row development domain, but no joint subset was selected, filtered, installed, or evaluated because the base circuit preflight failed.",
+    "healing_status": "not_run",
+    "migration_status": "not_run",
+    "verification_status": "not_run",
     "core_aware_gate": "Exact P(x) accuracy on both gate tasks, perplexity <= 28.617593822841776, minimum rotating suppression coverage, exact circuit-only P(x) accuracy, every installed circuit program individually necessary in full and core forwards, and joint program removal non-bypassed in full and core forwards.",
     "perplexity_budget": {
       "relative_increase": 0.16,
       "locked_before_run": true,
       "reference_perplexity": 24.67033950244981,
       "absolute_budget": 28.617593822841776,
-      "artifact": "artifacts/gpt2-program-healed-v4-core-aware/healing_results.json"
+      "artifact": null,
+      "planned_artifact": "artifacts/gpt2-program-healed-v4-core-aware/healing_results.json"
     }
   },
   "kill_and_fallback_criteria": {

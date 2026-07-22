@@ -1,0 +1,335 @@
+{
+  "stage": "base_full_and_circuit_preflight",
+  "success": false,
+  "failure_reason": "base full model or synthesis-selected circuit is not exact against P(x) on the locked behavior domain",
+  "selection_or_filtering_performed": false,
+  "model_path": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+  "circuit_root": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v4/base-selected",
+  "synthesis_manifest": {
+    "quote_close": {
+      "protocol_id": "gpt2_behavior_domain_v4",
+      "split": "development",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/development.json",
+      "manifest_sha256": "a021773a306343b3b6639a54563e353093a33d9bb2914cb71a08ea9bd2fdd37d",
+      "rows": 768,
+      "unique_prompts": 768,
+      "prompt_set_sha256": "67e3d82e4c4bfaa15075e634c30432049e115b6af84cce3f19fe51d70c2f3f76",
+      "strata": {
+        "double": 384,
+        "single": 384
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "bracket_type": {
+      "protocol_id": "gpt2_behavior_domain_v4",
+      "split": "development",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/development.json",
+      "manifest_sha256": "a021773a306343b3b6639a54563e353093a33d9bb2914cb71a08ea9bd2fdd37d",
+      "rows": 768,
+      "unique_prompts": 768,
+      "prompt_set_sha256": "22b090e4bdb2094fd739fd25111bed6129ff6310961468915cc9bba0b07a023d",
+      "strata": {
+        "brace": 384,
+        "bracket": 384
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "gate_manifest": {
+    "quote_close": {
+      "protocol_id": "gpt2_behavior_domain_v4",
+      "split": "gate",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/gate.json",
+      "manifest_sha256": "b62f34cf6e45028ee23b128315b06586d2986ff11c53631fc49cf16fea86f949",
+      "rows": 512,
+      "unique_prompts": 512,
+      "prompt_set_sha256": "de3f65cd2496a2735d12e735a5b9fd26d2afc163048aeb4eb9ae6d4811b930ec",
+      "strata": {
+        "double": 256,
+        "single": 256
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "bracket_type": {
+      "protocol_id": "gpt2_behavior_domain_v4",
+      "split": "gate",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/gate.json",
+      "manifest_sha256": "b62f34cf6e45028ee23b128315b06586d2986ff11c53631fc49cf16fea86f949",
+      "rows": 512,
+      "unique_prompts": 512,
+      "prompt_set_sha256": "f6b710cd3f468781884b7e78d58f2cfd618923cf8f44952df5db0feb27749e74",
+      "strata": {
+        "brace": 256,
+        "bracket": 256
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "base_synthesis": {
+    "full": {
+      "quote_close": {
+        "accuracy_against_P": 1.0,
+        "correct": 768,
+        "rows": 768,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "bracket_type": {
+        "accuracy_against_P": 1.0,
+        "correct": 768,
+        "rows": 768,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "brace": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          },
+          "bracket": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_both_tasks": true
+    },
+    "circuit": {
+      "quote_close": {
+        "accuracy_against_P": 1.0,
+        "correct": 768,
+        "rows": 768,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "bracket_type": {
+        "accuracy_against_P": 1.0,
+        "correct": 768,
+        "rows": 768,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "brace": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          },
+          "bracket": {
+            "accuracy_against_P": 1.0,
+            "correct": 384,
+            "rows": 384,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_both_tasks": true
+    },
+    "exact_full_and_circuit": true
+  },
+  "base_gate": {
+    "full": {
+      "quote_close": {
+        "accuracy_against_P": 1.0,
+        "correct": 512,
+        "rows": 512,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "bracket_type": {
+        "accuracy_against_P": 1.0,
+        "correct": 512,
+        "rows": 512,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "brace": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          },
+          "bracket": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_both_tasks": true
+    },
+    "circuit": {
+      "quote_close": {
+        "accuracy_against_P": 0.998046875,
+        "correct": 511,
+        "rows": 512,
+        "mismatch_example_ids": [
+          "v4:quote_close:double:88ee2f642c32fef2"
+        ],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 0.99609375,
+            "correct": 255,
+            "rows": 256,
+            "mismatch_example_ids": [
+              "v4:quote_close:double:88ee2f642c32fef2"
+            ]
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "bracket_type": {
+        "accuracy_against_P": 1.0,
+        "correct": 512,
+        "rows": 512,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "brace": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          },
+          "bracket": {
+            "accuracy_against_P": 1.0,
+            "correct": 256,
+            "rows": 256,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_both_tasks": false
+    },
+    "exact_full_and_circuit": false
+  },
+  "failures": [
+    {
+      "split": "gate",
+      "forward": "circuit",
+      "task": "quote_close",
+      "accuracy_against_P": 0.998046875,
+      "correct": 511,
+      "rows": 512,
+      "mismatch_example_ids": [
+        "v4:quote_close:double:88ee2f642c32fef2"
+      ],
+      "by_stratum": {
+        "double": {
+          "accuracy_against_P": 0.99609375,
+          "correct": 255,
+          "rows": 256,
+          "mismatch_example_ids": [
+            "v4:quote_close:double:88ee2f642c32fef2"
+          ]
+        },
+        "single": {
+          "accuracy_against_P": 1.0,
+          "correct": 256,
+          "rows": 256,
+          "mismatch_example_ids": []
+        }
+      }
+    }
+  ]
+}

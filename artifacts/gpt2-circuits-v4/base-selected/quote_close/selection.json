@@ -1,0 +1,307 @@
+{
+  "task": "quote_close",
+  "source": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.01",
+  "threshold": 0.01,
+  "projected_agreement": 1.0,
+  "num_edges": 17,
+  "copied": [
+    "circuit.json",
+    "circuit.dot",
+    "summary.txt"
+  ],
+  "required_program_heads": [],
+  "candidate_extraction_domain": {
+    "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+    "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+    "protocol_id": "gpt2_behavior_domain_v2",
+    "split": "synthesis"
+  },
+  "candidate_extraction_domains": [
+    {
+      "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+      "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+      "protocol_id": "gpt2_behavior_domain_v2",
+      "split": "synthesis"
+    },
+    {
+      "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v3/development.json",
+      "manifest_sha256": "c604fcbbb7f4ff57e6df3679da8184bfd3323b8dd039cb9507b81a4fc1abb64e",
+      "protocol_id": "gpt2_behavior_domain_v3",
+      "split": "development"
+    }
+  ],
+  "selection_strategy": "worst_case_margin",
+  "domain_validation": {
+    "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.01",
+    "threshold": 0.01,
+    "num_edges": 17,
+    "candidate_extraction_domain": {
+      "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+      "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+      "protocol_id": "gpt2_behavior_domain_v2",
+      "split": "synthesis"
+    },
+    "candidate_accuracy_against_P": 1.0,
+    "projected_agreement_with_full": 1.0,
+    "correct": 768,
+    "rows": 768,
+    "mismatch_example_ids": [],
+    "minimum_signed_correct_margin": 0.009712040424346924,
+    "mean_signed_correct_margin": 0.14424122869968414,
+    "exact": true,
+    "prior_development": {
+      "rows": 512,
+      "accuracy_against_P": 1.0,
+      "minimum_signed_correct_margin": 0.009712040424346924,
+      "exact": true
+    },
+    "retrospective_failure_examples": []
+  },
+  "domain_validation_candidates": {
+    "manifest": {
+      "protocol_id": "gpt2_behavior_domain_v4",
+      "split": "development",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/development.json",
+      "manifest_sha256": "a021773a306343b3b6639a54563e353093a33d9bb2914cb71a08ea9bd2fdd37d",
+      "rows": 768,
+      "unique_prompts": 768,
+      "prompt_set_sha256": "67e3d82e4c4bfaa15075e634c30432049e115b6af84cce3f19fe51d70c2f3f76",
+      "strata": {
+        "double": 384,
+        "single": 384
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "full_model_accuracy_against_P": 1.0,
+    "full_model_minimum_signed_correct_margin": 1.470245361328125,
+    "prior_development_manifest": {
+      "protocol_id": "gpt2_behavior_domain_v3",
+      "split": "development",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v3/development.json",
+      "manifest_sha256": "c604fcbbb7f4ff57e6df3679da8184bfd3323b8dd039cb9507b81a4fc1abb64e",
+      "rows": 512,
+      "unique_prompts": 512,
+      "prompt_set_sha256": "3cf737914da1c4cf2e09b866a0ac1f03b15f626c48a9c4cb2407a660c967da2e",
+      "strata": {
+        "double": 256,
+        "single": 256
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "prior_failure_manifest": null,
+    "candidates": [
+      {
+        "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.005",
+        "threshold": 0.005,
+        "num_edges": 12,
+        "candidate_extraction_domain": {
+          "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+          "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+          "protocol_id": "gpt2_behavior_domain_v2",
+          "split": "synthesis"
+        },
+        "candidate_accuracy_against_P": 1.0,
+        "projected_agreement_with_full": 1.0,
+        "correct": 768,
+        "rows": 768,
+        "mismatch_example_ids": [],
+        "minimum_signed_correct_margin": 0.008687019348144531,
+        "mean_signed_correct_margin": 0.11270412057638168,
+        "exact": true,
+        "prior_development": {
+          "rows": 512,
+          "accuracy_against_P": 1.0,
+          "minimum_signed_correct_margin": 0.008687019348144531,
+          "exact": true
+        },
+        "retrospective_failure_examples": []
+      },
+      {
+        "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.01",
+        "threshold": 0.01,
+        "num_edges": 17,
+        "candidate_extraction_domain": {
+          "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+          "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+          "protocol_id": "gpt2_behavior_domain_v2",
+          "split": "synthesis"
+        },
+        "candidate_accuracy_against_P": 1.0,
+        "projected_agreement_with_full": 1.0,
+        "correct": 768,
+        "rows": 768,
+        "mismatch_example_ids": [],
+        "minimum_signed_correct_margin": 0.009712040424346924,
+        "mean_signed_correct_margin": 0.14424122869968414,
+        "exact": true,
+        "prior_development": {
+          "rows": 512,
+          "accuracy_against_P": 1.0,
+          "minimum_signed_correct_margin": 0.009712040424346924,
+          "exact": true
+        },
+        "retrospective_failure_examples": []
+      },
+      {
+        "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.02",
+        "threshold": 0.02,
+        "num_edges": 10,
+        "candidate_extraction_domain": {
+          "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+          "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+          "protocol_id": "gpt2_behavior_domain_v2",
+          "split": "synthesis"
+        },
+        "candidate_accuracy_against_P": 1.0,
+        "projected_agreement_with_full": 1.0,
+        "correct": 768,
+        "rows": 768,
+        "mismatch_example_ids": [],
+        "minimum_signed_correct_margin": 0.00023040175437927246,
+        "mean_signed_correct_margin": 0.09218558669090271,
+        "exact": true,
+        "prior_development": {
+          "rows": 512,
+          "accuracy_against_P": 1.0,
+          "minimum_signed_correct_margin": 0.02155625820159912,
+          "exact": true
+        },
+        "retrospective_failure_examples": []
+      },
+      {
+        "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.05",
+        "threshold": 0.05,
+        "num_edges": 16,
+        "candidate_extraction_domain": {
+          "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+          "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+          "protocol_id": "gpt2_behavior_domain_v2",
+          "split": "synthesis"
+        },
+        "candidate_accuracy_against_P": 0.9986979365348816,
+        "projected_agreement_with_full": 0.9986979365348816,
+        "correct": 767,
+        "rows": 768,
+        "mismatch_example_ids": [
+          "v4:quote_close:single:4e7dba64db93df77"
+        ],
+        "minimum_signed_correct_margin": -0.0011038482189178467,
+        "mean_signed_correct_margin": 0.1153189167380333,
+        "exact": false,
+        "prior_development": {
+          "rows": 512,
+          "accuracy_against_P": 1.0,
+          "minimum_signed_correct_margin": 0.0016761422157287598,
+          "exact": true
+        },
+        "retrospective_failure_examples": []
+      },
+      {
+        "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.1",
+        "threshold": 0.1,
+        "num_edges": 16,
+        "candidate_extraction_domain": {
+          "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+          "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+          "protocol_id": "gpt2_behavior_domain_v2",
+          "split": "synthesis"
+        },
+        "candidate_accuracy_against_P": 0.9986979365348816,
+        "projected_agreement_with_full": 0.9986979365348816,
+        "correct": 767,
+        "rows": 768,
+        "mismatch_example_ids": [
+          "v4:quote_close:single:4e7dba64db93df77"
+        ],
+        "minimum_signed_correct_margin": -0.0011038482189178467,
+        "mean_signed_correct_margin": 0.1153189167380333,
+        "exact": false,
+        "prior_development": {
+          "rows": 512,
+          "accuracy_against_P": 1.0,
+          "minimum_signed_correct_margin": 0.0016761422157287598,
+          "exact": true
+        },
+        "retrospective_failure_examples": []
+      },
+      {
+        "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.2",
+        "threshold": 0.2,
+        "num_edges": 16,
+        "candidate_extraction_domain": {
+          "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v2/synthesis.json",
+          "manifest_sha256": "308f115d9fbf9f8fa2db203f95fe2b887d22bd517d3f645caa660a189ac9af90",
+          "protocol_id": "gpt2_behavior_domain_v2",
+          "split": "synthesis"
+        },
+        "candidate_accuracy_against_P": 0.9986979365348816,
+        "projected_agreement_with_full": 0.9986979365348816,
+        "correct": 767,
+        "rows": 768,
+        "mismatch_example_ids": [
+          "v4:quote_close:single:4e7dba64db93df77"
+        ],
+        "minimum_signed_correct_margin": -0.0011038482189178467,
+        "mean_signed_correct_margin": 0.1153189167380333,
+        "exact": false,
+        "prior_development": {
+          "rows": 512,
+          "accuracy_against_P": 1.0,
+          "minimum_signed_correct_margin": 0.0016761422157287598,
+          "exact": true
+        },
+        "retrospective_failure_examples": []
+      }
+    ],
+    "retrospective_robustness_first_selection": {
+      "path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.02",
+      "threshold": 0.02,
+      "num_edges": 10,
+      "prior_development_minimum_signed_correct_margin": 0.02155625820159912,
+      "failure_examples": [],
+      "would_avoid_recorded_failures": null
+    },
+    "prior_selected_circuit_diagnostic": {
+      "selection_path": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v3/base-selected/quote_close/selection.json",
+      "source": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-v2/base/quote_close_t0.02",
+      "threshold": 0.02,
+      "num_edges": 10,
+      "prior_development": {
+        "rows": 512,
+        "accuracy_against_P": 1.0,
+        "minimum_signed_correct_margin": 0.02155625820159912,
+        "exact": true
+      },
+      "recorded_failure_examples": []
+    }
+  },
+  "selection_rule": "exact projected agreement on the extraction and independent development domains; contain all task program heads when provided; maximize worst-case signed correct-token margin, then minimum edge count and lower threshold"
+}

@@ -1,0 +1,20 @@
+digraph circuit {
+  rankdir=LR;
+  "attn_11_h_8" -> "logits";
+  "attn_7_h_11" -> "logits";
+  "emb" -> "attn_7_h_11";
+  "emb" -> "mlp_0";
+  "emb" -> "mlp_1";
+  "emb" -> "mlp_2";
+  "emb" -> "mlp_5";
+  "mlp_0" -> "attn_7_h_11";
+  "mlp_0" -> "mlp_2";
+  "mlp_0" -> "mlp_5";
+  "mlp_1" -> "attn_7_h_11";
+  "mlp_1" -> "mlp_2";
+  "mlp_10" -> "logits";
+  "mlp_2" -> "attn_7_h_11";
+  "mlp_4" -> "mlp_5";
+  "mlp_5" -> "attn_7_h_11";
+  "mlp_9" -> "logits";
+}

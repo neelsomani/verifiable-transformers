@@ -1,0 +1,44 @@
+================================================================================
+CIRCUIT EXTRACTION SUMMARY
+================================================================================
+
+Task: quote_close
+Model: /workspace/verifiable-transformers/artifacts/gpt2-norm-free
+Metric: candidate_kl
+Threshold: 0.01
+Min agreement: 1.0
+Ablation: zero
+Trim rounds: 0
+
+--------------------------------------------------------------------------------
+FULL MODEL
+--------------------------------------------------------------------------------
+binary_accuracy               : 1.000000
+mean_logit_diff               : 6.274589
+n_examples                    : 256.000000
+candidate_accuracy            : 1.000000
+mean_margin                   : 6.274589
+
+--------------------------------------------------------------------------------
+EXTRACTED CIRCUIT (17 edges)
+--------------------------------------------------------------------------------
+binary_accuracy               : 1.000000
+mean_logit_diff               : 0.148795
+n_examples                    : 256.000000
+candidate_accuracy            : 1.000000
+mean_margin                   : 0.148795
+kl_from_full                  : 6.111853
+candidate_kl_from_full        : 0.585219
+projected_agreement_with_full : 1.000000
+
+--------------------------------------------------------------------------------
+INVERSE ABLATION
+--------------------------------------------------------------------------------
+binary_accuracy               : 0.570312
+mean_logit_diff               : 0.140019
+n_examples                    : 256.000000
+candidate_accuracy            : 0.570312
+mean_margin                   : 0.140019
+kl_from_full                  : 4.095860
+candidate_kl_from_full        : 0.637123
+projected_agreement_with_full : 0.570312

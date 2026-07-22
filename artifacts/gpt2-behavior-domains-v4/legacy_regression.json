@@ -1,0 +1,791 @@
+{
+  "schema_version": 2,
+  "protocol_id": "gpt2_behavior_domain_v4",
+  "split": "legacy_regression",
+  "generator_config_sha256": "6851d2c9443dd4ff7bafa49525d492f15eb8cbe1ac9597a5431a9ebdcc8171e7",
+  "tokenizer": {
+    "class": "GPT2TokenizerFast",
+    "name_or_path": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+    "vocab_size": 50257,
+    "vocab_sha256": "e35d8b86ebd35ebd260d040aa455e09759f7e675f4dbb7f3d727516f27eca190"
+  },
+  "selection_policy": "balanced deterministic hash order; no model outputs consulted",
+  "summary": {
+    "quote_close": {
+      "rows": 16,
+      "unique_prompts": 16,
+      "prompt_set_sha256": "86d8856447fa67089cec247586e2ad245cd2586e6ecdcaba40c26567e1690709",
+      "strata": {
+        "double": 8,
+        "single": 8
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3
+      ]
+    },
+    "bracket_type": {
+      "rows": 16,
+      "unique_prompts": 16,
+      "prompt_set_sha256": "76ece872c4be938f41fe69261ce63d4cd4967086e96a8f7e40c6f161474133f1",
+      "strata": {
+        "brace": 8,
+        "bracket": 8
+      },
+      "opener_token_positions": [
+        1,
+        2
+      ]
+    }
+  },
+  "validation": {
+    "quote_close": {
+      "candidate_tokens_are_single_token": true,
+      "opener_alignment_checked": true,
+      "opener_token_positions": [
+        1,
+        2,
+        3
+      ],
+      "distinct_opener_token_positions": 3,
+      "contextual_opener_token_ids": [
+        366,
+        705,
+        7203,
+        10786
+      ],
+      "strata": {
+        "double": {
+          "rows": 8,
+          "correct_token": "\"",
+          "opener_token_positions": [
+            1,
+            2,
+            3
+          ],
+          "distinct_opener_token_positions": 3,
+          "prompt_token_lengths": [
+            4,
+            5
+          ],
+          "distinct_prompt_token_lengths": 2,
+          "template_ids": [
+            "legacy_double_0",
+            "legacy_double_1",
+            "legacy_double_2",
+            "legacy_double_3",
+            "legacy_double_4",
+            "legacy_double_5",
+            "legacy_double_6",
+            "legacy_double_7"
+          ]
+        },
+        "single": {
+          "rows": 8,
+          "correct_token": "'",
+          "opener_token_positions": [
+            1,
+            2,
+            3
+          ],
+          "distinct_opener_token_positions": 3,
+          "prompt_token_lengths": [
+            4,
+            5
+          ],
+          "distinct_prompt_token_lengths": 2,
+          "template_ids": [
+            "legacy_single_0",
+            "legacy_single_1",
+            "legacy_single_2",
+            "legacy_single_3",
+            "legacy_single_4",
+            "legacy_single_5",
+            "legacy_single_6",
+            "legacy_single_7"
+          ]
+        }
+      }
+    },
+    "bracket_type": {
+      "candidate_tokens_are_single_token": true,
+      "opener_alignment_checked": true,
+      "opener_token_positions": [
+        1,
+        2
+      ],
+      "distinct_opener_token_positions": 2,
+      "contextual_opener_token_ids": [
+        685,
+        1391
+      ],
+      "strata": {
+        "brace": {
+          "rows": 8,
+          "correct_token": "}",
+          "opener_token_positions": [
+            1,
+            2
+          ],
+          "distinct_opener_token_positions": 2,
+          "prompt_token_lengths": [
+            6,
+            7,
+            8
+          ],
+          "distinct_prompt_token_lengths": 3,
+          "template_ids": [
+            "legacy_brace_0",
+            "legacy_brace_1",
+            "legacy_brace_2",
+            "legacy_brace_3",
+            "legacy_brace_4",
+            "legacy_brace_5",
+            "legacy_brace_6",
+            "legacy_brace_7"
+          ]
+        },
+        "bracket": {
+          "rows": 8,
+          "correct_token": "]",
+          "opener_token_positions": [
+            1,
+            2
+          ],
+          "distinct_opener_token_positions": 2,
+          "prompt_token_lengths": [
+            6,
+            7,
+            8
+          ],
+          "distinct_prompt_token_lengths": 3,
+          "template_ids": [
+            "legacy_bracket_0",
+            "legacy_bracket_1",
+            "legacy_bracket_2",
+            "legacy_bracket_3",
+            "legacy_bracket_4",
+            "legacy_bracket_5",
+            "legacy_bracket_6",
+            "legacy_bracket_7"
+          ]
+        }
+      }
+    }
+  },
+  "examples": {
+    "quote_close": [
+      {
+        "prompt": "x = 'hello world",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0000",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_0",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 4,
+          "opener_token_index": 2,
+          "opener_context_token_id": 705,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "print('hello world",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0001",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_1",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 6,
+          "opener_token_index": 1,
+          "opener_context_token_id": 10786,
+          "prompt_token_count": 4
+        }
+      },
+      {
+        "prompt": "message = 'foo bar",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0002",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_2",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 10,
+          "opener_token_index": 2,
+          "opener_context_token_id": 705,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "return 'some text",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0003",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_3",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 7,
+          "opener_token_index": 1,
+          "opener_context_token_id": 705,
+          "prompt_token_count": 4
+        }
+      },
+      {
+        "prompt": "data.append('value",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0004",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_4",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 12,
+          "opener_token_index": 3,
+          "opener_context_token_id": 10786,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "name = 'alice",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0005",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_5",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 7,
+          "opener_token_index": 2,
+          "opener_context_token_id": 705,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "s = 'test string",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0006",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_6",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 4,
+          "opener_token_index": 2,
+          "opener_context_token_id": 705,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "key = 'item",
+        "correct_token": "'",
+        "incorrect_token": "\"",
+        "example_id": "legacy_v1:quote_close:single:0007",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "single",
+        "template_id": "legacy_single_7",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "'",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 705,
+          "prompt_token_count": 4
+        }
+      },
+      {
+        "prompt": "x = \"hello world",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0000",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_0",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 4,
+          "opener_token_index": 2,
+          "opener_context_token_id": 366,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "print(\"hello world",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0001",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_1",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 6,
+          "opener_token_index": 1,
+          "opener_context_token_id": 7203,
+          "prompt_token_count": 4
+        }
+      },
+      {
+        "prompt": "message = \"foo bar",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0002",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_2",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 10,
+          "opener_token_index": 2,
+          "opener_context_token_id": 366,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "return \"some text",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0003",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_3",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 7,
+          "opener_token_index": 1,
+          "opener_context_token_id": 366,
+          "prompt_token_count": 4
+        }
+      },
+      {
+        "prompt": "data.append(\"value",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0004",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_4",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 12,
+          "opener_token_index": 3,
+          "opener_context_token_id": 7203,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "name = \"alice",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0005",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_5",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 7,
+          "opener_token_index": 2,
+          "opener_context_token_id": 366,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "s = \"test string",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0006",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_6",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 4,
+          "opener_token_index": 2,
+          "opener_context_token_id": 366,
+          "prompt_token_count": 5
+        }
+      },
+      {
+        "prompt": "key = \"item",
+        "correct_token": "\"",
+        "incorrect_token": "'",
+        "example_id": "legacy_v1:quote_close:double:0007",
+        "task": "quote_close",
+        "split": "legacy_regression",
+        "stratum": "double",
+        "template_id": "legacy_double_7",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "\"",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 366,
+          "prompt_token_count": 4
+        }
+      }
+    ],
+    "bracket_type": [
+      {
+        "prompt": "x = [a, b, c",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0000",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_0",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 4,
+          "opener_token_index": 2,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 8
+        }
+      },
+      {
+        "prompt": "items = [foo, bar",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0001",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_1",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 8,
+          "opener_token_index": 2,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "return [x, y, z",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0002",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_2",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 7,
+          "opener_token_index": 1,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 7
+        }
+      },
+      {
+        "prompt": "data = [one, two",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0003",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_3",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 7,
+          "opener_token_index": 2,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "arr = [p, q, r",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0004",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_4",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 8
+        }
+      },
+      {
+        "prompt": "vals = [red, blue",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0005",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_5",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 7,
+          "opener_token_index": 2,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "tmp = [left, right",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0006",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_6",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "out = [first, second",
+        "correct_token": "]",
+        "incorrect_token": "}",
+        "example_id": "legacy_v1:bracket_type:bracket:0007",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "bracket",
+        "template_id": "legacy_bracket_7",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "[",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 685,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "x = {a, b, c",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0000",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_0",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 4,
+          "opener_token_index": 2,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 8
+        }
+      },
+      {
+        "prompt": "items = {foo, bar",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0001",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_1",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 8,
+          "opener_token_index": 2,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "return {x, y, z",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0002",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_2",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 7,
+          "opener_token_index": 1,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 7
+        }
+      },
+      {
+        "prompt": "data = {one, two",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0003",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_3",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 7,
+          "opener_token_index": 2,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "arr = {p, q, r",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0004",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_4",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 8
+        }
+      },
+      {
+        "prompt": "vals = {red, blue",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0005",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_5",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 7,
+          "opener_token_index": 2,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "tmp = {left, right",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0006",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_6",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 6
+        }
+      },
+      {
+        "prompt": "out = {first, second",
+        "correct_token": "}",
+        "incorrect_token": "]",
+        "example_id": "legacy_v1:bracket_type:brace:0007",
+        "task": "bracket_type",
+        "split": "legacy_regression",
+        "stratum": "brace",
+        "template_id": "legacy_brace_7",
+        "metadata": {
+          "protocol": "legacy_v1",
+          "repeat_index": 0,
+          "opener": "{",
+          "opener_char_index": 6,
+          "opener_token_index": 2,
+          "opener_context_token_id": 1391,
+          "prompt_token_count": 6
+        }
+      }
+    ]
+  }
+}

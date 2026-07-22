@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "record": "phase_c_protocol_v4_final_stop",
+  "source_archive": {
+    "filename": "phase-c-v4-stop-evidence.tar.gz",
+    "sha256": "443783d3ee947fe5564fd5a86d9f8e6b7b296b97067562cc59214346fc9986d6"
+  },
+  "result": {
+    "status": "exact_generalization_track_stopped",
+    "failure_stage": "base_full_and_circuit_preflight",
+    "selection_or_filtering_performed": false,
+    "full_model_gate": {
+      "quote_close": "512/512",
+      "bracket_type": "512/512"
+    },
+    "selected_circuit_gate": {
+      "quote_close": "511/512",
+      "quote_close_single": "256/256",
+      "quote_close_double": "255/256",
+      "bracket_type": "512/512",
+      "bracket_type_bracket": "256/256",
+      "bracket_type_brace": "256/256"
+    },
+    "sole_mismatch_example_id": "v4:quote_close:double:88ee2f642c32fef2",
+    "program_subset_selected": false,
+    "programs_installed": false,
+    "healing_run": false,
+    "migration_check_run": false,
+    "smt_verification_run": false,
+    "no_protocol_v5": true
+  },
+  "committed_evidence": [
+    "artifacts/gpt2-behavior-domains-v4/*.json",
+    "artifacts/gpt2-circuits-v4/base-selected/**",
+    "artifacts/gpt2-programs-v4/synthesis_results.json",
+    "artifacts/gpt2-programs-v4/programs.json",
+    "artifacts/gpt2-programs-v4/joint/joint_program_report.json",
+    "artifacts/gpt2-phase-c-v4-run/run_status.json",
+    "artifacts/gpt2-phase-c-v4-run/final_gate_failure_summary.json",
+    "artifacts/gpt2-phase-c-v4-run/gpt2_program_healing_h100.json"
+  ],
+  "excluded_from_git": {
+    "gpu_logs": "The structured JSON reports contain the durable measurements; verbose execution logs remain in the source archive.",
+    "runner_lock": "Ephemeral process-coordination state."
+  }
+}

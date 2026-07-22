@@ -1,0 +1,1026 @@
+{
+  "0.1": {
+    "dsl_version": 1,
+    "name": "distance_le_18",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 18
+          }
+        ]
+      }
+    ]
+  },
+  "0.2": {
+    "dsl_version": 1,
+    "name": "distance_le_15+distance_le_13",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 15
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 13
+          }
+        ]
+      }
+    ]
+  },
+  "0.6": {
+    "dsl_version": 1,
+    "name": "uniform_causal+distance_le_13",
+    "default_weight": "1",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 13
+          }
+        ]
+      }
+    ]
+  },
+  "0.8": {
+    "dsl_version": 1,
+    "name": "distance_le_10+distance_le_9",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 10
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 9
+          }
+        ]
+      }
+    ]
+  },
+  "0.9": {
+    "dsl_version": 1,
+    "name": "distance_le_18",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 18
+          }
+        ]
+      }
+    ]
+  },
+  "0.10": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "0.11": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.0": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.1": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.3": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.4": {
+    "dsl_version": 1,
+    "name": "uniform_causal+distance_le_12",
+    "default_weight": "1",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 12
+          }
+        ]
+      }
+    ]
+  },
+  "1.5": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.6": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.7": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.8": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.9": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "1.11": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.0": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.1": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.2": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.3": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.4": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.5": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.6": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.7": {
+    "dsl_version": 1,
+    "name": "distance_le_5",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 5
+          }
+        ]
+      }
+    ]
+  },
+  "2.8": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "2.11": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.0": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.1": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.2": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.3": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.4": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.5": {
+    "dsl_version": 1,
+    "name": "distance_le_13+distance_le_11",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 13
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 11
+          }
+        ]
+      }
+    ]
+  },
+  "3.6": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.7": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.8": {
+    "dsl_version": 1,
+    "name": "distance_le_4+distance_le_2",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 4
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 2
+          }
+        ]
+      }
+    ]
+  },
+  "3.9": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "3.10": {
+    "dsl_version": 1,
+    "name": "distance_le_13+distance_le_11",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 13
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 11
+          }
+        ]
+      }
+    ]
+  },
+  "4.1": {
+    "dsl_version": 1,
+    "name": "distance_le_9+distance_le_8",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 9
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 8
+          }
+        ]
+      }
+    ]
+  },
+  "4.4": {
+    "dsl_version": 1,
+    "name": "distance_le_8+distance_le_6",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 6
+          }
+        ]
+      }
+    ]
+  },
+  "4.5": {
+    "dsl_version": 1,
+    "name": "distance_le_2+relative_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "==",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "4.8": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "4.10": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "4.11": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "5.1": {
+    "dsl_version": 1,
+    "name": "distance_le_3+distance_le_2",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 3
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 2
+          }
+        ]
+      }
+    ]
+  },
+  "5.2": {
+    "dsl_version": 1,
+    "name": "distance_le_6+distance_le_5",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 5
+          }
+        ]
+      }
+    ]
+  },
+  "5.3": {
+    "dsl_version": 1,
+    "name": "distance_le_2+relative_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "==",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "5.6": {
+    "dsl_version": 1,
+    "name": "distance_le_7+distance_le_6",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 7
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 6
+          }
+        ]
+      }
+    ]
+  },
+  "5.7": {
+    "dsl_version": 1,
+    "name": "distance_le_6+distance_le_4",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 4
+          }
+        ]
+      }
+    ]
+  },
+  "5.8": {
+    "dsl_version": 1,
+    "name": "distance_le_2+distance_le_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "5.9": {
+    "dsl_version": 1,
+    "name": "distance_le_2+relative_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "==",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "5.10": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "5.11": {
+    "dsl_version": 1,
+    "name": "distance_le_5+distance_le_3",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 3
+          }
+        ]
+      }
+    ]
+  },
+  "6.0": {
+    "dsl_version": 1,
+    "name": "distance_le_5+distance_le_4",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 4
+          }
+        ]
+      }
+    ]
+  },
+  "6.1": {
+    "dsl_version": 1,
+    "name": "distance_le_3+relative_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 3
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "==",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "6.2": {
+    "dsl_version": 1,
+    "name": "distance_le_3+distance_le_2",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 3
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 2
+          }
+        ]
+      }
+    ]
+  },
+  "6.9": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "6.11": {
+    "dsl_version": 1,
+    "name": "distance_le_1+relative_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "==",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "7.2": {
+    "dsl_version": 1,
+    "name": "distance_le_4",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 4
+          }
+        ]
+      }
+    ]
+  },
+  "7.7": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "7.8": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "7.9": {
+    "dsl_version": 1,
+    "name": "relative_1",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "==",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  "8.1": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "8.3": {
+    "dsl_version": 1,
+    "name": "key_position_0",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_position",
+            "operator": "==",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "8.4": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "8.5": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "8.6": {
+    "dsl_version": 1,
+    "name": "key_position_0",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_position",
+            "operator": "==",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "8.7": {
+    "dsl_version": 1,
+    "name": "key_position_0",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_position",
+            "operator": "==",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "8.8": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "8.10": {
+    "dsl_version": 1,
+    "name": "distance_le_5+distance_le_4",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "relative_distance",
+            "operator": "<=",
+            "value": 4
+          }
+        ]
+      }
+    ]
+  },
+  "8.11": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "9.0": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "9.2": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "9.4": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "9.6": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "9.8": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  },
+  "10.2": {
+    "dsl_version": 1,
+    "name": "key_position_0",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_position",
+            "operator": "==",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  }
+}

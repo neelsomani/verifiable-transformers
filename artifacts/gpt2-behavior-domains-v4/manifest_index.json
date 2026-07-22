@@ -1,0 +1,219 @@
+{
+  "schema_version": 2,
+  "protocol_id": "gpt2_behavior_domain_v4",
+  "config": "/workspace/verifiable-transformers/configs/gpt2_behavior_domain_v4.json",
+  "config_sha256": "6851d2c9443dd4ff7bafa49525d492f15eb8cbe1ac9597a5431a9ebdcc8171e7",
+  "tokenizer": {
+    "class": "GPT2TokenizerFast",
+    "name_or_path": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+    "vocab_size": 50257,
+    "vocab_sha256": "e35d8b86ebd35ebd260d040aa455e09759f7e675f4dbb7f3d727516f27eca190"
+  },
+  "generator_capacity_per_stratum": {
+    "quote_close": {
+      "single": 1184,
+      "double": 1184
+    },
+    "bracket_type": {
+      "bracket": 1187,
+      "brace": 1187
+    }
+  },
+  "generator_capacity_audit": {
+    "quote_close": {
+      "single": {
+        "available": 1184,
+        "development_rows": 384,
+        "fresh_gate_rows": 256,
+        "total_consumed": 640,
+        "remaining_after_gate": 544
+      },
+      "double": {
+        "available": 1184,
+        "development_rows": 384,
+        "fresh_gate_rows": 256,
+        "total_consumed": 640,
+        "remaining_after_gate": 544
+      }
+    },
+    "bracket_type": {
+      "bracket": {
+        "available": 1187,
+        "development_rows": 384,
+        "fresh_gate_rows": 256,
+        "total_consumed": 640,
+        "remaining_after_gate": 547
+      },
+      "brace": {
+        "available": 1187,
+        "development_rows": 384,
+        "fresh_gate_rows": 256,
+        "total_consumed": 640,
+        "remaining_after_gate": 547
+      }
+    }
+  },
+  "protocol_provenance": {
+    "protocol_v2_result": "bracket_type circuit scored 247/256 on the untouched v2 gate",
+    "protocol_v3_result": "bracket_type circuit scored 255/256 on the untouched v3 gate; full model and quote circuit remained exact",
+    "burned_rows": "all 768 protocol-v3 development plus gate prompts are v4 development data and are permanently unavailable as gate material",
+    "protocol_v4_gate_source": "the next 512 deterministic generator rows after all 768 burned prompts, balanced 256/256 across each task's two classes"
+  },
+  "selection_rule": {
+    "candidate_source": "all protocol-v2 and protocol-v3 threshold circuits",
+    "candidate_exposure": "candidate circuits were extracted only on their protocol development data and never on the v4 gate",
+    "development_domain": "exact union of protocol-v3 development and gate prompts; all 768 are permanently burned as gate material",
+    "choice": "among circuits exact against P(x) on all 768 development prompts, maximize the minimum per-example signed correct-token margin; break ties by minimum edge count, then lower threshold",
+    "justification": "bracket_type circuits were exact on development but missed 9/256 and then 1/256 on consecutive fresh gates, while the full model and quote circuit remained exact; robustness-first selection targets boundary slack rather than parsimony",
+    "fallback": "if no existing threshold circuit is exact, rerun extraction only for the failing task on the 768-prompt development domain",
+    "gate_use": "the final 512-prompt gate is evaluated only after selection and never changes the selected circuit or program subset"
+  },
+  "stop_policy": {
+    "no_protocol_v5": true,
+    "on_v4_gate_failure": "stop the exact-generalization track; report measured per-task and per-stratum gate agreement as a near-exact faithfulness result, scope all claims accordingly, and do not heal or verify an exact circuit claim",
+    "larger_circuit_policy": "larger or lower-threshold circuits require a separately preregistered future study with new evaluation data; they are not selected against the v4 gate"
+  },
+  "manifests": {
+    "development": {
+      "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/development.json",
+      "sha256": "a021773a306343b3b6639a54563e353093a33d9bb2914cb71a08ea9bd2fdd37d",
+      "summary": {
+        "quote_close": {
+          "rows": 768,
+          "unique_prompts": 768,
+          "prompt_set_sha256": "67e3d82e4c4bfaa15075e634c30432049e115b6af84cce3f19fe51d70c2f3f76",
+          "strata": {
+            "double": 384,
+            "single": 384
+          },
+          "opener_token_positions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ]
+        },
+        "bracket_type": {
+          "rows": 768,
+          "unique_prompts": 768,
+          "prompt_set_sha256": "22b090e4bdb2094fd739fd25111bed6129ff6310961468915cc9bba0b07a023d",
+          "strata": {
+            "brace": 384,
+            "bracket": 384
+          },
+          "opener_token_positions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ]
+        }
+      }
+    },
+    "gate": {
+      "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/gate.json",
+      "sha256": "b62f34cf6e45028ee23b128315b06586d2986ff11c53631fc49cf16fea86f949",
+      "summary": {
+        "quote_close": {
+          "rows": 512,
+          "unique_prompts": 512,
+          "prompt_set_sha256": "de3f65cd2496a2735d12e735a5b9fd26d2afc163048aeb4eb9ae6d4811b930ec",
+          "strata": {
+            "double": 256,
+            "single": 256
+          },
+          "opener_token_positions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ]
+        },
+        "bracket_type": {
+          "rows": 512,
+          "unique_prompts": 512,
+          "prompt_set_sha256": "f6b710cd3f468781884b7e78d58f2cfd618923cf8f44952df5db0feb27749e74",
+          "strata": {
+            "brace": 256,
+            "bracket": 256
+          },
+          "opener_token_positions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ]
+        }
+      }
+    },
+    "legacy_regression": {
+      "path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domains-v4/legacy_regression.json",
+      "sha256": "c6c811a13c07b8ee56ed661df953f8ea2701b75c58367d2c901f62b39e8b3130",
+      "summary": {
+        "quote_close": {
+          "rows": 16,
+          "unique_prompts": 16,
+          "prompt_set_sha256": "86d8856447fa67089cec247586e2ad245cd2586e6ecdcaba40c26567e1690709",
+          "strata": {
+            "double": 8,
+            "single": 8
+          },
+          "opener_token_positions": [
+            1,
+            2,
+            3
+          ]
+        },
+        "bracket_type": {
+          "rows": 16,
+          "unique_prompts": 16,
+          "prompt_set_sha256": "76ece872c4be938f41fe69261ce63d4cd4967086e96a8f7e40c6f161474133f1",
+          "strata": {
+            "brace": 8,
+            "bracket": 8
+          },
+          "opener_token_positions": [
+            1,
+            2
+          ]
+        }
+      }
+    }
+  }
+}
