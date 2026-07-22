@@ -1,3 +1,4 @@
+import hashlib
 import json
 from types import SimpleNamespace
 
@@ -24,6 +25,7 @@ from scripts.gpt2.run_phase_c import (
     selected_circuit_complete,
 )
 from scripts.gpt2.select_base_model import select
+from scripts.gpt2.select_sweep_circuit import validate_candidate_exposure
 from scripts.norm_removal import install_attenuated_layernorms
 
 
@@ -338,6 +340,42 @@ def test_phase_c_runner_selected_circuit_requires_exact_agreement_and_programs(
     )
 
 
+def test_v3_candidate_selection_rejects_prior_gate_exposure(tmp_path):
+    manifest = tmp_path / "synthesis.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "protocol_id": "gpt2_behavior_domain_v2",
+                "split": "synthesis",
+            }
+        )
+    )
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    circuit_path = candidate / "circuit.json"
+    circuit_path.write_text(
+        json.dumps(
+            {
+                "domain": {
+                    "protocol_id": "gpt2_behavior_domain_v2",
+                    "split": "synthesis",
+                    "manifest_sha256": digest,
+                }
+            }
+        )
+    )
+    results = [{"path": str(candidate)}]
+    provenance = validate_candidate_exposure(results, str(manifest))
+    assert provenance["split"] == "synthesis"
+
+    payload = json.loads(circuit_path.read_text())
+    payload["domain"]["split"] = "gate"
+    circuit_path.write_text(json.dumps(payload))
+    with pytest.raises(RuntimeError, match="not extracted exclusively"):
+        validate_candidate_exposure(results, str(manifest))
+
+
 def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path):
     output = tmp_path / "healed"
     make_checkpoint(output)
@@ -394,7 +432,7 @@ def test_phase_c_runner_healing_gate_requires_model_and_both_agreements(tmp_path
         )
 
 
-def test_phase_c_runner_runs_v2_core_aware_healing_directly(
+def test_phase_c_runner_runs_v3_core_aware_healing_directly(
     tmp_path, monkeypatch
 ):
     runner = PhaseCRunner(
@@ -431,9 +469,9 @@ def test_phase_c_runner_runs_v2_core_aware_healing_directly(
         tmp_path / "programs_selected.json",
     )
 
-    assert model.name == "gpt2-program-healed-v2-core-aware"
+    assert model.name == "gpt2-program-healed-v3-core-aware"
     assert circuits.name == "healed-core-aware-selected"
-    assert healing_calls == [("gpt2-program-healed-v2-core-aware", True)]
+    assert healing_calls == [("gpt2-program-healed-v3-core-aware", True)]
     assert sweep_calls == [
-        ("gpt2-program-healed-v2-core-aware", "healed-v2-core-aware")
+        ("gpt2-program-healed-v3-core-aware", "healed-v3-core-aware")
     ]

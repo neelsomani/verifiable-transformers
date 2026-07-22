@@ -431,6 +431,30 @@ core forwards, and no joint bypass, in addition to exact full-model P(x)
 accuracy and the perplexity gate. `scripts/gpt2/run_phase_c.py` enforces this
 ordering and writes v2 artifacts under `artifacts/*-v2` paths.
 
+### Phase C behavior-domain protocol v3
+
+The v2 run stopped before healing because its selected `bracket_type` circuit,
+although exact on all 256 synthesis prompts, was correct on only 247 of the 256
+untouched gate prompts. Protocol v2 remains unchanged as that run's record.
+
+Protocol v3 permanently reclassifies both v2 splits as development data. Its
+512 development prompts per task are exactly the union of the v2 synthesis and
+gate prompts. The next 256 rows from the same deterministic, model-independent
+generator form a fresh gate and are disjoint from every v2 prompt. The old v2
+gate is therefore burned as gate material and cannot be reused for evaluation.
+
+Before any v3 result is computed, circuit selection is fixed as follows: test
+the existing v2 threshold circuits on all 512 development prompts; among those
+exact against P(x), select the circuit with the fewest edges, breaking ties by
+lower threshold. Those circuits were extracted using only v2 synthesis rows,
+not its old gate. If a task has no exact existing candidate, rerun C2 for that
+task on the 512-row development domain. C3 is then rerun on all 512 development
+prompts. The fresh v3 gate is first evaluated after circuit selection and never
+changes a circuit or program subset.
+
+The locked protocol is `configs/gpt2_behavior_domain_v3.json`; new artifacts
+are written under `artifacts/*-v3`, while all v2 artifacts are preserved.
+
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
 The behavior scanner tests 2 categories:

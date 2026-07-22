@@ -13,8 +13,8 @@
   "shared": {
     "gpu_count": 8,
     "processed_dataset_dir": "SET_BEFORE_LAUNCH",
-    "extraction_domain_protocol": "gpt2_behavior_domain_v2",
-    "synthesis_examples_per_task": 256,
+    "extraction_domain_protocol": "gpt2_behavior_domain_v3",
+    "development_examples_per_task": 512,
     "untouched_gate_examples_per_task": 256,
     "legacy_regression_examples_per_task": 16,
     "min_projected_agreement": 1.0
@@ -32,24 +32,25 @@
     "gate_margin": 0.11239830780029303
   },
   "phase_c": {
-    "status": "protocol_v2_ready_after_A4",
+    "status": "protocol_v3_ready_after_v2_circuit_gate_failure",
     "one_command_runner": ".venv/bin/python scripts/gpt2/run_phase_c.py --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024",
-    "runner_behavior": "Preserves all protocol-v1 artifacts, builds deterministic unique protocol-v2 manifests, requires the base model to match the explicit reference program on both splits, dynamically schedules per-head C2 sweeps, synthesizes on the synthesis split, selects a globally compatible program subset without consulting the gate split, requires exact agreement on the untouched gate, records full/circuit per-input diagnostics, runs core-aware healing with rotating joint and individual full/core lesions, requires a complete unsampled lesion sweep plus the locked perplexity and behavior gates, then verifies, builds the cost table, and packages evidence plus the selected model.",
+    "runner_behavior": "Preserves protocol-v1 and v2 artifacts. Protocol v3 permanently demotes the failed v2 gate into a 512-row development set with v2 synthesis, tests the v2 threshold circuits against that development set using the predeclared exact-then-fewest-edges-then-lower-threshold rule, and reruns C2 only for tasks with no exact existing candidate. The next 256 deterministic generator rows form a fresh disjoint gate and are first evaluated only after circuit selection. C3 resynthesizes on all 512 development rows, checks the fixed joint subset once on the fresh gate, then runs core-aware healing, migration, verification, cost-table generation, and packaging.",
     "selected_base": "artifacts/gpt2-norm-free",
-    "domain_config": "configs/gpt2_behavior_domain_v2.json",
-    "domain_artifacts": "artifacts/gpt2-behavior-domains-v2/{synthesis,gate,legacy_regression}.json",
-    "c2_artifacts": "artifacts/gpt2-circuits-v2",
-    "c3_artifacts": "artifacts/gpt2-programs-v2",
-    "c4_model": "artifacts/gpt2-program-healed-v2-core-aware",
+    "protocol_v2_result": "The selected bracket_type circuit was exact on 256 v2 synthesis rows and scored 247/256 on the untouched v2 gate; the run stopped before joint program selection or healing.",
+    "domain_config": "configs/gpt2_behavior_domain_v3.json",
+    "domain_artifacts": "artifacts/gpt2-behavior-domains-v3/{development,gate,legacy_regression}.json",
+    "c2_artifacts": "artifacts/gpt2-circuits-v3",
+    "c3_artifacts": "artifacts/gpt2-programs-v3",
+    "c4_model": "artifacts/gpt2-program-healed-v3-core-aware",
     "reference_target": "explicit reference program P(x), not cached base decisions; the runner separately requires the base decisions to equal P(x)",
-    "joint_program_gate": "Full and circuit-only forwards are exact on both synthesis tasks throughout deterministic subset selection and exact on both untouched gate tasks; the gate result never changes the selected subset.",
+    "joint_program_gate": "Full and circuit-only forwards are exact on both 512-row development tasks throughout deterministic subset selection and exact on both untouched v3 gate tasks; the gate result never changes the selected subset.",
     "core_aware_gate": "Exact P(x) accuracy on both gate tasks, perplexity <= 28.617593822841776, minimum rotating suppression coverage, exact circuit-only P(x) accuracy, every installed circuit program individually necessary in full and core forwards, and joint program removal non-bypassed in full and core forwards.",
     "perplexity_budget": {
       "relative_increase": 0.16,
       "locked_before_run": true,
       "reference_perplexity": 24.67033950244981,
       "absolute_budget": 28.617593822841776,
-      "artifact": "artifacts/gpt2-program-healed-v2-core-aware/healing_results.json"
+      "artifact": "artifacts/gpt2-program-healed-v3-core-aware/healing_results.json"
     }
   },
   "kill_and_fallback_criteria": {

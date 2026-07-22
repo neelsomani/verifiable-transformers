@@ -59,6 +59,45 @@ def test_v2_splits_are_unique_balanced_disjoint_and_stable():
     assert all_synthesis.isdisjoint(all_gate)
 
 
+def test_v3_promotes_all_v2_rows_and_locks_the_next_fresh_gate():
+    v2 = generate_v2_splits(
+        seed=1337, split_sizes={"synthesis": 256, "gate": 256}
+    )
+    v3 = generate_v2_splits(
+        seed=1337,
+        split_sizes={"development": 512, "gate": 256},
+        protocol_id="gpt2_behavior_domain_v3",
+    )
+    expected_hashes = {
+        ("development", "quote_close"): (
+            "3cf737914da1c4cf2e09b866a0ac1f03b15f626c48a9c4cb2407a660c967da2e"
+        ),
+        ("development", "bracket_type"): (
+            "24666321904fca7ade6ffc9fc080f4b5405d9237eac2c00ecf829dd81c8c33c4"
+        ),
+        ("gate", "quote_close"): (
+            "b66912f5382381406a60a0873074c55f0f49f3a5f5a652f10757d324aff6eba3"
+        ),
+        ("gate", "bracket_type"): (
+            "68f4384a90e7c0e406729eeb02f10970d8e6e950b148ffdbc6ba29e594e0fd17"
+        ),
+    }
+    for task in TASKS:
+        burned = {
+            row.prompt
+            for split in ("synthesis", "gate")
+            for row in v2[split][task]
+        }
+        development = {row.prompt for row in v3["development"][task]}
+        fresh_gate = {row.prompt for row in v3["gate"][task]}
+        assert len(development) == 512
+        assert development == burned
+        assert len(fresh_gate) == 256
+        assert fresh_gate.isdisjoint(burned)
+        for split in ("development", "gate"):
+            assert prompt_set_sha256(v3[split][task]) == expected_hashes[(split, task)]
+
+
 def test_legacy_v1_128_rows_are_sixteen_prompts_repeated_eight_times():
     for task in TASKS:
         rows = legacy_examples(task, 128)

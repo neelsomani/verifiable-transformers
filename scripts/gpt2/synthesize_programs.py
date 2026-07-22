@@ -166,8 +166,8 @@ def main() -> None:
         if base_accuracy != 1.0:
             raise RuntimeError(
                 f"{task} base-model accuracy against P(x) is {base_accuracy:.6f}; "
-                "v2 forbids filtering examples or synthesizing against an "
-                "incorrect base reference"
+                "the locked protocol forbids filtering examples or synthesizing "
+                "against an incorrect base reference"
             )
         task_heads = {}
 

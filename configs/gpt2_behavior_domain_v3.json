@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "protocol_id": "gpt2_behavior_domain_v3",
+  "generator_revision": 3,
+  "seed": 1337,
+  "split_sizes_per_task": {
+    "development": 512,
+    "gate": 256
+  },
+  "legacy_regression_rows_per_task": 16,
+  "locked_prompt_set_sha256": {
+    "development": {
+      "quote_close": "3cf737914da1c4cf2e09b866a0ac1f03b15f626c48a9c4cb2407a660c967da2e",
+      "bracket_type": "24666321904fca7ade6ffc9fc080f4b5405d9237eac2c00ecf829dd81c8c33c4"
+    },
+    "gate": {
+      "quote_close": "b66912f5382381406a60a0873074c55f0f49f3a5f5a652f10757d324aff6eba3",
+      "bracket_type": "68f4384a90e7c0e406729eeb02f10970d8e6e950b148ffdbc6ba29e594e0fd17"
+    }
+  },
+  "requirements": {
+    "unique_prompts_within_protocol": true,
+    "disjoint_development_and_gate": true,
+    "balanced_binary_strata": true,
+    "single_token_candidates": true,
+    "minimum_distinct_opener_token_positions": 4,
+    "base_projected_accuracy_required": 1.0,
+    "circuit_projected_accuracy_required": 1.0,
+    "program_projected_agreement_required": 1.0
+  },
+  "selection_rule": {
+    "candidate_source": "protocol-v2 threshold circuits",
+    "candidate_exposure": "protocol-v2 threshold circuits were extracted using only the v2 synthesis split and never used the v2 gate split",
+    "development_domain": "exact union of protocol-v2 synthesis and gate prompts",
+    "choice": "among circuits exact against P(x) on all 512 development prompts, choose minimum edge count; break ties by lower threshold",
+    "fallback": "if no existing threshold circuit is exact, rerun extraction on the 512-prompt development domain",
+    "gate_use": "the new 256-prompt gate is evaluated only after selection and never changes the selected circuit or program subset"
+  },
+  "healing_gate": {
+    "projected_accuracy_against_reference_program": 1.0,
+    "relative_perplexity_increase_budget": 0.16,
+    "reference_eval_perplexity": 24.67033950244981,
+    "absolute_perplexity_budget": 28.617593822841776
+  },
+  "provenance": {
+    "protocol_v2_result": "bracket_type synthesis-selected circuit scored 247/256 on the v2 untouched gate; full model and quote circuit remained exact",
+    "protocol_v2_gate_reuse": "the failed v2 gate is deliberately demoted to development data in v3 and is permanently burned as gate material",
+    "protocol_v3_gate_source": "the v3 gate is the next deterministic generator stratum after all v2 synthesis and gate prompts and is disjoint from both"
+  },
+  "notes": [
+    "No model predictions are used to generate, select, or filter examples.",
+    "The v3 gate split is not used to select circuits, programs, or program subsets.",
+    "Protocol-v2 artifacts remain unchanged as a failed held-out-generalization record."
+  ]
+}

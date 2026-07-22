@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and validate deterministic GPT-2 behavior-domain v2 manifests."""
+"""Build and validate deterministic versioned GPT-2 behavior manifests."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from transformers import GPT2TokenizerFast
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from scripts.gpt2.behavior_domains import (
-    PROTOCOL_ID,
+    SUPPORTED_PROTOCOL_IDS,
     TASKS,
     canonical_json_sha256,
     generate_v2_splits,
@@ -104,8 +104,9 @@ def main() -> None:
     args = parse_args()
     with open(args.config) as handle:
         config = json.load(handle)
-    if config.get("protocol_id") != PROTOCOL_ID:
-        raise ValueError("The config does not declare the v2 behavior protocol")
+    protocol_id = config.get("protocol_id")
+    if protocol_id not in SUPPORTED_PROTOCOL_IDS:
+        raise ValueError(f"Unsupported behavior protocol: {protocol_id!r}")
     tokenizer = GPT2TokenizerFast.from_pretrained(args.tokenizer_path)
     tokenizer.pad_token = tokenizer.eos_token
     splits = generate_v2_splits(
@@ -114,6 +115,7 @@ def main() -> None:
             name: int(size)
             for name, size in config["split_sizes_per_task"].items()
         },
+        protocol_id=protocol_id,
     )
     requirements = config["requirements"]
     output_dir = Path(args.output_dir)
@@ -121,7 +123,7 @@ def main() -> None:
     tokenizer_meta = tokenizer_fingerprint(tokenizer)
     index = {
         "schema_version": 2,
-        "protocol_id": PROTOCOL_ID,
+        "protocol_id": protocol_id,
         "config": str(Path(args.config).resolve()),
         "config_sha256": canonical_json_sha256(config),
         "tokenizer": tokenizer_meta,
@@ -137,7 +139,16 @@ def main() -> None:
             config=config,
             tokenizer_metadata=tokenizer_meta,
             validation=validation,
+            protocol_id=protocol_id,
         )
+        locked_hashes = config.get("locked_prompt_set_sha256", {}).get(split, {})
+        for task, expected_hash in locked_hashes.items():
+            actual_hash = manifest["summary"][task]["prompt_set_sha256"]
+            if actual_hash != expected_hash:
+                raise ValueError(
+                    f"Locked {split}/{task} prompt digest changed: "
+                    f"{actual_hash} != {expected_hash}"
+                )
         index["manifests"][split] = {
             "path": str(path.resolve()),
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -162,6 +173,7 @@ def main() -> None:
         config=config,
         tokenizer_metadata=tokenizer_meta,
         validation=legacy_validation,
+        protocol_id=protocol_id,
     )
     index["manifests"]["legacy_regression"] = {
         "path": str(legacy_path.resolve()),

@@ -1,9 +1,9 @@
 """Versioned behavior domains for GPT-2 circuit experiments.
 
-Protocol v1 is retained byte-for-byte for regression measurements.  Protocol
-v2 is a deterministic, unique-prompt domain with disjoint synthesis and gate
-splits.  The generator never consults model predictions when constructing or
-selecting examples.
+Protocol v1 is retained byte-for-byte for regression measurements. Protocols
+v2 and v3 are deterministic, unique-prompt domains with disjoint development
+and gate material. The generator never consults model predictions when
+constructing or selecting examples.
 """
 
 from __future__ import annotations
@@ -17,6 +17,10 @@ from typing import Any, Iterable
 
 TASKS = ("quote_close", "bracket_type")
 PROTOCOL_ID = "gpt2_behavior_domain_v2"
+SUPPORTED_PROTOCOL_IDS = {
+    "gpt2_behavior_domain_v2",
+    "gpt2_behavior_domain_v3",
+}
 SCHEMA_VERSION = 2
 
 
@@ -267,7 +271,9 @@ def _task_strata(task: str) -> tuple[tuple[str, str, str], ...]:
     raise ValueError(f"Unknown behavior task: {task}")
 
 
-def _candidate_pool(task: str, seed: int) -> dict[str, list[BehaviorExample]]:
+def _candidate_pool(
+    task: str, seed: int, protocol_id: str = PROTOCOL_ID
+) -> dict[str, list[BehaviorExample]]:
     bodies = V2_QUOTE_BODIES if task == "quote_close" else V2_BRACKET_BODIES
     pools: dict[str, list[BehaviorExample]] = {}
     for stratum, opener, closer in _task_strata(task):
@@ -292,12 +298,15 @@ def _candidate_pool(task: str, seed: int) -> dict[str, list[BehaviorExample]]:
                             prompt=prompt,
                             correct_token=closer,
                             incorrect_token=incorrect,
-                            example_id=f"v2:{task}:{stratum}:{row_hash[:16]}",
+                            example_id=(
+                                f"{protocol_id.rsplit('_', 1)[-1]}:{task}:"
+                                f"{stratum}:{row_hash[:16]}"
+                            ),
                             task=task,
                             stratum=stratum,
                             template_id=frame_id,
                             metadata={
-                                "protocol": PROTOCOL_ID,
+                                "protocol": protocol_id,
                                 "name": name,
                                 "key": key,
                                 "body": body,
@@ -319,13 +328,16 @@ def _candidate_pool(task: str, seed: int) -> dict[str, list[BehaviorExample]]:
 
 
 def generate_v2_splits(
-    *, seed: int, split_sizes: dict[str, int]
+    *,
+    seed: int,
+    split_sizes: dict[str, int],
+    protocol_id: str = PROTOCOL_ID,
 ) -> dict[str, dict[str, list[BehaviorExample]]]:
-    """Generate balanced, disjoint v2 splits without model-dependent filtering."""
+    """Generate balanced, disjoint protocol splits without model filtering."""
 
     output = {split: {} for split in split_sizes}
     for task in TASKS:
-        pools = _candidate_pool(task, seed)
+        pools = _candidate_pool(task, seed, protocol_id)
         offsets = {stratum: 0 for stratum in pools}
         for split, total_size in split_sizes.items():
             if total_size % len(pools):
@@ -386,10 +398,11 @@ def write_domain_manifest(
     config: dict[str, Any],
     tokenizer_metadata: dict[str, Any],
     validation: dict[str, Any],
+    protocol_id: str = PROTOCOL_ID,
 ) -> dict[str, Any]:
     payload = {
         "schema_version": SCHEMA_VERSION,
-        "protocol_id": PROTOCOL_ID,
+        "protocol_id": protocol_id,
         "split": split,
         "generator_config_sha256": canonical_json_sha256(config),
         "tokenizer": tokenizer_metadata,
