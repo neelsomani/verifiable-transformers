@@ -43,4 +43,113 @@ Suggested execution order: **0.1–0.3 → A1–A3 ∥ B1–B5 → A4 → C → 
 - **Remediation Task 3:** complete in one chase round. The pre-intervention drift artifact is preserved; `attn_1_h_1` was programmed; the final quote circuit has only the intended program heads, passes migration, and verifies all four properties with zero active neural-attention bilinear terms. The plain-heal failure artifact remains unchanged.
 - **A4:** complete. The sparsemax + LeakyReLU + standard-LayerNorm source stopped at step 200,000 with OpenWebText eval loss 3.1968865. Sequential attenuation reached the fixed-std endpoint for all 25 norms, and the folded norm-free model achieved post-fold loss 3.2056017 (perplexity 24.6703), only +0.0087152 loss versus its source and 0.1123983 below the locked 3.3180 gate. The fold passed in FP32 with 1.000 top-1 agreement and a 3.67e-5 eval-loss delta.
 - **C1:** complete. The preregistered selector chose `artifacts/gpt2-norm-free` as the Phase C base; BandNorm remains the documented from-scratch negative result rather than the recommended recipe.
-- **Open:** Phase C steps C2–C7 remain GPU-scale work.
+- **Phase C held-out-generalization track:** complete and stopped at v4. The full
+  norm-free model was exact on both fresh 512-row task gates; the selected
+  bracket circuit was exact, while the selected quote circuit missed one
+  double-quote example (511/512). No symbolic programs were installed and no
+  healing or verification was performed on this track. The terminal evidence
+  is preserved; there will be no protocol v5.
+- **Open:** the bounded-domain quote flagship below is the active Phase C
+  continuation. Bracket surgery and the other follow-ups remain sequenced
+  behind it.
+
+## Execution Agenda — 2026-07-22
+
+The bounded-domain quote flagship is the critical path. Its declared domain
+`D` is the ordered union of the frozen v4 development and gate manifests:
+1,280 unique, hashed prompts per task. There is no held-out split in this
+continuation. The locked gates are OpenWebText perplexity at most 28.6176,
+exact agreement with `P(x)` on every row of `D`, and a full unsampled
+migration/lesion sweep. This is a bounded-domain claim, not an out-of-sample
+generalization claim. Everything else below is sequenced so it does not alter
+that experiment.
+
+### Phase Q — Quote flagship (in flight)
+
+1. Register the bounded-domain continuation before the run: `D` is the 1,280
+   frozen hashes per task, there is no gate split, and the gates are perplexity
+   at most 28.6176, exact-on-`D`, and the full unsampled migration/lesion sweep.
+2. Re-extract `quote_close` on all 1,280 rows using a threshold sweep with
+   `min_agreement = 1.0`, and record the retained-head count.
+3. Synthesize programs for exactly those retained heads on all 1,280 rows,
+   with the LM proposer enabled and a larger candidate budget. If a head
+   resists, first try the small-scale healing-absorbs-slack precedent: allow
+   high-but-imperfect individual fidelity while requiring the joint pre-heal
+   composition check to referee acceptance. Only if that fails may the
+   scan-primitive DSL extension activate, scoped to that head.
+4. Run an encoding smoke test on the new circuit before healing: record the
+   assertion count and solve time for one input so verification cost is known
+   before the expensive run.
+5. Install quote programs only; do not install bracket's 79 candidates. Run
+   core-aware healing, the joint pre-heal composition check, the locked gates,
+   the full lesion sweep, the migration check, and a re-extraction drift check.
+   Use the chase protocol if needed, with an iteration guard of two.
+6. Export in FP32, run the encoder-vs-PyTorch sanity check, and verify all four
+   properties over the declared 1,280-row bounded domain.
+
+**Kill criterion:** if healing cannot achieve exact-on-`D` within the
+perplexity budget after the core-aware objective plus one chase round, stop and
+report. Do not introduce another healing objective at GPT-2 scale.
+
+### Phase R — Terminal report and documentation
+
+This phase may proceed during Phase Q's training waits, but pending claims must
+remain visibly pending until Q lands.
+
+7. Write the GPT-2 results section covering: the quote verified
+   zero-bilinear circuit (pending Q); the sparsity-versus-exactness frontier of
+   17 edges/99.92% versus 340 edges, 144 heads, and exactness; the v2-to-v4
+   gate trajectory; the plain-heal lesion result; and bracket as a boundary
+   measurement rather than unfinished surgery.
+8. Complete the documentation cascade: update `SCALABILITY.md` with the v4
+   outcome and bounded-domain continuation; add the GPT-2 section to
+   `VERIFIED_DISTILLATION.md`; update the README introduction only after Q
+   lands; and, if the arXiv paper is revised, update both Limitations and Future
+   Work.
+9. Maintain commit discipline throughout: preserve the v4 stop bundle as the
+   terminal record, commit Q evidence as it lands, and include evidence
+   manifests with checkpoint hashes. Model weights and checkpoint state remain
+   outside Git under the existing artifact policy.
+
+### Phase S — Registered localization follow-up
+
+10. Run the cheap probe first: apply the extraction plus untouched
+    generalization-gate protocol to Gao et al.'s released weight-sparse
+    checkpoints without training. Register the exact model, the domain
+    generator adapted to its tokenizer, and the gate protocol before running.
+    The question is whether weight-sparse training yields a small bracket
+    circuit that passes an untouched gate.
+11. Use the probe as a decision gate:
+    - **Pass:** justify fused-recipe pretraining (weight sparsity × sparsemax ×
+      LeakyReLU × norm removal) as a separate project with new baselines, a
+      re-derived perplexity budget, and a registered domain-reuse decision.
+    - **Fail:** report bracket diffuseness as plausibly task-intrinsic even
+      under sparsity pressure, and do not pretrain the fused recipe.
+
+### Phase T — Publication assembly
+
+12. After Q and R, choose the artifact shape: either revise the arXiv paper
+    with the removal, program-mediated verification, GPT-2 flagship, and
+    frontier results, or publish the distillation/localization work as a
+    second paper citing the original. The working recommendation is a second
+    paper, "from verifiable architectures to verified distillation," with the
+    Phase S probe determining whether it ends on a positive localization
+    result or a measured boundary.
+13. Update the talk. The existing Future Directions slide now contains mostly
+    completed work, so the original video needs either a revised ending or a
+    sequel.
+
+### Explicitly parked
+
+- **Bracket surgery on the 340-edge circuit:** superseded by Phase S. If
+  localization is trainable, operate on the sparse model's smaller bracket
+  circuit instead.
+- **Mean-ablation semantics:** unregistered diagnostic only, unless Phase S
+  encounters the same extraction limit.
+- **Softmax generalization of the program-head method:** future work, not part
+  of the current experiment.
+- **Counterexample-guided DSL expansion:** activates only if Phase Q step 3's
+  registered fallbacks fail.
+
+The critical path is: declare the bounded domain, re-extract, synthesize, heal,
+and verify. Phases R through T are reporting and registered follow-up work.
