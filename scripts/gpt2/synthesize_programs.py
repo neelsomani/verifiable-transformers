@@ -29,6 +29,7 @@ from scripts.programs import (
 
 
 HEAD_PATTERN = re.compile(r"^attn_(\d+)_h_(\d+)$")
+TASKS = ("quote_close", "bracket_type")
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,6 +44,13 @@ def parse_args() -> argparse.Namespace:
         help="Locked synthesis-domain manifest; legacy repeated rows if omitted.",
     )
     parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument(
+        "--tasks",
+        nargs="+",
+        choices=TASKS,
+        default=list(TASKS),
+        help="Behavior tasks to synthesize; defaults to both.",
+    )
     parser.add_argument("--healable_agreement", type=float, default=1.0)
     parser.add_argument("--device", default=None)
     parser.add_argument(
@@ -137,7 +145,8 @@ def main() -> None:
     domain_provenance = {}
     base_accuracy_against_reference = {}
 
-    for task in ("quote_close", "bracket_type"):
+    tasks = tuple(dict.fromkeys(args.tasks))
+    for task in tasks:
         with open(os.path.join(args.circuit_root, task, "circuit.json")) as handle:
             circuit = json.load(handle)
         heads = retained_heads(circuit)

@@ -24,6 +24,7 @@ from scripts.gpt2.run_phase_c import (
     healing_state,
     selected_circuit_complete,
 )
+from scripts.gpt2.run_phase_c_bounded import BoundedQuoteRunner
 from scripts.gpt2.select_base_model import select
 from scripts.gpt2.select_sweep_circuit import (
     select_best_candidate,
@@ -549,3 +550,64 @@ def test_phase_c_runner_runs_v4_core_aware_healing_directly(
     assert sweep_calls == [
         ("gpt2-program-healed-v4-core-aware", "healed-v4-core-aware")
     ]
+
+
+def test_bounded_quote_runner_is_separate_from_v4_and_has_no_gate_split(tmp_path):
+    runner = BoundedQuoteRunner(
+        SimpleNamespace(
+            repo_root=str(tmp_path),
+            base_model="artifacts/gpt2-norm-free",
+            processed_dataset_dir="dataset",
+            gpus="0",
+            minimum_free_gb=1,
+            evidence_archive="bounded-evidence.tar.gz",
+            model_archive="bounded-model.tar",
+        )
+    )
+    assert runner.run_dir.name == "gpt2-phase-c-bounded-quote-run"
+    assert runner.domain_config.name == "gpt2_behavior_domain_bounded_v1.json"
+    assert runner.synthesis_manifest.name == "domain.json"
+    assert runner.gate_manifest is None
+
+
+def test_bounded_quote_zero_bilinear_gate_rejects_retained_neural_head(tmp_path):
+    runner = BoundedQuoteRunner(
+        SimpleNamespace(
+            repo_root=str(tmp_path),
+            base_model="artifacts/gpt2-norm-free",
+            processed_dataset_dir="dataset",
+            gpus="0",
+            minimum_free_gb=1,
+            evidence_archive="bounded-evidence.tar.gz",
+            model_archive="bounded-model.tar",
+        )
+    )
+    circuits = tmp_path / "circuits" / "quote_close"
+    circuits.mkdir(parents=True)
+    (circuits / "circuit.json").write_text(
+        json.dumps(
+            {
+                "edges": [
+                    ["emb", "attn_7_h_11"],
+                    ["attn_7_h_11", "attn_8_h_1"],
+                    ["attn_8_h_1", "logits"],
+                ]
+            }
+        )
+    )
+    programs = tmp_path / "programs.json"
+    programs.write_text(json.dumps({"7.11": {"dsl_version": 1}}))
+    with pytest.raises(PipelineError, match="attn_8_h_1"):
+        runner.ensure_zero_bilinear_coverage(circuits.parent, programs)
+
+    programs.write_text(
+        json.dumps(
+            {
+                "7.11": {"dsl_version": 1},
+                "8.1": {"dsl_version": 1},
+            }
+        )
+    )
+    report = runner.ensure_zero_bilinear_coverage(circuits.parent, programs)
+    assert report["pass"] is True
+    assert report["retained_neural_attention_heads"] == []

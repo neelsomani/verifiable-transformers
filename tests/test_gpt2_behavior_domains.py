@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from scripts.gpt2.behavior_domains import (
     candidate_pool_capacity,
@@ -8,6 +9,7 @@ from scripts.gpt2.behavior_domains import (
     prompt_set_sha256,
     write_domain_manifest,
 )
+from scripts.gpt2.build_bounded_behavior_domain import build
 
 
 TASKS = ("quote_close", "bracket_type")
@@ -149,6 +151,46 @@ def test_v4_promotes_all_v3_rows_and_has_balanced_final_gate_capacity():
         ) == [256, 256]
         for split in ("development", "gate"):
             assert prompt_set_sha256(v4[split][task]) == expected_hashes[(split, task)]
+
+
+def test_bounded_v1_is_the_exact_frozen_union_without_a_gate(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    output = tmp_path / "bounded" / "domain.json"
+    index = build(
+        root / "configs/gpt2_behavior_domain_bounded_v1.json",
+        output,
+        root,
+    )
+    bounded = load_domain_manifest(output)
+    development = load_domain_manifest(
+        root / "artifacts/gpt2-behavior-domains-v4/development.json"
+    )
+    gate = load_domain_manifest(
+        root / "artifacts/gpt2-behavior-domains-v4/gate.json"
+    )
+    assert bounded["protocol_id"] == "gpt2_behavior_domain_bounded_v1"
+    assert bounded["split"] == "bounded"
+    assert bounded["held_out_gate"] is False
+    assert index["held_out_gate"] is False
+    expected_hashes = {
+        "quote_close": (
+            "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48"
+        ),
+        "bracket_type": (
+            "0ae81b74475f8b988325299387da78732421901f15f7b9845031fc805dea9afe"
+        ),
+    }
+    for task in TASKS:
+        bounded_rows = bounded["loaded_examples"][task]
+        source_rows = (
+            development["loaded_examples"][task]
+            + gate["loaded_examples"][task]
+        )
+        assert [row.example_id for row in bounded_rows] == [
+            row.example_id for row in source_rows
+        ]
+        assert len({row.prompt for row in bounded_rows}) == 1280
+        assert prompt_set_sha256(bounded_rows) == expected_hashes[task]
 
 
 def test_legacy_v1_128_rows_are_sixteen_prompts_repeated_eight_times():

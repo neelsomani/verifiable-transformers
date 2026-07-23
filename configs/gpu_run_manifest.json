@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "status": "phase_c_v4_stopped_near_exact",
+  "status": "phase_c_bounded_quote_registered",
   "pre_gpu_results": {
     "small_layernorm_removal": "passed",
     "small_program_healing": "passed_after_ablation_aware_countermeasure",
@@ -61,6 +61,20 @@
       "artifact": null,
       "planned_artifact": "artifacts/gpt2-program-healed-v4-core-aware/healing_results.json"
     }
+  },
+  "phase_c_bounded_continuation": {
+    "status": "registered_before_run",
+    "relationship_to_v4": "The protocol-v4 held-out-generalization track remains stopped. This is a separate bounded-domain claim over the frozen union of all 1,280 previously evaluated prompts per task.",
+    "one_command_runner": ".venv/bin/python scripts/gpt2/run_phase_c_bounded.py --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024",
+    "domain_config": "configs/gpt2_behavior_domain_bounded_v1.json",
+    "domain_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+    "primary_task": "quote_close",
+    "quote_policy": "Re-extract on all 1,280 prompts; select the minimum-edge exact circuit; synthesize on the same D; require every retained attention head to be replaced for the flagship zero-bilinear claim.",
+    "behavioral_gate": "Full and circuit-only accuracy against P(x) must both equal 1.0 on every row of D before and after healing.",
+    "perplexity_budget": 28.617593822841776,
+    "migration_gate": "Every installed program is individually necessary in full and circuit-only forwards, and joint removal is non-bypassed.",
+    "formal_verification_scope": "SMT properties use separately declared bounded token-sequence domains; exhaustive behavior on D and SMT properties are reported as distinct measurements.",
+    "bracket_policy": "Deferred stretch goal. The existing 340-edge circuit is exact on D; any partial replacement must report remaining neural heads and bilinear terms."
   },
   "kill_and_fallback_criteria": {
     "a4_removal_failure": "Use BandNorm and skip norm-free as the C base.",

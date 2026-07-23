@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "protocol_id": "gpt2_behavior_domain_bounded_v1",
+  "config": "configs/gpt2_behavior_domain_bounded_v1.json",
+  "config_sha256": "2cacb53ff5da742c8f758a4d585b0bb759207c1d42004d60578e532b866a2abe",
+  "manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+  "summary": {
+    "quote_close": {
+      "rows": 1280,
+      "unique_prompts": 1280,
+      "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+      "strata": {
+        "double": 640,
+        "single": 640
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "bracket_type": {
+      "rows": 1280,
+      "unique_prompts": 1280,
+      "prompt_set_sha256": "0ae81b74475f8b988325299387da78732421901f15f7b9845031fc805dea9afe",
+      "strata": {
+        "brace": 640,
+        "bracket": 640
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "held_out_gate": false
+}

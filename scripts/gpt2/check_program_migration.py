@@ -39,9 +39,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--domain_manifest",
         default=None,
-        help="Locked gate-domain manifest; legacy repeated rows if omitted.",
+        help="Locked acceptance-domain manifest; legacy rows if omitted.",
     )
     parser.add_argument("--device", default=None)
+    parser.add_argument(
+        "--tasks", nargs="+", choices=TASKS, default=list(TASKS)
+    )
     return parser.parse_args()
 
 
@@ -82,6 +85,7 @@ def projected_metrics(
 
 def main() -> None:
     args = parse_args()
+    tasks = tuple(dict.fromkeys(args.tasks))
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model_with_variants(args.model_path, device).eval()
     programs = load_programs(os.path.join(args.model_path, "programs.json"))
@@ -94,7 +98,7 @@ def main() -> None:
     tokenizer.pad_token = tokenizer.eos_token
     reports = {}
 
-    for task in TASKS:
+    for task in tasks:
         with open(os.path.join(args.circuit_root, task, "circuit.json")) as handle:
             circuit = json.load(handle)
         retained = circuit_edges(circuit)
@@ -124,33 +128,60 @@ def main() -> None:
             )
         individual = {}
         for node in intended:
-            edges = {edge for edge in full_edges if edge[0] != node}
+            full_without = {edge for edge in full_edges if edge[0] != node}
+            core_without = {edge for edge in retained if edge[0] != node}
             with torch.no_grad():
-                logits = controlled_forward(
-                    model, input_ids, attention_mask, edges, graph
+                full_logits = controlled_forward(
+                    model, input_ids, attention_mask, full_without, graph
                 )
-            metrics = projected_metrics(
-                reference, logits, attention_mask, candidates
+                core_logits = controlled_forward(
+                    model, input_ids, attention_mask, core_without, graph
+                )
+            full_metrics = projected_metrics(
+                reference, full_logits, attention_mask, candidates
+            )
+            core_metrics = projected_metrics(
+                circuit_logits, core_logits, attention_mask, candidates
             )
             individual[node] = {
-                "metrics": metrics,
-                "necessary": metrics["projected_agreement"] < 1.0,
+                "metrics": full_metrics,
+                "full_metrics": full_metrics,
+                "core_metrics": core_metrics,
+                "necessary_in_full": (
+                    full_metrics["projected_agreement"] < 1.0
+                ),
+                "necessary_in_core": (
+                    core_metrics["projected_agreement"] < 1.0
+                ),
+                "necessary": (
+                    full_metrics["projected_agreement"] < 1.0
+                    and core_metrics["projected_agreement"] < 1.0
+                ),
             }
-        without_intended = {
+        full_without_intended = {
             edge for edge in full_edges if edge[0] not in intended
+        }
+        core_without_intended = {
+            edge for edge in retained if edge[0] not in intended
         }
         without_all = {
             edge for edge in full_edges if edge[0] not in program_nodes
         }
         with torch.no_grad():
-            intended_logits = controlled_forward(
-                model, input_ids, attention_mask, without_intended, graph
+            intended_full_logits = controlled_forward(
+                model, input_ids, attention_mask, full_without_intended, graph
+            )
+            intended_core_logits = controlled_forward(
+                model, input_ids, attention_mask, core_without_intended, graph
             )
             all_logits = controlled_forward(
                 model, input_ids, attention_mask, without_all, graph
             )
-        intended_metrics = projected_metrics(
-            reference, intended_logits, attention_mask, candidates
+        intended_full_metrics = projected_metrics(
+            reference, intended_full_logits, attention_mask, candidates
+        )
+        intended_core_metrics = projected_metrics(
+            circuit_logits, intended_core_logits, attention_mask, candidates
         )
         reports[task] = {
             "domain": provenance,
@@ -171,12 +202,24 @@ def main() -> None:
                 ).float().mean().item()
             ),
             "individual_ablations": individual,
-            "without_intended_program_heads": intended_metrics,
+            "without_intended_program_heads": {
+                "full": intended_full_metrics,
+                "core": intended_core_metrics,
+            },
             "without_all_program_heads": projected_metrics(
                 reference, all_logits, attention_mask, candidates
             ),
             "necessary": all(value["necessary"] for value in individual.values()),
-            "non_bypassed": intended_metrics["projected_agreement"] < 1.0,
+            "non_bypassed_in_full": (
+                intended_full_metrics["projected_agreement"] < 1.0
+            ),
+            "non_bypassed_in_core": (
+                intended_core_metrics["projected_agreement"] < 1.0
+            ),
+            "non_bypassed": (
+                intended_full_metrics["projected_agreement"] < 1.0
+                and intended_core_metrics["projected_agreement"] < 1.0
+            ),
         }
 
     output = {
@@ -184,6 +227,7 @@ def main() -> None:
         "circuit_root": args.circuit_root,
         "program_nodes": sorted(program_nodes),
         "num_examples": args.num_examples,
+        "tasks_evaluated": list(tasks),
         "domain_manifest": args.domain_manifest,
         "reference_target": "explicit_reference_program_P(x)",
         "tasks": reports,

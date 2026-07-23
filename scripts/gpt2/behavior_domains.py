@@ -2,8 +2,9 @@
 
 Protocol v1 is retained byte-for-byte for regression measurements. Protocols
 v2 through v4 are deterministic, unique-prompt domains with disjoint
-development and gate material. The generator never consults model predictions
-when constructing or selecting examples.
+development and gate material. The bounded-v1 continuation is the frozen union
+of v4's two splits and makes no held-out-generalization claim. The generator
+never consults model predictions when constructing or selecting examples.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ SUPPORTED_PROTOCOL_IDS = {
     "gpt2_behavior_domain_v2",
     "gpt2_behavior_domain_v3",
     "gpt2_behavior_domain_v4",
+    "gpt2_behavior_domain_bounded_v1",
 }
 SCHEMA_VERSION = 2
 

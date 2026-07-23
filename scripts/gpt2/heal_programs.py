@@ -89,6 +89,17 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Untouched behavior gate manifest; defaults to the train manifest.",
     )
+    parser.add_argument(
+        "--bounded_behavior_manifest",
+        default=None,
+        help=(
+            "Declared finite behavior domain used for both auxiliary training "
+            "and exhaustive acceptance; makes no held-out claim."
+        ),
+    )
+    parser.add_argument(
+        "--tasks", nargs="+", choices=TASKS, default=list(TASKS)
+    )
     return parser.parse_args()
 
 
@@ -97,9 +108,9 @@ def load_json(path: str) -> dict:
         return json.load(handle)
 
 
-def behavior_domain(tokenizer, cfg, device, manifest_path=None):
+def behavior_domain(tokenizer, cfg, device, manifest_path=None, tasks=TASKS):
     result = {}
-    for task in TASKS:
+    for task in tasks:
         examples, provenance = load_behavior_examples(
             task, cfg["behavior_examples"], manifest_path
         )
@@ -174,14 +185,14 @@ def full_lesion_sweep(
     program_nodes,
     batch_size,
 ):
-    """Run the unsampled full/core C5 lesion matrix on the gate domain."""
+    """Run the unsampled full/core C5 lesion matrix on the acceptance domain."""
 
     base = model
     graph = build_circuit_graph(base.config.n_layer, base.config.n_head)
     full_edges = graph.get_edges()
     full_decisions = decisions_for_model(base, domains, batch_size)
     reports = {}
-    for task in TASKS:
+    for task in domains:
         core = circuit_edges[task]
         intended = sorted(
             node for node in program_nodes if any(node in edge for edge in core)
@@ -257,7 +268,7 @@ def full_lesion_sweep(
 
 
 class HealingGateCallback(TrainerCallback):
-    """Stop only when both preregistered C4 acceptance gates are satisfied."""
+    """Stop only when every configured acceptance condition is satisfied."""
 
     def __init__(
         self,
@@ -276,6 +287,7 @@ class HealingGateCallback(TrainerCallback):
         self.perplexity_budget = perplexity_budget
         self.output_dir = output_dir
         self.lesion_context = lesion_context
+        self.tasks = tuple(domains)
         self.ablation_trainer = None
         self.history = []
 
@@ -285,7 +297,7 @@ class HealingGateCallback(TrainerCallback):
             task: float(
                 (decisions[task] == self.reference[task]).float().mean().item()
             )
-            for task in TASKS
+            for task in self.tasks
         }
         eval_loss = float((metrics or {})["eval_loss"])
         perplexity = math.exp(eval_loss)
@@ -354,9 +366,11 @@ class HealingGateCallback(TrainerCallback):
         return control
 
 
-def load_circuit_edges(circuit_root: str) -> dict[str, set[tuple[str, str]]]:
+def load_circuit_edges(
+    circuit_root: str, tasks=TASKS
+) -> dict[str, set[tuple[str, str]]]:
     result = {}
-    for task in TASKS:
+    for task in tasks:
         with open(os.path.join(circuit_root, task, "circuit.json")) as handle:
             circuit = json.load(handle)
         result[task] = {
@@ -383,6 +397,7 @@ class AblationAwareProgramTrainer(Trainer):
     ):
         super().__init__(*args, **kwargs)
         self.behavior_domains = behavior_domains
+        self.tasks = tuple(behavior_domains)
         self.reference_decisions = reference_decisions
         self.circuit_edges = circuit_edges
         self.program_nodes = set(program_nodes)
@@ -472,7 +487,7 @@ class AblationAwareProgramTrainer(Trainer):
         if individual_heads_per_aux < 1:
             raise ValueError("core_aware_individual_heads_per_aux must be positive")
 
-        for task_index, task in enumerate(TASKS):
+        for task_index, task in enumerate(self.tasks):
             domain = self.behavior_domains[task]
             runtime_device = next(base_model.parameters()).device
             domain_size = domain["input_ids"].size(0)
@@ -629,6 +644,15 @@ class AblationAwareProgramTrainer(Trainer):
 
 def main() -> None:
     args = parse_args()
+    tasks = tuple(dict.fromkeys(args.tasks))
+    bounded_mode = args.bounded_behavior_manifest is not None
+    if bounded_mode and (
+        args.behavior_train_manifest is not None
+        or args.behavior_gate_manifest is not None
+    ):
+        raise ValueError(
+            "--bounded_behavior_manifest cannot be combined with train/gate manifests"
+        )
     cfg = load_json(args.config)
     if args.ablation_aware and not args.circuit_root:
         raise ValueError("--circuit_root is required with --ablation_aware")
@@ -641,11 +665,22 @@ def main() -> None:
     model.config.use_cache = False
     tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
     tokenizer.pad_token = tokenizer.eos_token
-    train_domains = behavior_domain(
-        tokenizer, cfg, device, args.behavior_train_manifest
+    train_manifest = (
+        args.bounded_behavior_manifest
+        if bounded_mode
+        else args.behavior_train_manifest
     )
-    gate_manifest = args.behavior_gate_manifest or args.behavior_train_manifest
-    gate_domains = behavior_domain(tokenizer, cfg, device, gate_manifest)
+    gate_manifest = (
+        args.bounded_behavior_manifest
+        if bounded_mode
+        else args.behavior_gate_manifest or args.behavior_train_manifest
+    )
+    train_domains = behavior_domain(
+        tokenizer, cfg, device, train_manifest, tasks
+    )
+    gate_domains = behavior_domain(
+        tokenizer, cfg, device, gate_manifest, tasks
+    )
     train_reference = reference_program_decisions(train_domains)
     gate_reference = reference_program_decisions(gate_domains)
     base_train = decisions_for_model(
@@ -654,21 +689,27 @@ def main() -> None:
     base_gate = decisions_for_model(
         model, gate_domains, cfg["behavior_batch_size"]
     )
-    base_accuracy = {
-        "train": {
-            task: float(
-                (base_train[task] == train_reference[task]).float().mean().item()
-            )
-            for task in TASKS
-        },
-        "gate": {
-            task: float(
-                (base_gate[task] == gate_reference[task]).float().mean().item()
-            )
-            for task in TASKS
-        },
+    train_accuracy = {
+        task: float(
+            (base_train[task] == train_reference[task]).float().mean().item()
+        )
+        for task in tasks
     }
-    if args.behavior_train_manifest and any(
+    gate_accuracy = {
+        task: float(
+            (base_gate[task] == gate_reference[task]).float().mean().item()
+        )
+        for task in tasks
+    }
+    base_accuracy = (
+        {"bounded": train_accuracy}
+        if bounded_mode
+        else {
+            "train": train_accuracy,
+            "gate": gate_accuracy,
+        }
+    )
+    if train_manifest and any(
         value != 1.0
         for split in base_accuracy.values()
         for value in split.values()
@@ -693,27 +734,36 @@ def main() -> None:
         task: float(
             (initial[task] == gate_reference[task]).float().mean().item()
         )
-        for task in TASKS
+        for task in tasks
     }
-    if args.behavior_gate_manifest and any(
+    if gate_manifest and any(
         value != 1.0 for value in initial_agreement.values()
     ):
         raise RuntimeError(
             "The jointly selected programs are not exact against P(x) on the "
-            "locked gate split. Stop before OWT healing."
+            "locked acceptance domain. Stop before OWT healing."
         )
     loaded_circuit_edges = (
-        load_circuit_edges(args.circuit_root) if args.ablation_aware else None
+        load_circuit_edges(args.circuit_root, tasks)
+        if args.ablation_aware
+        else None
     )
     initial_circuit_accuracy = None
     if args.ablation_aware:
         graph = build_circuit_graph(model.config.n_layer, model.config.n_head)
-        initial_circuit_accuracy = {"train": {}, "gate": {}}
-        for split, split_domains, split_reference in (
-            ("train", train_domains, train_reference),
-            ("gate", gate_domains, gate_reference),
-        ):
-            for task in TASKS:
+        acceptance_splits = (
+            (("bounded", train_domains, train_reference),)
+            if bounded_mode
+            else (
+                ("train", train_domains, train_reference),
+                ("gate", gate_domains, gate_reference),
+            )
+        )
+        initial_circuit_accuracy = {
+            split: {} for split, _, _ in acceptance_splits
+        }
+        for split, split_domains, split_reference in acceptance_splits:
+            for task in tasks:
                 decisions = controlled_decisions_for_edges(
                     model,
                     split_domains,
@@ -846,7 +896,7 @@ def main() -> None:
         task: float(
             (final[task] == gate_reference[task]).float().mean().item()
         )
-        for task in TASKS
+        for task in tasks
     }
     eval_perplexity = math.exp(float(eval_metrics["eval_loss"]))
     budget = perplexity_budget
@@ -886,16 +936,36 @@ def main() -> None:
         ),
         "ablation_aware": args.ablation_aware,
         "circuit_root": args.circuit_root,
-        "behavior_train_manifest": args.behavior_train_manifest,
-        "behavior_gate_manifest": gate_manifest,
-        "behavior_domain": {
-            "train": {
-                task: train_domains[task]["provenance"] for task in TASKS
-            },
-            "gate": {
-                task: gate_domains[task]["provenance"] for task in TASKS
-            },
-        },
+        "behavior_domain_mode": (
+            "bounded_domain" if bounded_mode else "train_and_gate"
+        ),
+        "tasks": list(tasks),
+        "claim_scope": (
+            "exact only on the declared finite bounded domain; no held-out claim"
+            if bounded_mode
+            else "locked train and gate domains"
+        ),
+        "bounded_behavior_manifest": (
+            args.bounded_behavior_manifest if bounded_mode else None
+        ),
+        "behavior_train_manifest": None if bounded_mode else train_manifest,
+        "behavior_gate_manifest": None if bounded_mode else gate_manifest,
+        "behavior_domain": (
+            {
+                "bounded": {
+                    task: train_domains[task]["provenance"] for task in tasks
+                }
+            }
+            if bounded_mode
+            else {
+                "train": {
+                    task: train_domains[task]["provenance"] for task in tasks
+                },
+                "gate": {
+                    task: gate_domains[task]["provenance"] for task in tasks
+                },
+            }
+        ),
         "reference_target": "explicit_reference_program_P(x)",
         "base_projected_accuracy": base_accuracy,
         "ablation_aware_last_metrics": getattr(
@@ -923,10 +993,16 @@ def main() -> None:
             else final_gate_record.get("full_unsampled_lesion_sweep")
         ),
         "stopping_criteria": (
-            "projected accuracy against P(x) on both locked gate domains must "
-            "equal the configured threshold; eval perplexity must stay within "
-            "the pre-registered budget; core-aware runs also require suppression "
-            "coverage and the complete unsampled full/core lesion sweep"
+            "projected accuracy against P(x) on every task in the declared "
+            "bounded domain must equal the configured threshold; eval perplexity "
+            "must stay within the pre-registered budget; core-aware runs also "
+            "require suppression coverage and the complete unsampled full/core "
+            "lesion sweep"
+            if bounded_mode
+            else "projected accuracy against P(x) on both locked gate domains "
+            "must equal the configured threshold; eval perplexity must stay "
+            "within the pre-registered budget; core-aware runs also require "
+            "suppression coverage and the complete unsampled full/core lesion sweep"
         ),
         "gate_history": gate_callback.history,
         "success": (

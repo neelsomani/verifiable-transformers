@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Select and gate a jointly exact subset of synthesized GPT-2 programs.
+"""Select a jointly exact subset of synthesized GPT-2 programs.
 
 Programs are proposed and accepted per head during synthesis.  This stage is
-the separate composition check: add programs greedily while requiring exact
-P(x) accuracy on both synthesis tasks after every addition, then evaluate the
-frozen result once on the untouched gate split.  Gate failures are reported,
-never adapted to.
+the separate composition check. Held-out mode adds programs using synthesis
+data and evaluates the frozen result once on an untouched gate. Bounded mode
+uses one declared finite domain and makes no held-out claim.
 """
 
 from __future__ import annotations
@@ -44,20 +43,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--synthesis_results", required=True)
     parser.add_argument("--circuit_root", required=True)
     parser.add_argument("--programs", required=True)
-    parser.add_argument("--synthesis_manifest", required=True)
-    parser.add_argument("--gate_manifest", required=True)
+    parser.add_argument("--synthesis_manifest", default=None)
+    parser.add_argument("--gate_manifest", default=None)
+    parser.add_argument(
+        "--bounded_manifest",
+        default=None,
+        help=(
+            "Declared finite behavior domain. In this mode there is no gate "
+            "split and no held-out-generalization claim."
+        ),
+    )
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--minimum_program_heads", type=int, default=1)
     parser.add_argument("--minimum_program_heads_per_task", type=int, default=1)
+    parser.add_argument(
+        "--require_all_circuit_heads",
+        action="store_true",
+        help="Require every attention head retained by every selected circuit.",
+    )
+    parser.add_argument(
+        "--tasks", nargs="+", choices=TASKS, default=list(TASKS)
+    )
     parser.add_argument("--device", default=None)
     return parser.parse_args()
 
 
-def build_domains(tokenizer, manifest_path, device):
+def build_domains(tokenizer, manifest_path, device, tasks=TASKS):
     result = {}
     provenance = {}
-    for task in TASKS:
+    for task in tasks:
         examples, task_provenance = load_behavior_examples(
             task, 0, manifest_path
         )
@@ -80,9 +95,9 @@ def build_domains(tokenizer, manifest_path, device):
     return result, provenance
 
 
-def load_circuit_edges(circuit_root):
+def load_circuit_edges(circuit_root, tasks=TASKS):
     result = {}
-    for task in TASKS:
+    for task in tasks:
         with open(Path(circuit_root) / task / "circuit.json") as handle:
             circuit = json.load(handle)
         result[task] = {
@@ -171,9 +186,12 @@ def evaluate(model, domains, batch_size, edges_by_task=None):
             ],
             "by_stratum": by_stratum,
         }
-    output["exact_both_tasks"] = all(
-        output[task]["accuracy_against_P"] == 1.0 for task in TASKS
+    tasks = tuple(domains)
+    output["exact_all_tasks"] = all(
+        output[task]["accuracy_against_P"] == 1.0 for task in tasks
     )
+    # Compatibility alias retained for existing two-task protocol artifacts.
+    output["exact_both_tasks"] = output["exact_all_tasks"]
     return output
 
 
@@ -184,14 +202,14 @@ def evaluate_full_and_circuit(model, domains, circuits, batch_size):
         "full": full,
         "circuit": circuit,
         "exact_full_and_circuit": (
-            full["exact_both_tasks"] and circuit["exact_both_tasks"]
+            full["exact_all_tasks"] and circuit["exact_all_tasks"]
         ),
     }
 
 
-def candidate_order(programs, synthesis_results):
+def candidate_order(programs, synthesis_results, tasks=TASKS):
     per_head = {}
-    for task in TASKS:
+    for task in tasks:
         for key, report in synthesis_results["tasks"][task].items():
             if key not in {f"{layer}.{head}" for layer, head in programs}:
                 continue
@@ -216,36 +234,60 @@ def candidate_order(programs, synthesis_results):
 
 def main() -> None:
     args = parse_args()
+    tasks = tuple(dict.fromkeys(args.tasks))
+    bounded_mode = args.bounded_manifest is not None
+    if bounded_mode and (
+        args.synthesis_manifest is not None or args.gate_manifest is not None
+    ):
+        raise ValueError(
+            "--bounded_manifest cannot be combined with synthesis/gate manifests"
+        )
+    if not bounded_mode and (
+        args.synthesis_manifest is None or args.gate_manifest is None
+    ):
+        raise ValueError(
+            "Provide --bounded_manifest, or provide both --synthesis_manifest "
+            "and --gate_manifest"
+        )
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     base = load_model_with_variants(args.model_path, device).eval()
     tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
     tokenizer.pad_token = tokenizer.eos_token
+    selection_manifest = (
+        args.bounded_manifest if bounded_mode else args.synthesis_manifest
+    )
     synthesis_domains, synthesis_provenance = build_domains(
-        tokenizer, args.synthesis_manifest, device
+        tokenizer, selection_manifest, device, tasks
     )
-    gate_domains, gate_provenance = build_domains(
-        tokenizer, args.gate_manifest, device
-    )
-    circuits = load_circuit_edges(args.circuit_root)
+    gate_domains = gate_provenance = None
+    if not bounded_mode:
+        gate_domains, gate_provenance = build_domains(
+            tokenizer, args.gate_manifest, device, tasks
+        )
+    circuits = load_circuit_edges(args.circuit_root, tasks)
     base_synthesis = evaluate_full_and_circuit(
         base, synthesis_domains, circuits, args.batch_size
     )
-    base_gate = evaluate_full_and_circuit(
-        base, gate_domains, circuits, args.batch_size
+    base_gate = (
+        None
+        if bounded_mode
+        else evaluate_full_and_circuit(
+            base, gate_domains, circuits, args.batch_size
+        )
     )
     if (
         not base_synthesis["exact_full_and_circuit"]
-        or not base_gate["exact_full_and_circuit"]
+        or (base_gate is not None and not base_gate["exact_full_and_circuit"])
     ):
         failures = []
-        for split, report in (
-            ("synthesis", base_synthesis),
-            ("gate", base_gate),
-        ):
+        split_reports = [("bounded" if bounded_mode else "synthesis", base_synthesis)]
+        if base_gate is not None:
+            split_reports.append(("gate", base_gate))
+        for split, report in split_reports:
             for forward in ("full", "circuit"):
-                for task in TASKS:
+                for task in tasks:
                     task_report = report[forward][task]
                     if task_report["accuracy_against_P"] != 1.0:
                         failures.append(
@@ -274,9 +316,17 @@ def main() -> None:
             "selection_or_filtering_performed": False,
             "model_path": args.model_path,
             "circuit_root": args.circuit_root,
-            "synthesis_manifest": synthesis_provenance,
+            "mode": "bounded_domain" if bounded_mode else "held_out_gate",
+            "tasks": list(tasks),
+            "bounded_manifest": (
+                synthesis_provenance if bounded_mode else None
+            ),
+            "synthesis_manifest": (
+                None if bounded_mode else synthesis_provenance
+            ),
             "gate_manifest": gate_provenance,
-            "base_synthesis": base_synthesis,
+            "base_bounded": base_synthesis if bounded_mode else None,
+            "base_synthesis": None if bounded_mode else base_synthesis,
             "base_gate": base_gate,
             "failures": failures,
         }
@@ -289,7 +339,7 @@ def main() -> None:
     programs = load_programs(args.programs)
     with open(args.synthesis_results) as handle:
         synthesis_results = json.load(handle)
-    order, head_metadata = candidate_order(programs, synthesis_results)
+    order, head_metadata = candidate_order(programs, synthesis_results, tasks)
     variant = "sparsemax"
     model_info = Path(args.model_path) / "model_info.json"
     if model_info.exists():
@@ -331,7 +381,7 @@ def main() -> None:
             rejected.append(head)
 
     # Interactions can change after later additions.  Reconsider each rejected
-    # head once, still using only the synthesis split.
+    # head once, still using only the declared selection domain.
     still_rejected = []
     for head in rejected:
         metrics = try_subset(selected + [head])
@@ -358,8 +408,24 @@ def main() -> None:
             if task
             in head_metadata.get(f"{layer}.{head}", {}).get("tasks", [])
         ]
-        for task in TASKS
+        for task in tasks
     }
+    required_heads_by_task = {
+        task: sorted(
+            {
+                node.replace("attn_", "").replace("_h_", ".")
+                for edge in circuits[task]
+                for node in edge
+                if node.startswith("attn_")
+            }
+        )
+        for task in tasks
+    }
+    selected_head_names = {f"{layer}.{head}" for layer, head in selected}
+    all_circuit_heads_replaced = all(
+        set(required_heads_by_task[task]) <= selected_head_names
+        for task in tasks
+    )
     final_model = copy.deepcopy(base)
     install_program_heads(
         final_model, selected_programs, attention_variant=variant
@@ -367,41 +433,61 @@ def main() -> None:
     final_synthesis = evaluate_full_and_circuit(
         final_model.eval(), synthesis_domains, circuits, args.batch_size
     )
-    # This is the first and only use of the untouched gate split in selection.
-    # Its outcome is reported and cannot alter the selected subset.
-    final_gate = evaluate_full_and_circuit(
-        final_model, gate_domains, circuits, args.batch_size
+    # Held-out mode opens the gate only after selection. Bounded mode has no
+    # gate: final_synthesis is exhaustive evaluation of the declared D.
+    final_gate = (
+        None
+        if bounded_mode
+        else evaluate_full_and_circuit(
+            final_model, gate_domains, circuits, args.batch_size
+        )
     )
     success = (
         len(selected) >= args.minimum_program_heads
         and all(
             len(selected_by_task[task]) >= args.minimum_program_heads_per_task
-            for task in TASKS
+            for task in tasks
         )
         and final_synthesis["exact_full_and_circuit"]
-        and final_gate["exact_full_and_circuit"]
+        and (final_gate is None or final_gate["exact_full_and_circuit"])
+        and (
+            not args.require_all_circuit_heads or all_circuit_heads_replaced
+        )
     )
     save_programs(selected_programs, output_dir / "programs_selected.json")
     report = {
         "method": "deterministic_forward_add_then_one_readd",
+        "mode": "bounded_domain" if bounded_mode else "held_out_gate",
+        "tasks": list(tasks),
+        "claim_scope": (
+            "exact only on the declared finite bounded domain; no held-out claim"
+            if bounded_mode
+            else "selection split plus one untouched held-out gate"
+        ),
         "selection_or_filtering_performed": True,
-        "selection_split": "synthesis",
-        "gate_split_used_for_selection": False,
+        "selection_split": "bounded" if bounded_mode else "synthesis",
+        "gate_split_used_for_selection": None if bounded_mode else False,
         "reference_target": "explicit_reference_program_P(x)",
         "model_path": args.model_path,
         "circuit_root": args.circuit_root,
         "source_programs": args.programs,
-        "synthesis_manifest": synthesis_provenance,
+        "bounded_manifest": synthesis_provenance if bounded_mode else None,
+        "synthesis_manifest": None if bounded_mode else synthesis_provenance,
         "gate_manifest": gate_provenance,
-        "base_synthesis": base_synthesis,
+        "base_bounded": base_synthesis if bounded_mode else None,
+        "base_synthesis": None if bounded_mode else base_synthesis,
         "base_gate": base_gate,
         "candidate_heads": [f"{a}.{b}" for a, b in order],
         "candidate_head_metadata": head_metadata,
         "selected_heads": [f"{a}.{b}" for a, b in selected],
         "selected_heads_by_task": selected_by_task,
+        "required_circuit_heads_by_task": required_heads_by_task,
+        "require_all_circuit_heads": args.require_all_circuit_heads,
+        "all_circuit_heads_replaced": all_circuit_heads_replaced,
         "rejected_heads": [f"{a}.{b}" for a, b in still_rejected],
         "trials": trials,
-        "final_synthesis": final_synthesis,
+        "final_bounded": final_synthesis if bounded_mode else None,
+        "final_synthesis": None if bounded_mode else final_synthesis,
         "final_gate": final_gate,
         "minimum_program_heads": args.minimum_program_heads,
         "minimum_program_heads_per_task": args.minimum_program_heads_per_task,

@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "protocol_id": "gpt2_behavior_domain_bounded_v1",
+  "claim_type": "bounded_domain_faithfulness",
+  "primary_task": "quote_close",
+  "tasks": [
+    "quote_close",
+    "bracket_type"
+  ],
+  "construction": {
+    "operation": "ordered union of the frozen protocol-v4 development and gate manifests",
+    "source_order": [
+      "development",
+      "gate"
+    ],
+    "preserve_source_example_ids": true,
+    "filtering": "none",
+    "model_output_selection": false
+  },
+  "source_manifests": [
+    {
+      "name": "development",
+      "path": "artifacts/gpt2-behavior-domains-v4/development.json",
+      "sha256": "a021773a306343b3b6639a54563e353093a33d9bb2914cb71a08ea9bd2fdd37d"
+    },
+    {
+      "name": "gate",
+      "path": "artifacts/gpt2-behavior-domains-v4/gate.json",
+      "sha256": "b62f34cf6e45028ee23b128315b06586d2986ff11c53631fc49cf16fea86f949"
+    }
+  ],
+  "bounded_rows_per_task": 1280,
+  "locked_prompt_set_sha256": {
+    "quote_close": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+    "bracket_type": "0ae81b74475f8b988325299387da78732421901f15f7b9845031fc805dea9afe"
+  },
+  "required_strata_rows": {
+    "quote_close": {
+      "single": 640,
+      "double": 640
+    },
+    "bracket_type": {
+      "bracket": 640,
+      "brace": 640
+    }
+  },
+  "quote_circuit": {
+    "thresholds": [
+      0.005,
+      0.01,
+      0.02,
+      0.05,
+      0.1,
+      0.2
+    ],
+    "ablation": "zero",
+    "metric": "candidate_kl",
+    "trim_rounds": 0,
+    "required_accuracy_against_P": 1.0,
+    "selection_rule": "minimum edge count among circuits exact against P(x) on all 1,280 declared prompts; break ties by lower threshold"
+  },
+  "program_replacement": {
+    "synthesis_acceptance": "exact projected agreement against P(x) on all 1,280 declared prompts",
+    "composition_acceptance": "full and circuit-only accuracy against P(x) both equal 1.0 on all 1,280 declared prompts",
+    "quote_primary_requirement": "every attention head retained by the selected quote circuit must be replaced by a frozen accepted program",
+    "post_healing_requirement": "the re-extracted healed quote circuit must contain no retained neural attention head; installed programs being merely present is insufficient",
+    "partial_replacement_fallback": "recordable but does not support a zero-bilinear quote-circuit claim"
+  },
+  "healing_gates": {
+    "behavior_domain": "the same fixed 1,280-prompt D; there is no train/gate split and no out-of-sample claim",
+    "full_model_accuracy_against_P": 1.0,
+    "circuit_only_accuracy_against_P": 1.0,
+    "relative_perplexity_increase_budget": 0.16,
+    "reference_eval_perplexity": 24.67033950244981,
+    "absolute_perplexity_budget": 28.617593822841776,
+    "migration": "every installed program is individually necessary in full and circuit-only forwards, and joint removal is non-bypassed"
+  },
+  "verification_scope": {
+    "behavioral": "exhaustive evaluation of every x in the declared finite D",
+    "formal": "SMT properties use their separately declared bounded token-sequence domains and must not be described as proofs over D unless D itself is encoded"
+  },
+  "relationship_to_v4": "The protocol-v4 held-out-generalization result remains stopped and unchanged. This continuation uses all 1,280 already evaluated prompts as a declared specification domain and makes no held-out claim.",
+  "bracket_policy": "Bracket type is deferred until after the quote flagship. Its existing 340-edge circuit is exact on D; any later partial-replacement run must report retained neural heads and remaining bilinear terms explicitly."
+}

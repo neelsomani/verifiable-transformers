@@ -515,6 +515,52 @@ track is closed with no protocol v5. The locked manifests, selected circuits,
 synthesis output, and stop report are preserved under the corresponding
 `artifacts/gpt2-*-v4/` paths.
 
+### Registered bounded-domain continuation
+
+The stopped v4 result answers a stronger, separate question: sparse circuits
+were near-exact but not exact on prompts held out from extraction. It does not
+block the bounded-domain symbolic-head experiment used throughout this project.
+That continuation is registered before its run in
+`configs/gpt2_behavior_domain_bounded_v1.json`.
+
+The declared finite domain D is the ordered union of the frozen v4 development
+and gate manifests: 1,280 unique, hashed prompts per task, balanced 640/640 by
+class. No row is filtered and there is no held-out split. The locked prompt-set
+digests are `3d590ce6...bd48` for quote close and `0ae81b74...9afe` for bracket
+type. Claims from this continuation are exact only on D and do not modify or
+supersede the v4 generalization result.
+
+Quote close is the primary run. Its circuit is re-extracted on all of D using
+the fixed thresholds 0.005, 0.01, 0.02, 0.05, 0.1, and 0.2 under zero ablation;
+among exact candidates, selection minimizes edges and then threshold. Programs
+are synthesized and composed on all of D. The flagship zero-bilinear claim
+requires every attention head retained by the selected quote circuit to be
+replaced by a frozen accepted program; partial coverage is recorded but does
+not pass that gate. The same coverage check is repeated after healing and
+re-extraction: a newly retained neural attention head fails the zero-bilinear
+gate even when all installed programs remain present.
+
+Core-aware healing retains the locked OpenWebText perplexity budget of
+28.617593822841776 and requires exact full-model and circuit-only agreement
+against P(x) on every row of D. The full unsampled lesion sweep must show every
+installed program individually necessary in both forwards and joint removal
+non-bypassed. Bracket type is deferred until after quote: its 340-edge circuit
+is already exact on D, but a later partial-replacement result must report every
+remaining neural head and bilinear term explicitly.
+
+Exhaustive evaluation on the 1,280 finite prompts establishes bounded-domain
+behavioral faithfulness. The SMT sanity check and four formal properties use
+their own separately declared bounded token-sequence domains; those results are
+reported separately and are not described as SMT proofs over D unless D itself
+is encoded.
+
+The resumable one-command run is:
+
+```bash
+.venv/bin/python scripts/gpt2/run_phase_c_bounded.py \
+  --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024
+```
+
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
 The behavior scanner tests 2 categories:
