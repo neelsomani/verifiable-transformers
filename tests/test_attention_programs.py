@@ -84,6 +84,32 @@ def test_projected_acceptance_is_separate_from_iou_ranking():
     assert result.acceptance_reason == "exact projected agreement"
 
 
+def test_synthesis_accepts_scoped_extra_candidate():
+    input_ids = torch.tensor([[101, 7, 8], [9, 202, 10]])
+    scan = AttentionProgram(
+        rules=(
+            Rule(
+                Fraction(1),
+                (Condition("key_token", "in", (101, 202)),),
+            ),
+        ),
+        name="scoped_scan",
+    )
+    target = scan.weights(input_ids)
+    result = SynthesisHarness(
+        max_token_values=0,
+        max_conjunction_values=0,
+    ).synthesize(
+        input_ids,
+        target,
+        extra_candidates=[scan],
+    )
+
+    assert result.accepted
+    assert result.program == scan
+    assert result.score.exact_attention_agreement
+
+
 def test_command_proposer_exposes_restricted_lm_loop_without_executing_output():
     payload = fixed_position_program(1).to_dict()
     command = [

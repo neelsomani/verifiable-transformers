@@ -25,6 +25,8 @@ from scripts.gpt2.run_phase_c import (
     selected_circuit_complete,
 )
 from scripts.gpt2.run_phase_c_bounded import BoundedQuoteRunner
+from scripts.gpt2.synthesize_programs import scoped_scan_candidates
+from scripts.gpt2.behavior_domains import BehaviorExample
 from scripts.gpt2.select_base_model import select
 from scripts.gpt2.select_sweep_circuit import (
     select_best_candidate,
@@ -568,6 +570,37 @@ def test_bounded_quote_runner_is_separate_from_v4_and_has_no_gate_split(tmp_path
     assert runner.domain_config.name == "gpt2_behavior_domain_bounded_v1.json"
     assert runner.synthesis_manifest.name == "domain.json"
     assert runner.gate_manifest is None
+
+
+def test_bounded_quote_scan_uses_only_manifest_opener_token_ids():
+    examples = [
+        BehaviorExample(
+            prompt='x = "alpha',
+            correct_token='"',
+            incorrect_token="'",
+            metadata={"opener_context_token_id": 366},
+        ),
+        BehaviorExample(
+            prompt="x = 'beta",
+            correct_token="'",
+            incorrect_token='"',
+            metadata={"opener_context_token_id": 705},
+        ),
+        BehaviorExample(
+            prompt='y = "gamma',
+            correct_token='"',
+            incorrect_token="'",
+            metadata={"opener_context_token_id": 366},
+        ),
+    ]
+    candidates = scoped_scan_candidates("quote_close", examples)
+
+    assert len(candidates) == 1
+    condition = candidates[0].rules[0].conditions[0]
+    assert condition.feature == "key_token"
+    assert condition.operator == "in"
+    assert condition.value == (366, 705)
+    assert scoped_scan_candidates("bracket_type", examples) == []
 
 
 def test_bounded_quote_zero_bilinear_gate_rejects_retained_neural_head(tmp_path):

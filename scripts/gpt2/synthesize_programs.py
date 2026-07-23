@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+from fractions import Fraction
 
 import torch
 from transformers import GPT2Tokenizer
@@ -16,13 +17,19 @@ from transformers import GPT2Tokenizer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from scripts.gpt2.extract import (
+    build_circuit_graph,
+    controlled_forward,
     get_candidate_token_ids,
     load_behavior_examples,
     load_model_with_variants,
+    select_last_real_logits,
 )
 from scripts.gpt2.behavior_domains import reference_program_targets
 from scripts.programs import (
+    AttentionProgram,
     CommandProgramProposer,
+    Condition,
+    Rule,
     SynthesisHarness,
     install_program_heads,
 )
@@ -63,6 +70,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--lm_proposer_rounds", type=int, default=2)
     parser.add_argument("--lm_proposer_timeout_seconds", type=float, default=120.0)
+    parser.add_argument("--projected_candidates", type=int, default=64)
+    parser.add_argument("--max_token_values", type=int, default=32)
+    parser.add_argument("--max_conjunction_values", type=int, default=12)
+    parser.add_argument(
+        "--circuit_referee",
+        action="store_true",
+        help=(
+            "Score projected acceptance by the minimum of the full-model and "
+            "selected-circuit accuracies against P(x)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -76,6 +94,49 @@ def retained_heads(circuit: dict) -> set[tuple[int, int]]:
             if match:
                 result.add((int(match.group(1)), int(match.group(2))))
     return result
+
+
+def circuit_edges(circuit: dict) -> set[tuple[str, str]]:
+    return {
+        (
+            (edge["source"], edge["target"])
+            if isinstance(edge, dict)
+            else tuple(edge)
+        )
+        for edge in circuit["edges"]
+    }
+
+
+def scoped_scan_candidates(task, examples) -> list[AttentionProgram]:
+    """Build manifest-derived token scans without adding an unrestricted DSL.
+
+    The variable-position quote domain records the tokenizer ID containing its
+    opening delimiter. A single membership rule over that frozen ID set is the
+    registered scan fallback for quote_close.
+    """
+    if task != "quote_close":
+        return []
+    opener_ids = sorted(
+        {
+            int(example.metadata["opener_context_token_id"])
+            for example in examples
+            if example.metadata.get("opener_context_token_id") is not None
+        }
+    )
+    if not opener_ids:
+        return []
+    return [
+        AttentionProgram(
+            rules=(
+                Rule(
+                    Fraction(1),
+                    (Condition("key_token", "in", tuple(opener_ids)),),
+                ),
+            ),
+            default_weight=Fraction(0),
+            name="scan_manifest_quote_opener",
+        )
+    ]
 
 
 def projected_decisions(
@@ -97,6 +158,32 @@ def projected_decisions(
             ).logits
             last = mask.sum(dim=1) - 1
             rows = logits[torch.arange(ids.size(0), device=ids.device), last]
+            results.append(rows[:, candidates].argmax(dim=-1).cpu())
+    return torch.cat(results)
+
+
+def circuit_projected_decisions(
+    model,
+    input_ids,
+    attention_mask,
+    candidates,
+    batch_size,
+    edges,
+):
+    graph = build_circuit_graph(model.config.n_layer, model.config.n_head)
+    results = []
+    with torch.no_grad():
+        for start in range(0, input_ids.size(0), batch_size):
+            ids = input_ids[start : start + batch_size]
+            mask = attention_mask[start : start + batch_size]
+            logits = controlled_forward(
+                model,
+                ids,
+                mask,
+                edges,
+                graph,
+            )
+            rows = select_last_real_logits(logits, mask)
             results.append(rows[:, candidates].argmax(dim=-1).cpu())
     return torch.cat(results)
 
@@ -124,6 +211,10 @@ def collect_attention(
 
 def main() -> None:
     args = parse_args()
+    if not 0.0 <= args.healable_agreement <= 1.0:
+        raise ValueError("--healable_agreement must be between 0 and 1")
+    if args.projected_candidates <= 0:
+        raise ValueError("--projected_candidates must be positive")
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model_with_variants(args.model_path, device).eval()
     tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
@@ -150,6 +241,7 @@ def main() -> None:
         with open(os.path.join(args.circuit_root, task, "circuit.json")) as handle:
             circuit = json.load(handle)
         heads = retained_heads(circuit)
+        selected_edges = circuit_edges(circuit)
         examples, task_domain = load_behavior_examples(
             task, args.num_examples, args.domain_manifest
         )
@@ -211,17 +303,37 @@ def main() -> None:
                     candidates,
                     args.batch_size,
                 )
-                return float((decisions == reference).float().mean().item())
+                full_agreement = float(
+                    (decisions == reference).float().mean().item()
+                )
+                if not args.circuit_referee:
+                    return full_agreement
+                circuit_decisions = circuit_projected_decisions(
+                    candidate_model,
+                    input_ids,
+                    attention_mask,
+                    candidates,
+                    args.batch_size,
+                    selected_edges,
+                )
+                circuit_agreement = float(
+                    (circuit_decisions == reference).float().mean().item()
+                )
+                return min(full_agreement, circuit_agreement)
 
             result = SynthesisHarness(
                 healable_projected_agreement=args.healable_agreement,
                 proposer=proposer,
                 proposer_rounds=args.lm_proposer_rounds,
+                projected_candidates=args.projected_candidates,
+                max_token_values=args.max_token_values,
+                max_conjunction_values=args.max_conjunction_values,
             ).synthesize(
                 input_ids.cpu(),
                 target,
                 projected_evaluator=projected_evaluator,
                 attention_mask=attention_mask.cpu(),
+                extra_candidates=scoped_scan_candidates(task, examples),
             )
             key = f"{layer}.{head}"
             program_dict = result.program.to_dict()
@@ -269,8 +381,16 @@ def main() -> None:
         "domain": domain_provenance,
         "reference_target": "explicit_reference_program_P(x)",
         "base_accuracy_against_reference": base_accuracy_against_reference,
-        "acceptance_metric": "exact_projected_agreement",
+        "acceptance_metric": (
+            "minimum_full_and_circuit_accuracy_against_P"
+            if args.circuit_referee
+            else "full_model_accuracy_against_P"
+        ),
         "healable_agreement": args.healable_agreement,
+        "circuit_referee": args.circuit_referee,
+        "projected_candidates": args.projected_candidates,
+        "max_token_values": args.max_token_values,
+        "max_conjunction_values": args.max_conjunction_values,
         "lm_proposer": proposer.provenance() if proposer is not None else None,
         "lm_proposer_rounds": args.lm_proposer_rounds,
         "programs": all_programs,

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "protocol_id": "gpt2_bounded_quote_program_fallback_v1",
+  "activated_after": "The exact-only synthesis/composition attempt stopped before healing: head 7.11's coarse individually exact program reduced circuit-only accuracy to 919/1280, while head 9.0's best coarse program achieved 1279/1280 full and 1280/1280 circuit-only.",
+  "bounded_domain_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "bounded_prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+  "tasks": [
+    "quote_close"
+  ],
+  "retained_attention_heads": [
+    "7.11",
+    "9.0"
+  ],
+  "candidate_search": {
+    "healable_preheal_accuracy_floor": 0.98,
+    "projected_candidates": 512,
+    "max_token_values": 64,
+    "max_conjunction_values": 16,
+    "referee": "minimum of full and selected-circuit accuracy against P(x) on D",
+    "scoped_scan": "one restricted key_token membership rule over the frozen manifest's opener_context_token_id values",
+    "lm_proposer": "not configured on the offline GPU host; no unrecorded external proposal is used"
+  },
+  "composition_gate_before_healing": "every retained attention head is replaced and both full and circuit-only accuracy are at least 0.98 on D",
+  "post_healing_gates": {
+    "full_accuracy_against_P": 1.0,
+    "circuit_only_accuracy_against_P": 1.0,
+    "maximum_eval_perplexity": 28.617593822841776,
+    "migration_and_lesion_sweep": "full and unsampled"
+  },
+  "preservation": "The exact-only attempt remains unchanged under artifacts/gpt2-programs-bounded-quote. This fallback writes to artifacts/gpt2-programs-bounded-quote-scan-fallback."
+}

@@ -210,6 +210,7 @@ class SynthesisHarness:
         *,
         projected_evaluator: Optional[ProjectedEvaluator] = None,
         attention_mask: Optional[torch.Tensor] = None,
+        extra_candidates: Iterable[AttentionProgram] = (),
     ) -> SynthesisResult:
         if target_weights.shape != (*input_ids.shape, input_ids.shape[1]):
             raise ValueError(
@@ -219,6 +220,7 @@ class SynthesisHarness:
         if attention_mask is not None and attention_mask.shape != input_ids.shape:
             raise ValueError("attention_mask must have the same shape as input_ids")
         candidates = self._base_candidates(input_ids, attention_mask)
+        candidates.extend(extra_candidates)
         scored = [
             self._score(
                 candidate,

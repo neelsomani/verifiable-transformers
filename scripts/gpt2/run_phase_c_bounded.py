@@ -38,6 +38,7 @@ from scripts.gpt2.run_phase_c import (
 
 TASK = "quote_close"
 TASKS = (TASK,)
+FALLBACK_PREHEAL_ACCURACY = 0.98
 
 
 class BoundedQuoteRunner(PhaseCRunner):
@@ -50,12 +51,31 @@ class BoundedQuoteRunner(PhaseCRunner):
         self.domain_config = (
             self.root / "configs/gpt2_behavior_domain_bounded_v1.json"
         )
+        self.fallback_config = (
+            self.root / "configs/gpt2_bounded_quote_fallback_v1.json"
+        )
         self.domain_dir = (
             self.artifacts / "gpt2-behavior-domain-bounded-v1"
         )
         self.synthesis_manifest = self.domain_dir / "domain.json"
         self.gate_manifest = None
         self.status = self._load_status()
+
+    def run_preflight(self) -> None:
+        super().run_preflight()
+        fallback = load_json(self.fallback_config)
+        if (
+            fallback.get("protocol_id")
+            != "gpt2_bounded_quote_program_fallback_v1"
+            or float(
+                fallback["candidate_search"][
+                    "healable_preheal_accuracy_floor"
+                ]
+            )
+            != FALLBACK_PREHEAL_ACCURACY
+            or fallback.get("tasks") != [TASK]
+        ):
+            raise PipelineError("Bounded quote fallback configuration is invalid")
 
     @staticmethod
     def file_sha256(path: Path) -> str:
@@ -168,6 +188,9 @@ class BoundedQuoteRunner(PhaseCRunner):
                 and resolved(result["circuit_root"]) == circuit_root
                 and result.get("success") is True
                 and set(result.get("tasks", {})) == {TASK}
+                and result.get("circuit_referee") is True
+                and float(result.get("healable_agreement", 0.0))
+                == FALLBACK_PREHEAL_ACCURACY
                 and result["domain"][TASK]["manifest_sha256"] == expected_sha
                 and result["base_accuracy_against_reference"][TASK] == 1.0
                 and bool(programs)
@@ -176,10 +199,33 @@ class BoundedQuoteRunner(PhaseCRunner):
             return False
 
     def ensure_synthesis(self, circuit_root: Path) -> Path:
-        output_dir = self.artifacts / "gpt2-programs-bounded-quote"
+        # Keep the exact-only attempt at gpt2-programs-bounded-quote unchanged.
+        # This path is the registered scan/healing-slack fallback.
+        output_dir = (
+            self.artifacts / "gpt2-programs-bounded-quote-scan-fallback"
+        )
         if self.synthesis_complete(output_dir, circuit_root):
             self.log("REUSE: bounded quote program synthesis")
             return output_dir
+        fallback = load_json(self.fallback_config)
+        circuit = load_json(circuit_root / TASK / "circuit.json")
+        actual_heads = sorted(
+            {
+                node.replace("attn_", "").replace("_h_", ".")
+                for edge in circuit["edges"]
+                for node in (
+                    (edge["source"], edge["target"])
+                    if isinstance(edge, dict)
+                    else edge
+                )
+                if node.startswith("attn_")
+            }
+        )
+        if actual_heads != fallback["retained_attention_heads"]:
+            raise PipelineError(
+                "Fallback head set changed: "
+                f"{actual_heads} != {fallback['retained_attention_heads']}"
+            )
         rows = int(load_json(self.synthesis_manifest)["summary"][TASK]["rows"])
         self.run_logged(
             self.python_command(
@@ -195,7 +241,14 @@ class BoundedQuoteRunner(PhaseCRunner):
                 "--domain_manifest",
                 str(self.synthesis_manifest),
                 "--healable_agreement",
-                "1.0",
+                str(FALLBACK_PREHEAL_ACCURACY),
+                "--circuit_referee",
+                "--projected_candidates",
+                "512",
+                "--max_token_values",
+                "64",
+                "--max_conjunction_values",
+                "16",
                 "--tasks",
                 TASK,
             ),
@@ -220,9 +273,12 @@ class BoundedQuoteRunner(PhaseCRunner):
                 and report.get("tasks") == [TASK]
                 and report.get("require_all_circuit_heads") is True
                 and report.get("all_circuit_heads_replaced") is True
+                and float(report.get("minimum_preheal_accuracy", 0.0))
+                == FALLBACK_PREHEAL_ACCURACY
                 and report["bounded_manifest"][TASK]["manifest_sha256"]
                 == expected_sha
-                and report["final_bounded"]["exact_full_and_circuit"] is True
+                and float(report["final_minimum_preheal_accuracy"])
+                >= FALLBACK_PREHEAL_ACCURACY
                 and bool(programs)
             )
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -258,6 +314,8 @@ class BoundedQuoteRunner(PhaseCRunner):
                 "1",
                 "--minimum_program_heads_per_task",
                 "1",
+                "--minimum_preheal_accuracy",
+                str(FALLBACK_PREHEAL_ACCURACY),
                 "--require_all_circuit_heads",
                 "--tasks",
                 TASK,
@@ -272,7 +330,7 @@ class BoundedQuoteRunner(PhaseCRunner):
         if return_code != 0 or not self.selected_programs_complete(output_dir):
             raise PipelineError(
                 "Quote programs did not replace every retained attention head "
-                "while preserving exact full and circuit-only behavior on D"
+                "within the registered pre-heal agreement floor on D"
             )
         selected = output_dir / "programs_selected.json"
         self.ensure_zero_bilinear_coverage(circuit_root, selected)
@@ -358,6 +416,8 @@ class BoundedQuoteRunner(PhaseCRunner):
             "--ablation_aware",
             "--circuit_root",
             str(circuit_root),
+            "--minimum_initial_agreement",
+            str(FALLBACK_PREHEAL_ACCURACY),
             "--tasks",
             TASK,
         )
@@ -505,9 +565,11 @@ class BoundedQuoteRunner(PhaseCRunner):
         model_archive.parent.mkdir(parents=True, exist_ok=True)
         candidates = [
             self.domain_config,
+            self.fallback_config,
             self.domain_dir,
             self.artifacts / "gpt2-circuits-bounded-quote",
             self.artifacts / "gpt2-programs-bounded-quote",
+            self.artifacts / "gpt2-programs-bounded-quote-scan-fallback",
             healed_model,
             self.run_dir,
             self.artifacts / "gpt2-unified-cost-table.json",

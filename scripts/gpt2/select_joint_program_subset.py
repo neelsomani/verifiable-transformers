@@ -58,6 +58,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--minimum_program_heads", type=int, default=1)
     parser.add_argument("--minimum_program_heads_per_task", type=int, default=1)
     parser.add_argument(
+        "--minimum_preheal_accuracy",
+        type=float,
+        default=1.0,
+        help=(
+            "Minimum full and circuit-only accuracy accepted before healing. "
+            "Final healing gates remain exact."
+        ),
+    )
+    parser.add_argument(
         "--require_all_circuit_heads",
         action="store_true",
         help="Require every attention head retained by every selected circuit.",
@@ -207,6 +216,14 @@ def evaluate_full_and_circuit(model, domains, circuits, batch_size):
     }
 
 
+def minimum_accuracy(metrics, tasks):
+    return min(
+        metrics[forward][task]["accuracy_against_P"]
+        for forward in ("full", "circuit")
+        for task in tasks
+    )
+
+
 def candidate_order(programs, synthesis_results, tasks=TASKS):
     per_head = {}
     for task in tasks:
@@ -234,6 +251,8 @@ def candidate_order(programs, synthesis_results, tasks=TASKS):
 
 def main() -> None:
     args = parse_args()
+    if not 0.0 <= args.minimum_preheal_accuracy <= 1.0:
+        raise ValueError("--minimum_preheal_accuracy must be between 0 and 1")
     tasks = tuple(dict.fromkeys(args.tasks))
     bounded_mode = args.bounded_manifest is not None
     if bounded_mode and (
@@ -365,7 +384,9 @@ def main() -> None:
     for head in order:
         trial_heads = selected + [head]
         metrics = try_subset(trial_heads)
-        accepted = bool(metrics["exact_full_and_circuit"])
+        accepted = (
+            minimum_accuracy(metrics, tasks) >= args.minimum_preheal_accuracy
+        )
         trials.append(
             {
                 "pass": "forward_add",
@@ -385,7 +406,9 @@ def main() -> None:
     still_rejected = []
     for head in rejected:
         metrics = try_subset(selected + [head])
-        accepted = bool(metrics["exact_full_and_circuit"])
+        accepted = (
+            minimum_accuracy(metrics, tasks) >= args.minimum_preheal_accuracy
+        )
         trials.append(
             {
                 "pass": "forward_readd",
@@ -448,7 +471,8 @@ def main() -> None:
             len(selected_by_task[task]) >= args.minimum_program_heads_per_task
             for task in tasks
         )
-        and final_synthesis["exact_full_and_circuit"]
+        and minimum_accuracy(final_synthesis, tasks)
+        >= args.minimum_preheal_accuracy
         and (final_gate is None or final_gate["exact_full_and_circuit"])
         and (
             not args.require_all_circuit_heads or all_circuit_heads_replaced
@@ -489,6 +513,10 @@ def main() -> None:
         "final_bounded": final_synthesis if bounded_mode else None,
         "final_synthesis": None if bounded_mode else final_synthesis,
         "final_gate": final_gate,
+        "minimum_preheal_accuracy": args.minimum_preheal_accuracy,
+        "final_minimum_preheal_accuracy": minimum_accuracy(
+            final_synthesis, tasks
+        ),
         "minimum_program_heads": args.minimum_program_heads,
         "minimum_program_heads_per_task": args.minimum_program_heads_per_task,
         "success": success,

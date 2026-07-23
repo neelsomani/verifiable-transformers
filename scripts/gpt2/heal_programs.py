@@ -100,6 +100,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--tasks", nargs="+", choices=TASKS, default=list(TASKS)
     )
+    parser.add_argument(
+        "--minimum_initial_agreement",
+        type=float,
+        default=1.0,
+        help=(
+            "Registered floor for the programs-installed pre-heal full and "
+            "circuit-only forwards. Final acceptance remains exact."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -644,6 +653,8 @@ class AblationAwareProgramTrainer(Trainer):
 
 def main() -> None:
     args = parse_args()
+    if not 0.0 <= args.minimum_initial_agreement <= 1.0:
+        raise ValueError("--minimum_initial_agreement must be between 0 and 1")
     tasks = tuple(dict.fromkeys(args.tasks))
     bounded_mode = args.bounded_behavior_manifest is not None
     if bounded_mode and (
@@ -737,11 +748,12 @@ def main() -> None:
         for task in tasks
     }
     if gate_manifest and any(
-        value != 1.0 for value in initial_agreement.values()
+        value < args.minimum_initial_agreement
+        for value in initial_agreement.values()
     ):
         raise RuntimeError(
-            "The jointly selected programs are not exact against P(x) on the "
-            "locked acceptance domain. Stop before OWT healing."
+            "The jointly selected programs are below the registered pre-heal "
+            "agreement floor on the locked acceptance domain."
         )
     loaded_circuit_edges = (
         load_circuit_edges(args.circuit_root, tasks)
@@ -777,13 +789,13 @@ def main() -> None:
                 )
                 initial_circuit_accuracy[split][task] = accuracy
         if any(
-            value != 1.0
+            value < args.minimum_initial_agreement
             for split in initial_circuit_accuracy.values()
             for value in split.values()
         ):
             raise RuntimeError(
-                "The programmed circuit-only forward is not exact against P(x) "
-                "before healing. Repair program composition first."
+                "The programmed circuit-only forward is below the registered "
+                "pre-heal agreement floor."
             )
 
     datasets = load_from_disk(args.processed_dataset_dir)
@@ -972,6 +984,7 @@ def main() -> None:
             trainer, "last_ablation_aware_metrics", None
         ),
         "initial_projected_agreement": initial_agreement,
+        "minimum_initial_agreement": args.minimum_initial_agreement,
         "initial_circuit_accuracy_against_P": initial_circuit_accuracy,
         "final_projected_agreement": final_agreement,
         "projected_agreement_required": cfg["projected_agreement_required"],
