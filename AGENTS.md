@@ -13,7 +13,7 @@ Phases A and B are independent and cheap — run them in parallel; everything ex
 6. **A3.** Verification payoff measurement: encode the norm-free small model, re-run all four properties, and log categorized assertions plus per-property solve time. Compare quantitative costs only with topology-matched or per-edge/per-norm-instance normalized measurements. Note the qualitative win explicitly: G_T is now affine + argmax, so the robustness property has no branch certificates and no possible *unknown* outcomes. This is a publishable table row on its own.
 7. **A4 (expensive; gate on A2 succeeding).** GPT-2 scale: train sparsemax + LeakyReLU + LN, then removal fine-tune. **Preregistered decision gate:** choose norm-free only if its final post-fold OpenWebText eval loss is strictly below the BandNorm-only comparator of 3.3180. If removal wins, the recommended verifiable recipe changes and BandNorm becomes a documented negative result; if it loses or diverges, BandNorm survives as the from-scratch answer and you've measured the trade both ways. Either outcome updates the results table.
 
-**Phase B — Program-head pilot (small model; days, not weeks)**
+**Phase B — Program-head pilot (small model)**
 
 8. **B1.** Per-head extraction on the 8K model, both tasks, min_agreement = 1.0.
 9. **B2.** Synthesize programs for the retained heads against their attention maps on the 128-input domain. Sparsemax's exact zeros should make targets crisper than softmax's dense maps — note whether that holds.
@@ -77,6 +77,14 @@ that experiment.
    high-but-imperfect individual fidelity while requiring the joint pre-heal
    composition check to referee acceptance. Only if that fails may the
    scan-primitive DSL extension activate, scoped to that head.
+   The exact-only attempt is now preserved: `7.11`'s individually exact coarse
+   program collapsed the circuit-only double-quote stratum, while `9.0` missed
+   one full-model row. The registered fallback therefore uses the existing
+   restricted key-token membership primitive to scan the four frozen
+   manifest-recorded quote-opener token IDs, scores candidates with the minimum
+   of full and circuit-only agreement, and permits a pre-heal floor of 0.98.
+   Post-healing acceptance remains exactly 1.0 on all of `D`; this relaxation
+   changes only whether healing may start.
 4. Run an encoding smoke test on the new circuit before healing: record the
    assertion count and solve time for one input so verification cost is known
    before the expensive run.
