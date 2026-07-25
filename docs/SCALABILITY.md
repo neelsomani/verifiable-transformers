@@ -561,6 +561,47 @@ The resumable one-command run is:
   --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024
 ```
 
+#### Terminal bounded quote result (2026-07-25)
+
+The preregistered bounded continuation reached its kill criterion after both
+10,000-step core-aware healing attempts failed exact agreement. The second
+attempt began at 0.982031 full and 1.000 circuit-only agreement, but ended at
+0.185156 full agreement while passing perplexity at 24.4287. That failure
+remains the preregistered result.
+
+An explicitly adaptive engineering continuation then found two implementation
+problems. First, the healing objective supervised the selected circuit and a
+random partial graph, but not the actual full forward used by the acceptance
+gate. Second, the program-context forward wrapper's `**kwargs` caused
+Transformers 4.49 to infer support for `num_items_in_batch`; the custom trainer
+therefore skipped division by four-step gradient accumulation. This is visible
+in the old logged training loss of approximately 13.3 versus an ordinary OWT
+loss near 3.2.
+
+Correcting accumulation scaling and adding direct full-forward supervision
+recovered exact agreement quickly. The 100-step exploratory checkpoint is
+1,280/1,280 in both full and selected-circuit forwards and has OWT perplexity
+25.2506. All retained circuit attention heads (`7.11` and `9.0`) remain frozen
+restricted-DSL programs, so the selected pre-healing circuit still has zero
+active neural-attention bilinear terms.
+
+The locked migration gate nevertheless failed. Across four subsequent
+exhaustive gates (steps 100, 200, 300, and 400), full and circuit accuracy
+remained 1.000 and perplexity improved from 25.1010 to 24.9617, but joint
+program removal retained full-forward agreement 1.000. Head `9.0` was also
+individually unnecessary in both full and circuit forwards. KL-to-uniform
+bypass suppression reduced margins but did not require an argmax change; a
+50-step exploratory counterfactual lesion objective directly targeted the
+opposite binary decision and still did not change the unsampled lesion matrix.
+
+Therefore the terminal GPT-2 result is an exact bounded-domain symbolic
+composition within the perplexity budget, but not a migrated or verified
+program-mediated circuit. Re-extraction and SMT verification are intentionally
+not run after a failed migration gate. This result is adaptive bounded-domain
+engineering, not held-out generalization, and it does not revise the stopped
+v4 track or the preregistered Phase Q failure. Complete evidence and protocols
+are indexed in `artifacts/gpt2-phase-q-agent/FINAL_REPORT.md`.
+
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
 The behavior scanner tests 2 categories:

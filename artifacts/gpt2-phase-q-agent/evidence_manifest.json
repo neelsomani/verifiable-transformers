@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "claim_scope": "exploratory exact behavior only on frozen 1280-row quote_close domain D; no held-out claim",
+  "domain": {
+    "path": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+    "sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+    "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+    "rows": 1280
+  },
+  "programs": {
+    "path": "artifacts/gpt2-programs-bounded-quote-scan-fallback-final/bounded-selection/programs_selected.json",
+    "sha256": "40afc75464e92c82d2a1f3c1c8ae44583f7892633539a3c09fe3fe4f3e6579f1",
+    "heads": ["7.11", "9.0"]
+  },
+  "best_exact_checkpoint": {
+    "path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/model.safetensors",
+    "sha256": "4a70e2f9045a3859dd9f5e41c528595f40d48b45646f64bbe23d9a1a20687c70",
+    "full_accuracy": 1.0,
+    "circuit_accuracy": 1.0,
+    "openwebtext_perplexity": 25.25059924330555,
+    "migration_pass": false
+  },
+  "terminal_counterfactual_probe": {
+    "path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v3/model.safetensors",
+    "sha256": "ebafbac7a359ae0b4fbf2d40d923f14a914e13075b554e74551d5ce27d69cc12",
+    "full_accuracy": 1.0,
+    "circuit_accuracy": 1.0,
+    "openwebtext_perplexity": 25.29011670416976,
+    "migration_pass": false
+  },
+  "verification": {
+    "run": false,
+    "reason": "locked full unsampled migration/lesion prerequisite failed"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "timestamp_utc": "2026-07-25T22:39:00Z",
+  "status": "authorized_exploratory_bounded_domain_engineering_full_run",
+  "hypothesis": "The 100-step probe is exact in full and circuit forwards, passes perplexity, and reduced continuous bypass loss without task regression. Up to 1,000 additional steps with the identical measured objective may cross the categorical lesion thresholds.",
+  "source_model": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2",
+  "source_gate_values": {
+    "full_accuracy": 1.0,
+    "circuit_accuracy": 1.0,
+    "openwebtext_perplexity": 25.25059924330555,
+    "joint_bypass_penalty_last_minibatch": 0.13458795845508575,
+    "individual_bypass_penalty_last_minibatch": 0.4729095697402954,
+    "migration_pass": false
+  },
+  "configuration": "configs/gpt2_phase_q_exploratory_full_v1.json",
+  "output_path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-full-v1",
+  "programs": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/programs.json",
+  "circuit_root": "artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "bounded_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "bounded_prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+  "processed_dataset": "/dev/shm/openwebtext-gpt2-block1024",
+  "gpus": 8,
+  "maximum_additional_steps": 1000,
+  "gate_cadence_steps": 100,
+  "unchanged_gates": {
+    "full_accuracy_against_P_on_all_1280_rows": 1.0,
+    "circuit_accuracy_against_P_on_all_1280_rows": 1.0,
+    "maximum_openwebtext_perplexity": 28.617593822841776,
+    "full_unsampled_lesion_sweep": true,
+    "all_retained_heads_symbolic": true,
+    "zero_active_neural_attention_bilinear_terms_in_selected_circuit": true,
+    "fp32_encoder_sanity_and_four_bounded_properties": true
+  },
+  "kill_condition": "Stop immediately when every healing and lesion gate passes, or at the first gate below 0.95 full agreement, or after 1,000 additional steps without migration success. No further full healing run is authorized by this protocol.",
+  "preregistered_status": "Adaptive exploratory engineering result only; the preregistered Phase Q failure remains terminal."
+}

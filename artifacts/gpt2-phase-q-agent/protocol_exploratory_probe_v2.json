@@ -1,0 +1,23 @@
+{
+  "timestamp_utc": "2026-07-25T22:31:00Z",
+  "status": "authorized_exploratory_bounded_domain_engineering",
+  "hypothesis": "Now that direct full supervision reaches exactness in 25 steps, restoring joint and individual bypass weights from 0.25 to 1.0 should reduce full/core bypass agreement while the full loss prevents renewed task collapse.",
+  "configuration": "configs/gpt2_phase_q_exploratory_probe_v2.json",
+  "output_path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2",
+  "source_model": "artifacts/gpt2-norm-free",
+  "programs": "artifacts/gpt2-programs-bounded-quote-scan-fallback-final/bounded-selection/programs_selected.json",
+  "circuit_root": "artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "bounded_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "processed_dataset": "/dev/shm/openwebtext-gpt2-block1024",
+  "gpus": 8,
+  "max_steps": 100,
+  "unchanged_gates": {
+    "full_accuracy_against_P_on_all_1280_rows": 1.0,
+    "circuit_accuracy_against_P_on_all_1280_rows": 1.0,
+    "maximum_openwebtext_perplexity": 28.617593822841776,
+    "full_unsampled_lesion_sweep": true,
+    "symbolic_coverage_and_verification": "unchanged"
+  },
+  "kill_condition": "Abort at step 50 if full agreement is below 0.95. Stop immediately at any gate evaluation where every locked healing and lesion gate passes. Otherwise stop after step 100 and use the measured lesion direction to decide whether one justified full run remains.",
+  "preregistered_status": "Adaptive exploratory probe after the preregistered Phase Q kill criterion."
+}

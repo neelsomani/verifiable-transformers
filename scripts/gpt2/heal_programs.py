@@ -45,6 +45,12 @@ TASKS = ("quote_close", "bracket_type")
 HEAD_PATTERN = re.compile(r"^attn_(\d+)_h_(\d+)$")
 
 
+def enforce_mean_loss_accumulation(trainer: Trainer) -> None:
+    """Declare that custom mean losses do not implement num_items_in_batch."""
+
+    trainer.model_accepts_loss_kwargs = False
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model_path", required=True)
@@ -288,6 +294,7 @@ class HealingGateCallback(TrainerCallback):
         perplexity_budget,
         output_dir,
         lesion_context=None,
+        early_abort_min_agreement=None,
     ):
         self.domains = domains
         self.reference = reference
@@ -296,6 +303,7 @@ class HealingGateCallback(TrainerCallback):
         self.perplexity_budget = perplexity_budget
         self.output_dir = output_dir
         self.lesion_context = lesion_context
+        self.early_abort_min_agreement = early_abort_min_agreement
         self.tasks = tuple(domains)
         self.ablation_trainer = None
         self.history = []
@@ -362,6 +370,13 @@ class HealingGateCallback(TrainerCallback):
             "acceptance_pass": (
                 basic_pass and coverage_pass and migration_pass
             ),
+            "early_abort_triggered": (
+                self.early_abort_min_agreement is not None
+                and any(
+                    value < self.early_abort_min_agreement
+                    for value in agreements.values()
+                )
+            ),
         }
         self.history.append(record)
         if state.is_world_process_zero:
@@ -371,6 +386,8 @@ class HealingGateCallback(TrainerCallback):
             ) as handle:
                 json.dump(self.history, handle, indent=2)
         if record["acceptance_pass"]:
+            control.should_training_stop = True
+        if record["early_abort_triggered"]:
             control.should_training_stop = True
         return control
 
@@ -405,6 +422,12 @@ class AblationAwareProgramTrainer(Trainer):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        # ProgrammedAttention installs a context-propagating forward wrapper
+        # with **kwargs. Transformers mistakes that for support for its
+        # num_items_in_batch loss protocol and consequently skips the ordinary
+        # gradient-accumulation division in Trainer.training_step. This trainer
+        # computes mean losses itself and does not consume num_items_in_batch.
+        enforce_mean_loss_accumulation(self)
         self.behavior_domains = behavior_domains
         self.tasks = tuple(behavior_domains)
         self.reference_decisions = reference_decisions
@@ -449,6 +472,24 @@ class AblationAwareProgramTrainer(Trainer):
             reduction="batchmean",
         )
 
+    def _bypass_penalty(
+        self, logits, attention_mask, candidates, targets
+    ):
+        mode = self.healing_config.get("bypass_target_mode", "uniform")
+        if mode == "uniform":
+            return self._uniform_penalty(
+                logits, attention_mask, candidates
+            )
+        if mode == "opposite_reference":
+            if len(candidates) != 2:
+                raise ValueError(
+                    "opposite_reference bypass targets require two candidates"
+                )
+            return self._candidate_loss(
+                logits, attention_mask, candidates, 1 - targets
+            )
+        raise ValueError(f"Unknown bypass_target_mode: {mode}")
+
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         outputs = model(**inputs)
         loss = outputs.loss
@@ -469,6 +510,7 @@ class AblationAwareProgramTrainer(Trainer):
 
         base_model = self.accelerator.unwrap_model(model)
         circuit_loss = loss.new_zeros(())
+        full_behavior_loss = loss.new_zeros(())
         sampled_loss = loss.new_zeros(())
         joint_bypass_penalty = loss.new_zeros(())
         individual_bypass_penalty = loss.new_zeros(())
@@ -489,6 +531,11 @@ class AblationAwareProgramTrainer(Trainer):
         if aux_batch_size < 1:
             raise ValueError("ablation_aware_behavior_batch_size must be positive")
         aux_examples = {}
+        full_loss_weight = float(
+            self.healing_config.get("ablation_aware_full_loss_weight", 0.0)
+        )
+        if full_loss_weight < 0.0:
+            raise ValueError("ablation_aware_full_loss_weight must be nonnegative")
 
         individual_heads_per_aux = int(
             self.healing_config.get("core_aware_individual_heads_per_aux", 1)
@@ -512,6 +559,18 @@ class AblationAwareProgramTrainer(Trainer):
             candidates = domain["candidates"]
             targets = self.reference_decisions[task][indices]
             core = self.circuit_edges[task]
+            if full_loss_weight:
+                full_logits = base_model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    use_cache=False,
+                ).logits
+                full_behavior_loss = (
+                    full_behavior_loss
+                    + self._candidate_loss(
+                        full_logits, attention_mask, candidates, targets
+                    )
+                )
             core_logits = controlled_forward(
                 base_model,
                 input_ids,
@@ -565,11 +624,17 @@ class AblationAwareProgramTrainer(Trainer):
             )
             joint_bypass_penalty = (
                 joint_bypass_penalty
-                + self._uniform_penalty(
-                    bypass_full_logits, attention_mask, candidates
+                + self._bypass_penalty(
+                    bypass_full_logits,
+                    attention_mask,
+                    candidates,
+                    targets,
                 )
-                + self._uniform_penalty(
-                    bypass_core_logits, attention_mask, candidates
+                + self._bypass_penalty(
+                    bypass_core_logits,
+                    attention_mask,
+                    candidates,
+                    targets,
                 )
             )
 
@@ -601,11 +666,17 @@ class AblationAwareProgramTrainer(Trainer):
                 )
                 individual_bypass_penalty = (
                     individual_bypass_penalty
-                    + self._uniform_penalty(
-                        individual_full_logits, attention_mask, candidates
+                    + self._bypass_penalty(
+                        individual_full_logits,
+                        attention_mask,
+                        candidates,
+                        targets,
                     )
-                    + self._uniform_penalty(
-                        individual_core_logits, attention_mask, candidates
+                    + self._bypass_penalty(
+                        individual_core_logits,
+                        attention_mask,
+                        candidates,
+                        targets,
                     )
                 )
 
@@ -623,6 +694,7 @@ class AblationAwareProgramTrainer(Trainer):
         )
         total = (
             loss
+            + full_loss_weight * full_behavior_loss
             + float(self.healing_config["ablation_aware_circuit_loss_weight"])
             * circuit_loss
             + float(self.healing_config["ablation_aware_sampled_loss_weight"])
@@ -634,6 +706,7 @@ class AblationAwareProgramTrainer(Trainer):
             "step": step,
             "behavior_examples_per_task": aux_examples,
             "owt_loss": float(loss.detach().item()),
+            "full_behavior_loss": float(full_behavior_loss.detach().item()),
             "circuit_loss": float(circuit_loss.detach().item()),
             "sampled_loss": float(sampled_loss.detach().item()),
             "joint_bypass_penalty": float(
@@ -868,6 +941,7 @@ def main() -> None:
         perplexity_budget,
         args.output_dir,
         lesion_context=lesion_context,
+        early_abort_min_agreement=cfg.get("early_abort_min_agreement"),
     )
     trainer_class = AblationAwareProgramTrainer if args.ablation_aware else Trainer
     trainer_kwargs = {}
@@ -1051,7 +1125,10 @@ def main() -> None:
         with open(os.path.join(args.output_dir, "healing_results.json"), "w") as handle:
             json.dump(result, handle, indent=2)
         print(json.dumps(result, indent=2))
-    if not result["success"]:
+    # Only rank zero reports the scientific gate failure. If every worker
+    # exits nonzero immediately after save_model, torchrun may terminate rank
+    # zero before it has written healing_results.json.
+    if trainer.is_world_process_zero() and not result["success"]:
         raise SystemExit(2)
 
 

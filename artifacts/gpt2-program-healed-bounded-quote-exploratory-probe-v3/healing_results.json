@@ -1,0 +1,291 @@
+{
+  "source_model": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2",
+  "resume_from_checkpoint": null,
+  "programs": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/programs.json",
+  "program_heads": [
+    "7.11",
+    "9.0"
+  ],
+  "replacement_fraction": 0.013888888888888888,
+  "programs_frozen": true,
+  "method": "owt_plus_exact_P_targets_stochastic_edge_ablation_and_rotating_joint_and_individual_full_and_core_bypass_suppression",
+  "ablation_aware": true,
+  "circuit_root": "artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "behavior_domain_mode": "bounded_domain",
+  "tasks": [
+    "quote_close"
+  ],
+  "claim_scope": "exact only on the declared finite bounded domain; no held-out claim",
+  "bounded_behavior_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "behavior_train_manifest": null,
+  "behavior_gate_manifest": null,
+  "behavior_domain": {
+    "bounded": {
+      "quote_close": {
+        "protocol_id": "gpt2_behavior_domain_bounded_v1",
+        "split": "bounded",
+        "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+        "manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+        "rows": 1280,
+        "unique_prompts": 1280,
+        "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+        "strata": {
+          "double": 640,
+          "single": 640
+        },
+        "opener_token_positions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ]
+      }
+    }
+  },
+  "reference_target": "explicit_reference_program_P(x)",
+  "base_projected_accuracy": {
+    "bounded": {
+      "quote_close": 1.0
+    }
+  },
+  "ablation_aware_last_metrics": {
+    "step": 49,
+    "behavior_examples_per_task": {
+      "quote_close": 32
+    },
+    "owt_loss": 3.4165236949920654,
+    "full_behavior_loss": 0.011811599135398865,
+    "circuit_loss": 0.24005502462387085,
+    "sampled_loss": 0.2702428996562958,
+    "joint_bypass_penalty": 1.5180306434631348,
+    "individual_bypass_penalty": 3.950289011001587,
+    "suppression_visit_counts": {
+      "quote_close": {
+        "attn_7_h_11": 50,
+        "attn_9_h_0": 50
+      }
+    },
+    "total_loss": 10.209798812866211
+  },
+  "initial_projected_agreement": {
+    "quote_close": 1.0
+  },
+  "minimum_initial_agreement": 1.0,
+  "initial_circuit_accuracy_against_P": {
+    "bounded": {
+      "quote_close": 1.0
+    }
+  },
+  "final_projected_agreement": {
+    "quote_close": 1.0
+  },
+  "projected_agreement_required": 1.0,
+  "reference_eval_perplexity": 24.67033950244981,
+  "final_eval_loss": 3.2304136753082275,
+  "final_eval_perplexity": 25.29011670416976,
+  "perplexity_budget": 28.617593822841776,
+  "relative_perplexity_increase_budget": 0.16,
+  "perplexity_budget_provenance": "Unchanged locked Phase Q budget; exploratory optimization does not alter the acceptance gate.",
+  "agreement_pass": true,
+  "perplexity_pass": true,
+  "migration_pass": false,
+  "suppression_coverage_pass": true,
+  "full_unsampled_lesion_sweep": {
+    "tasks": {
+      "quote_close": {
+        "intended_program_heads": [
+          "attn_7_h_11",
+          "attn_9_h_0"
+        ],
+        "circuit_accuracy_against_P": 1.0,
+        "joint_full_agreement_after_lesion": 1.0,
+        "joint_core_agreement_after_lesion": 0.5,
+        "individual_ablations": {
+          "attn_7_h_11": {
+            "full_agreement_after_lesion": 1.0,
+            "core_agreement_after_lesion": 0.5,
+            "necessary_in_full": false,
+            "necessary_in_core": true
+          },
+          "attn_9_h_0": {
+            "full_agreement_after_lesion": 1.0,
+            "core_agreement_after_lesion": 1.0,
+            "necessary_in_full": false,
+            "necessary_in_core": false
+          }
+        },
+        "pass": false
+      }
+    },
+    "pass": false
+  },
+  "stopping_criteria": "projected accuracy against P(x) on every task in the declared bounded domain must equal the configured threshold; eval perplexity must stay within the pre-registered budget; core-aware runs also require suppression coverage and the complete unsampled full/core lesion sweep",
+  "gate_history": [
+    {
+      "step": 25,
+      "projected_agreement": {
+        "quote_close": 1.0
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.230858087539673,
+      "eval_perplexity": 25.301358439165018,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": true,
+      "perplexity_pass": true,
+      "suppression_visit_counts": {
+        "quote_close": {
+          "attn_7_h_11": 25,
+          "attn_9_h_0": 25
+        }
+      },
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": {
+        "tasks": {
+          "quote_close": {
+            "intended_program_heads": [
+              "attn_7_h_11",
+              "attn_9_h_0"
+            ],
+            "circuit_accuracy_against_P": 1.0,
+            "joint_full_agreement_after_lesion": 1.0,
+            "joint_core_agreement_after_lesion": 0.5,
+            "individual_ablations": {
+              "attn_7_h_11": {
+                "full_agreement_after_lesion": 1.0,
+                "core_agreement_after_lesion": 0.5,
+                "necessary_in_full": false,
+                "necessary_in_core": true
+              },
+              "attn_9_h_0": {
+                "full_agreement_after_lesion": 1.0,
+                "core_agreement_after_lesion": 1.0,
+                "necessary_in_full": false,
+                "necessary_in_core": false
+              }
+            },
+            "pass": false
+          }
+        },
+        "pass": false
+      },
+      "migration_pass": false,
+      "acceptance_pass": false,
+      "early_abort_triggered": false
+    },
+    {
+      "step": 50,
+      "projected_agreement": {
+        "quote_close": 1.0
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.2304136753082275,
+      "eval_perplexity": 25.29011670416976,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": true,
+      "perplexity_pass": true,
+      "suppression_visit_counts": {
+        "quote_close": {
+          "attn_7_h_11": 50,
+          "attn_9_h_0": 50
+        }
+      },
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": {
+        "tasks": {
+          "quote_close": {
+            "intended_program_heads": [
+              "attn_7_h_11",
+              "attn_9_h_0"
+            ],
+            "circuit_accuracy_against_P": 1.0,
+            "joint_full_agreement_after_lesion": 1.0,
+            "joint_core_agreement_after_lesion": 0.5,
+            "individual_ablations": {
+              "attn_7_h_11": {
+                "full_agreement_after_lesion": 1.0,
+                "core_agreement_after_lesion": 0.5,
+                "necessary_in_full": false,
+                "necessary_in_core": true
+              },
+              "attn_9_h_0": {
+                "full_agreement_after_lesion": 1.0,
+                "core_agreement_after_lesion": 1.0,
+                "necessary_in_full": false,
+                "necessary_in_core": false
+              }
+            },
+            "pass": false
+          }
+        },
+        "pass": false
+      },
+      "migration_pass": false,
+      "acceptance_pass": false,
+      "early_abort_triggered": false
+    },
+    {
+      "step": 50,
+      "projected_agreement": {
+        "quote_close": 1.0
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.2304136753082275,
+      "eval_perplexity": 25.29011670416976,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": true,
+      "perplexity_pass": true,
+      "suppression_visit_counts": {
+        "quote_close": {
+          "attn_7_h_11": 50,
+          "attn_9_h_0": 50
+        }
+      },
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": {
+        "tasks": {
+          "quote_close": {
+            "intended_program_heads": [
+              "attn_7_h_11",
+              "attn_9_h_0"
+            ],
+            "circuit_accuracy_against_P": 1.0,
+            "joint_full_agreement_after_lesion": 1.0,
+            "joint_core_agreement_after_lesion": 0.5,
+            "individual_ablations": {
+              "attn_7_h_11": {
+                "full_agreement_after_lesion": 1.0,
+                "core_agreement_after_lesion": 0.5,
+                "necessary_in_full": false,
+                "necessary_in_core": true
+              },
+              "attn_9_h_0": {
+                "full_agreement_after_lesion": 1.0,
+                "core_agreement_after_lesion": 1.0,
+                "necessary_in_full": false,
+                "necessary_in_core": false
+              }
+            },
+            "pass": false
+          }
+        },
+        "pass": false
+      },
+      "migration_pass": false,
+      "acceptance_pass": false,
+      "early_abort_triggered": false
+    }
+  ],
+  "success": false,
+  "global_step": 50,
+  "epoch": 0.0014665767166280469,
+  "effective_global_batch_size": 256
+}

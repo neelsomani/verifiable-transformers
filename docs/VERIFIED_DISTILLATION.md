@@ -101,3 +101,28 @@ The verified object is the final healed hybrid model, a specific checkpoint, not
 ## 9. Artifact index
 
 Norm removal: `artifacts/small_layer_norm/` (source), `artifacts/small_norm_free/` (model + `removal_metrics.json`). Per-head regression: `artifacts/per-head-block-regression.json`. Robustness diagnosis: `artifacts/robustness_eps_sweep.json`; matched BandNorm model and circuits under `artifacts/small_band_norm_matched*/`. Programs: `artifacts/small_programs/` (layer-0 synthesis), `artifacts/small_program_chase_round1/` (layer-1 synthesis). Healing generations: `artifacts/small_program_healed/` (plain; failing migration report preserved at `small_program_healed_circuits/migration_report.json`), `artifacts/small_program_healed_ablation_aware/`, `artifacts/small_program_healed_chase_round1_core_aware/` (final model of record). Drift record: `artifacts/mechanism_drift.json` (includes a SHA-256 of the plain-heal failure report). Chase summary: `artifacts/program_chase_report.json`. Final circuits and verification outputs: `artifacts/small_program_healed_chase_round1_core_aware_circuits/`. Cost accounting: `artifacts/small-unified-cost-table.{json,csv}`, matched-topology selection under `artifacts/small_matched_topology/`.
+
+## 10. GPT-2 bounded-domain boundary result
+
+The GPT-2-scale continuation declares a fixed 1,280-prompt quote domain D with
+no held-out split. Extraction retained heads `7.11` and `9.0`; both were
+replaced by frozen restricted-DSL programs (a manifest-scoped quote-opener scan
+and uniform causal attention). The resulting selected circuit has zero active
+neural-attention bilinear terms and is exact against P(x) on D before healing.
+
+The preregistered healing attempts failed. In an adaptive engineering
+continuation, correcting fourfold gradient-accumulation mis-scaling and adding
+the previously omitted full-forward task loss produced a checkpoint with exact
+full and circuit-only decisions on all 1,280 rows and perplexity 25.2506, below
+the unchanged 28.6176 budget. This establishes that symbolic replacement and
+bounded task healing are jointly feasible at this scale.
+
+It does not establish verified distillation at GPT-2 scale. The full unsampled
+lesion matrix continued to show a complete neural backup in the full graph,
+and program head `9.0` remained individually bypassable even inside the
+selected circuit. Four longer-run gates and a counterfactual lesion-target
+probe left those categorical results unchanged. Because migration is a
+prerequisite, re-extraction, FP32 encoder sanity, and the four SMT properties
+were not run on the exploratory checkpoints. The evidence therefore marks a
+sharp boundary: bounded behavioral healing and zero-bilinear symbolic coverage
+passed, while mechanism migration failed.

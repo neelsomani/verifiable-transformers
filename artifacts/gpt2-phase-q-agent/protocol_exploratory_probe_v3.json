@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "2026-07-25T22:54:00Z",
+  "status": "authorized_exploratory_bounded_domain_engineering",
+  "hypothesis": "KL-to-uniform is mathematically compatible with preserving the same argmax forever. Replacing only the training-time ablated-forward target with the opposite binary P(x) decision directly requires every lesion argmax to differ, while unchanged intact full/core supervision and acceptance gates prevent manufactured success.",
+  "source_model": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2",
+  "configuration": "configs/gpt2_phase_q_exploratory_probe_v3.json",
+  "output_path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v3",
+  "programs": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/programs.json",
+  "circuit_root": "artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "bounded_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "gpus": 8,
+  "maximum_steps": 50,
+  "unchanged_gates": {
+    "full_accuracy_against_P_on_all_1280_rows": 1.0,
+    "circuit_accuracy_against_P_on_all_1280_rows": 1.0,
+    "maximum_openwebtext_perplexity": 28.617593822841776,
+    "full_unsampled_lesion_sweep": true,
+    "symbolic_coverage_and_verification": "unchanged"
+  },
+  "kill_condition": "Abort if intact full agreement falls below 0.95. Stop immediately on complete gate success or after 50 steps. No gate is weakened and lesion evaluation remains unsampled.",
+  "preregistered_status": "Adaptive exploratory counterfactual training objective after the preregistered failure."
+}

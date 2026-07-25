@@ -1,0 +1,25 @@
+{
+  "timestamp_utc": "2026-07-25T22:24:00Z",
+  "status": "authorized_exploratory_bounded_domain_engineering",
+  "hypothesis": "The catastrophic full-forward collapse was caused by two implementation defects: omitted full-forward supervision and fourfold gradient-accumulation mis-scaling. Correcting both should keep quote_close agreement above 0.95 and move it upward within 25 optimizer steps.",
+  "configuration": "configs/gpt2_phase_q_exploratory_probe_v1.json",
+  "source_model": "artifacts/gpt2-norm-free",
+  "programs": "artifacts/gpt2-programs-bounded-quote-scan-fallback-final/bounded-selection/programs_selected.json",
+  "circuit_root": "artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "bounded_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "bounded_prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+  "processed_dataset": "/dev/shm/openwebtext-gpt2-block1024",
+  "output_path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v1",
+  "gpus": 8,
+  "max_steps_override": 25,
+  "unchanged_gates": {
+    "full_accuracy_against_P_on_all_1280_rows": 1.0,
+    "circuit_accuracy_against_P_on_all_1280_rows": 1.0,
+    "maximum_openwebtext_perplexity": 28.617593822841776,
+    "symbolic_coverage": "all retained heads; zero active neural-attention bilinear terms in selected circuit",
+    "migration_and_lesion": "full unsampled sweep",
+    "verification": "FP32 encoder sanity and all four bounded properties"
+  },
+  "probe_kill_condition": "Stop at the first evaluation if full agreement is below 0.95; otherwise stop after 25 steps and decide whether the corrected objective has moved agreement in the right direction. Probe success does not establish the terminal endpoint.",
+  "preregistered_status": "The original Phase Q kill criterion remains reached. This probe is adaptive and exploratory."
+}

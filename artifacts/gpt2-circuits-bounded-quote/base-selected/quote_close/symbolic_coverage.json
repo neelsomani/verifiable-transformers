@@ -1,0 +1,16 @@
+{
+  "task": "quote_close",
+  "circuit": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-bounded-quote/base-selected/quote_close/circuit.json",
+  "programs": "/workspace/verifiable-transformers/artifacts/gpt2-programs-bounded-quote-scan-fallback-final/bounded-selection/programs_selected.json",
+  "retained_attention_heads": [
+    "attn_7_h_11",
+    "attn_9_h_0"
+  ],
+  "installed_program_heads": [
+    "attn_7_h_11",
+    "attn_9_h_0"
+  ],
+  "retained_neural_attention_heads": [],
+  "zero_active_neural_attention_bilinear_terms": true,
+  "pass": true
+}

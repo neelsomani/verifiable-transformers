@@ -1,0 +1,411 @@
+{
+  "method": "deterministic_forward_add_then_one_readd",
+  "mode": "bounded_domain",
+  "tasks": [
+    "quote_close"
+  ],
+  "claim_scope": "exact only on the declared finite bounded domain; no held-out claim",
+  "selection_or_filtering_performed": true,
+  "selection_split": "bounded",
+  "gate_split_used_for_selection": null,
+  "reference_target": "explicit_reference_program_P(x)",
+  "model_path": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+  "circuit_root": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "source_programs": "/workspace/verifiable-transformers/artifacts/gpt2-programs-bounded-quote-scan-fallback-final/programs.json",
+  "bounded_manifest": {
+    "quote_close": {
+      "protocol_id": "gpt2_behavior_domain_bounded_v1",
+      "split": "bounded",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+      "manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+      "rows": 1280,
+      "unique_prompts": 1280,
+      "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+      "strata": {
+        "double": 640,
+        "single": 640
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "synthesis_manifest": null,
+  "gate_manifest": null,
+  "base_bounded": {
+    "full": {
+      "quote_close": {
+        "accuracy_against_P": 1.0,
+        "correct": 1280,
+        "rows": 1280,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 640,
+            "rows": 640,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 640,
+            "rows": 640,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_all_tasks": true,
+      "exact_both_tasks": true
+    },
+    "circuit": {
+      "quote_close": {
+        "accuracy_against_P": 1.0,
+        "correct": 1280,
+        "rows": 1280,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 640,
+            "rows": 640,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 640,
+            "rows": 640,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_all_tasks": true,
+      "exact_both_tasks": true
+    },
+    "exact_full_and_circuit": true
+  },
+  "base_synthesis": null,
+  "base_gate": null,
+  "candidate_heads": [
+    "9.0",
+    "7.11"
+  ],
+  "candidate_head_metadata": {
+    "7.11": {
+      "tasks": [
+        "quote_close"
+      ],
+      "support_iou": 0.6032214760780334
+    },
+    "9.0": {
+      "tasks": [
+        "quote_close"
+      ],
+      "support_iou": 0.7979906797409058
+    }
+  },
+  "selected_heads": [
+    "9.0",
+    "7.11"
+  ],
+  "selected_heads_by_task": {
+    "quote_close": [
+      "9.0",
+      "7.11"
+    ]
+  },
+  "required_circuit_heads_by_task": {
+    "quote_close": [
+      "7.11",
+      "9.0"
+    ]
+  },
+  "require_all_circuit_heads": true,
+  "all_circuit_heads_replaced": true,
+  "rejected_heads": [],
+  "trials": [
+    {
+      "pass": "forward_add",
+      "head": "9.0",
+      "selected_count_before": 0,
+      "accepted": true,
+      "synthesis": {
+        "full": {
+          "quote_close": {
+            "accuracy_against_P": 0.999218761920929,
+            "correct": 1279,
+            "rows": 1280,
+            "mismatch_example_ids": [
+              "v4:quote_close:single:39d30e24358f5228"
+            ],
+            "by_stratum": {
+              "double": {
+                "accuracy_against_P": 1.0,
+                "correct": 640,
+                "rows": 640,
+                "mismatch_example_ids": []
+              },
+              "single": {
+                "accuracy_against_P": 0.9984375238418579,
+                "correct": 639,
+                "rows": 640,
+                "mismatch_example_ids": [
+                  "v4:quote_close:single:39d30e24358f5228"
+                ]
+              }
+            }
+          },
+          "exact_all_tasks": false,
+          "exact_both_tasks": false
+        },
+        "circuit": {
+          "quote_close": {
+            "accuracy_against_P": 1.0,
+            "correct": 1280,
+            "rows": 1280,
+            "mismatch_example_ids": [],
+            "by_stratum": {
+              "double": {
+                "accuracy_against_P": 1.0,
+                "correct": 640,
+                "rows": 640,
+                "mismatch_example_ids": []
+              },
+              "single": {
+                "accuracy_against_P": 1.0,
+                "correct": 640,
+                "rows": 640,
+                "mismatch_example_ids": []
+              }
+            }
+          },
+          "exact_all_tasks": true,
+          "exact_both_tasks": true
+        },
+        "exact_full_and_circuit": false
+      }
+    },
+    {
+      "pass": "forward_add",
+      "head": "7.11",
+      "selected_count_before": 1,
+      "accepted": true,
+      "synthesis": {
+        "full": {
+          "quote_close": {
+            "accuracy_against_P": 0.9820312261581421,
+            "correct": 1257,
+            "rows": 1280,
+            "mismatch_example_ids": [
+              "v4:quote_close:single:0682f984b71519bc",
+              "v4:quote_close:single:06e6e5a0eba491da",
+              "v4:quote_close:single:0ed9666b307bb086",
+              "v4:quote_close:single:1092be0fe3488801",
+              "v4:quote_close:single:132ddb296e002582",
+              "v4:quote_close:single:257beaed07b81547",
+              "v4:quote_close:single:291a45fac569c98c",
+              "v4:quote_close:single:33d41db231891630",
+              "v4:quote_close:single:39d30e24358f5228",
+              "v4:quote_close:single:42d1b7db63f56210",
+              "v4:quote_close:single:4803bef30e651700",
+              "v4:quote_close:single:49ca577ff2b97fea",
+              "v4:quote_close:single:4c9f11cebb9ab9ef",
+              "v4:quote_close:single:4cdad97055e07131",
+              "v4:quote_close:single:5223daded7d219b1",
+              "v4:quote_close:single:5afdf5bce7d8e0e3",
+              "v4:quote_close:single:5d24903dbf724eee",
+              "v4:quote_close:single:5df09018fe2f869a",
+              "v4:quote_close:single:714b004752d674dd",
+              "v4:quote_close:single:7597ccc2430e9206",
+              "v4:quote_close:single:79e5bcfb9cfd9deb",
+              "v4:quote_close:single:7ce85d070f606b71",
+              "v4:quote_close:single:7eeb10515073b535"
+            ],
+            "by_stratum": {
+              "double": {
+                "accuracy_against_P": 1.0,
+                "correct": 640,
+                "rows": 640,
+                "mismatch_example_ids": []
+              },
+              "single": {
+                "accuracy_against_P": 0.964062511920929,
+                "correct": 617,
+                "rows": 640,
+                "mismatch_example_ids": [
+                  "v4:quote_close:single:0682f984b71519bc",
+                  "v4:quote_close:single:06e6e5a0eba491da",
+                  "v4:quote_close:single:0ed9666b307bb086",
+                  "v4:quote_close:single:1092be0fe3488801",
+                  "v4:quote_close:single:132ddb296e002582",
+                  "v4:quote_close:single:257beaed07b81547",
+                  "v4:quote_close:single:291a45fac569c98c",
+                  "v4:quote_close:single:33d41db231891630",
+                  "v4:quote_close:single:39d30e24358f5228",
+                  "v4:quote_close:single:42d1b7db63f56210",
+                  "v4:quote_close:single:4803bef30e651700",
+                  "v4:quote_close:single:49ca577ff2b97fea",
+                  "v4:quote_close:single:4c9f11cebb9ab9ef",
+                  "v4:quote_close:single:4cdad97055e07131",
+                  "v4:quote_close:single:5223daded7d219b1",
+                  "v4:quote_close:single:5afdf5bce7d8e0e3",
+                  "v4:quote_close:single:5d24903dbf724eee",
+                  "v4:quote_close:single:5df09018fe2f869a",
+                  "v4:quote_close:single:714b004752d674dd",
+                  "v4:quote_close:single:7597ccc2430e9206",
+                  "v4:quote_close:single:79e5bcfb9cfd9deb",
+                  "v4:quote_close:single:7ce85d070f606b71",
+                  "v4:quote_close:single:7eeb10515073b535"
+                ]
+              }
+            }
+          },
+          "exact_all_tasks": false,
+          "exact_both_tasks": false
+        },
+        "circuit": {
+          "quote_close": {
+            "accuracy_against_P": 1.0,
+            "correct": 1280,
+            "rows": 1280,
+            "mismatch_example_ids": [],
+            "by_stratum": {
+              "double": {
+                "accuracy_against_P": 1.0,
+                "correct": 640,
+                "rows": 640,
+                "mismatch_example_ids": []
+              },
+              "single": {
+                "accuracy_against_P": 1.0,
+                "correct": 640,
+                "rows": 640,
+                "mismatch_example_ids": []
+              }
+            }
+          },
+          "exact_all_tasks": true,
+          "exact_both_tasks": true
+        },
+        "exact_full_and_circuit": false
+      }
+    }
+  ],
+  "final_bounded": {
+    "full": {
+      "quote_close": {
+        "accuracy_against_P": 0.9820312261581421,
+        "correct": 1257,
+        "rows": 1280,
+        "mismatch_example_ids": [
+          "v4:quote_close:single:0682f984b71519bc",
+          "v4:quote_close:single:06e6e5a0eba491da",
+          "v4:quote_close:single:0ed9666b307bb086",
+          "v4:quote_close:single:1092be0fe3488801",
+          "v4:quote_close:single:132ddb296e002582",
+          "v4:quote_close:single:257beaed07b81547",
+          "v4:quote_close:single:291a45fac569c98c",
+          "v4:quote_close:single:33d41db231891630",
+          "v4:quote_close:single:39d30e24358f5228",
+          "v4:quote_close:single:42d1b7db63f56210",
+          "v4:quote_close:single:4803bef30e651700",
+          "v4:quote_close:single:49ca577ff2b97fea",
+          "v4:quote_close:single:4c9f11cebb9ab9ef",
+          "v4:quote_close:single:4cdad97055e07131",
+          "v4:quote_close:single:5223daded7d219b1",
+          "v4:quote_close:single:5afdf5bce7d8e0e3",
+          "v4:quote_close:single:5d24903dbf724eee",
+          "v4:quote_close:single:5df09018fe2f869a",
+          "v4:quote_close:single:714b004752d674dd",
+          "v4:quote_close:single:7597ccc2430e9206",
+          "v4:quote_close:single:79e5bcfb9cfd9deb",
+          "v4:quote_close:single:7ce85d070f606b71",
+          "v4:quote_close:single:7eeb10515073b535"
+        ],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 640,
+            "rows": 640,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 0.964062511920929,
+            "correct": 617,
+            "rows": 640,
+            "mismatch_example_ids": [
+              "v4:quote_close:single:0682f984b71519bc",
+              "v4:quote_close:single:06e6e5a0eba491da",
+              "v4:quote_close:single:0ed9666b307bb086",
+              "v4:quote_close:single:1092be0fe3488801",
+              "v4:quote_close:single:132ddb296e002582",
+              "v4:quote_close:single:257beaed07b81547",
+              "v4:quote_close:single:291a45fac569c98c",
+              "v4:quote_close:single:33d41db231891630",
+              "v4:quote_close:single:39d30e24358f5228",
+              "v4:quote_close:single:42d1b7db63f56210",
+              "v4:quote_close:single:4803bef30e651700",
+              "v4:quote_close:single:49ca577ff2b97fea",
+              "v4:quote_close:single:4c9f11cebb9ab9ef",
+              "v4:quote_close:single:4cdad97055e07131",
+              "v4:quote_close:single:5223daded7d219b1",
+              "v4:quote_close:single:5afdf5bce7d8e0e3",
+              "v4:quote_close:single:5d24903dbf724eee",
+              "v4:quote_close:single:5df09018fe2f869a",
+              "v4:quote_close:single:714b004752d674dd",
+              "v4:quote_close:single:7597ccc2430e9206",
+              "v4:quote_close:single:79e5bcfb9cfd9deb",
+              "v4:quote_close:single:7ce85d070f606b71",
+              "v4:quote_close:single:7eeb10515073b535"
+            ]
+          }
+        }
+      },
+      "exact_all_tasks": false,
+      "exact_both_tasks": false
+    },
+    "circuit": {
+      "quote_close": {
+        "accuracy_against_P": 1.0,
+        "correct": 1280,
+        "rows": 1280,
+        "mismatch_example_ids": [],
+        "by_stratum": {
+          "double": {
+            "accuracy_against_P": 1.0,
+            "correct": 640,
+            "rows": 640,
+            "mismatch_example_ids": []
+          },
+          "single": {
+            "accuracy_against_P": 1.0,
+            "correct": 640,
+            "rows": 640,
+            "mismatch_example_ids": []
+          }
+        }
+      },
+      "exact_all_tasks": true,
+      "exact_both_tasks": true
+    },
+    "exact_full_and_circuit": false
+  },
+  "final_synthesis": null,
+  "final_gate": null,
+  "minimum_preheal_accuracy": 0.98,
+  "final_minimum_preheal_accuracy": 0.9820312261581421,
+  "minimum_program_heads": 1,
+  "minimum_program_heads_per_task": 1,
+  "success": true
+}

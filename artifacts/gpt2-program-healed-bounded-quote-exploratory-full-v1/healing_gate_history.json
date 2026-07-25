@@ -1,0 +1,206 @@
+[
+  {
+    "step": 100,
+    "projected_agreement": {
+      "quote_close": 1.0
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.2229063510894775,
+    "eval_perplexity": 25.100966492895918,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": true,
+    "perplexity_pass": true,
+    "suppression_visit_counts": {
+      "quote_close": {
+        "attn_7_h_11": 100,
+        "attn_9_h_0": 100
+      }
+    },
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": {
+      "tasks": {
+        "quote_close": {
+          "intended_program_heads": [
+            "attn_7_h_11",
+            "attn_9_h_0"
+          ],
+          "circuit_accuracy_against_P": 1.0,
+          "joint_full_agreement_after_lesion": 1.0,
+          "joint_core_agreement_after_lesion": 0.5,
+          "individual_ablations": {
+            "attn_7_h_11": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 0.5,
+              "necessary_in_full": false,
+              "necessary_in_core": true
+            },
+            "attn_9_h_0": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 1.0,
+              "necessary_in_full": false,
+              "necessary_in_core": false
+            }
+          },
+          "pass": false
+        }
+      },
+      "pass": false
+    },
+    "migration_pass": false,
+    "acceptance_pass": false,
+    "early_abort_triggered": false
+  },
+  {
+    "step": 200,
+    "projected_agreement": {
+      "quote_close": 1.0
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.219965696334839,
+    "eval_perplexity": 25.02726163980914,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": true,
+    "perplexity_pass": true,
+    "suppression_visit_counts": {
+      "quote_close": {
+        "attn_7_h_11": 200,
+        "attn_9_h_0": 200
+      }
+    },
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": {
+      "tasks": {
+        "quote_close": {
+          "intended_program_heads": [
+            "attn_7_h_11",
+            "attn_9_h_0"
+          ],
+          "circuit_accuracy_against_P": 1.0,
+          "joint_full_agreement_after_lesion": 1.0,
+          "joint_core_agreement_after_lesion": 0.5,
+          "individual_ablations": {
+            "attn_7_h_11": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 0.5,
+              "necessary_in_full": false,
+              "necessary_in_core": true
+            },
+            "attn_9_h_0": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 1.0,
+              "necessary_in_full": false,
+              "necessary_in_core": false
+            }
+          },
+          "pass": false
+        }
+      },
+      "pass": false
+    },
+    "migration_pass": false,
+    "acceptance_pass": false,
+    "early_abort_triggered": false
+  },
+  {
+    "step": 300,
+    "projected_agreement": {
+      "quote_close": 1.0
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.2183635234832764,
+    "eval_perplexity": 24.987195745475596,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": true,
+    "perplexity_pass": true,
+    "suppression_visit_counts": {
+      "quote_close": {
+        "attn_7_h_11": 300,
+        "attn_9_h_0": 300
+      }
+    },
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": {
+      "tasks": {
+        "quote_close": {
+          "intended_program_heads": [
+            "attn_7_h_11",
+            "attn_9_h_0"
+          ],
+          "circuit_accuracy_against_P": 1.0,
+          "joint_full_agreement_after_lesion": 1.0,
+          "joint_core_agreement_after_lesion": 0.5,
+          "individual_ablations": {
+            "attn_7_h_11": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 0.5,
+              "necessary_in_full": false,
+              "necessary_in_core": true
+            },
+            "attn_9_h_0": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 1.0,
+              "necessary_in_full": false,
+              "necessary_in_core": false
+            }
+          },
+          "pass": false
+        }
+      },
+      "pass": false
+    },
+    "migration_pass": false,
+    "acceptance_pass": false,
+    "early_abort_triggered": false
+  },
+  {
+    "step": 400,
+    "projected_agreement": {
+      "quote_close": 1.0
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.2173407077789307,
+    "eval_perplexity": 24.961651515006533,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": true,
+    "perplexity_pass": true,
+    "suppression_visit_counts": {
+      "quote_close": {
+        "attn_7_h_11": 400,
+        "attn_9_h_0": 400
+      }
+    },
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": {
+      "tasks": {
+        "quote_close": {
+          "intended_program_heads": [
+            "attn_7_h_11",
+            "attn_9_h_0"
+          ],
+          "circuit_accuracy_against_P": 1.0,
+          "joint_full_agreement_after_lesion": 1.0,
+          "joint_core_agreement_after_lesion": 0.5,
+          "individual_ablations": {
+            "attn_7_h_11": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 0.5,
+              "necessary_in_full": false,
+              "necessary_in_core": true
+            },
+            "attn_9_h_0": {
+              "full_agreement_after_lesion": 1.0,
+              "core_agreement_after_lesion": 1.0,
+              "necessary_in_full": false,
+              "necessary_in_core": false
+            }
+          },
+          "pass": false
+        }
+      },
+      "pass": false
+    },
+    "migration_pass": false,
+    "acceptance_pass": false,
+    "early_abort_triggered": false
+  }
+]

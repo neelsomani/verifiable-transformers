@@ -1,0 +1,30 @@
+{
+  "7.11": {
+    "dsl_version": 1,
+    "name": "scan_manifest_quote_opener",
+    "default_weight": "0",
+    "rules": [
+      {
+        "weight": "1",
+        "conditions": [
+          {
+            "feature": "key_token",
+            "operator": "in",
+            "value": [
+              366,
+              705,
+              7203,
+              10786
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "9.0": {
+    "dsl_version": 1,
+    "name": "uniform_causal",
+    "default_weight": "1",
+    "rules": []
+  }
+}
