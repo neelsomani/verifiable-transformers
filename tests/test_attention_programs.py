@@ -110,6 +110,40 @@ def test_synthesis_accepts_scoped_extra_candidate():
     assert result.score.exact_attention_agreement
 
 
+def test_synthesis_can_evaluate_registered_scoped_candidate_first():
+    input_ids = torch.tensor([[101, 7, 8]])
+    target = fixed_position_program(2).weights(input_ids)
+    preferred = AttentionProgram(
+        rules=(
+            Rule(
+                Fraction(1),
+                (Condition("key_token", "in", (101,)),),
+            ),
+        ),
+        name="registered_scan",
+    )
+    evaluated = []
+
+    def projected(program):
+        evaluated.append(program.name)
+        return 0.98 if program.name == "registered_scan" else 1.0
+
+    result = SynthesisHarness(
+        healable_projected_agreement=0.98,
+        projected_candidates=64,
+    ).synthesize(
+        input_ids,
+        target,
+        projected_evaluator=projected,
+        extra_candidates=[preferred],
+        projected_priority_names=["registered_scan"],
+    )
+
+    assert evaluated == ["registered_scan"]
+    assert result.accepted
+    assert result.program == preferred
+
+
 def test_command_proposer_exposes_restricted_lm_loop_without_executing_output():
     payload = fixed_position_program(1).to_dict()
     command = [

@@ -211,6 +211,7 @@ class SynthesisHarness:
         projected_evaluator: Optional[ProjectedEvaluator] = None,
         attention_mask: Optional[torch.Tensor] = None,
         extra_candidates: Iterable[AttentionProgram] = (),
+        projected_priority_names: Sequence[str] = (),
     ) -> SynthesisResult:
         if target_weights.shape != (*input_ids.shape, input_ids.shape[1]):
             raise ValueError(
@@ -278,10 +279,17 @@ class SynthesisHarness:
         projected_count = 0
         if projected_evaluator is not None:
             # IoU ranks the finite search. Only the strongest candidates pay
-            # for a model forward on the projected behavior domain.
+            # for a model forward on the projected behavior domain. Registered
+            # scoped candidates may be evaluated first when prior evidence
+            # names a specific DSL fallback; they still must pass the same
+            # projected behavioral threshold.
+            priority_names = set(projected_priority_names)
             ranked_indices = sorted(
                 range(len(scored)),
-                key=lambda index: self._rank_key(scored[index]),
+                key=lambda index: (
+                    scored[index].program.name in priority_names,
+                    self._rank_key(scored[index]),
+                ),
                 reverse=True,
             )[: self.projected_candidates]
             for index in ranked_indices:

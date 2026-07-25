@@ -1,5 +1,6 @@
 import hashlib
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -570,6 +571,39 @@ def test_bounded_quote_runner_is_separate_from_v4_and_has_no_gate_split(tmp_path
     assert runner.domain_config.name == "gpt2_behavior_domain_bounded_v1.json"
     assert runner.synthesis_manifest.name == "domain.json"
     assert runner.gate_manifest is None
+
+
+def test_bounded_quote_final_recovery_config_covers_domain(tmp_path):
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    source = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "configs/gpt2_program_healing.json"
+        ).read_text()
+    )
+    (config_dir / "gpt2_program_healing.json").write_text(json.dumps(source))
+    runner = BoundedQuoteRunner(
+        SimpleNamespace(
+            repo_root=str(tmp_path),
+            base_model="artifacts/gpt2-norm-free",
+            processed_dataset_dir="dataset",
+            gpus="0",
+            minimum_free_gb=1,
+            evidence_archive="bounded-evidence.tar.gz",
+            model_archive="bounded-model.tar",
+        )
+    )
+
+    runner.write_heal_config()
+    config = json.loads(runner.heal_config.read_text())
+
+    assert config["ablation_aware_aux_every_steps"] == 10
+    assert config["ablation_aware_behavior_batch_size"] == 32
+    assert config["ablation_aware_circuit_loss_weight"] == 4.0
+    assert config["ablation_aware_sampled_loss_weight"] == 4.0
+    aux_events_before_first_gate = config["eval_steps"] // 10
+    assert aux_events_before_first_gate * 32 >= 1280
 
 
 def test_bounded_quote_scan_uses_only_manifest_opener_token_ids():

@@ -39,6 +39,11 @@ from scripts.gpt2.run_phase_c import (
 TASK = "quote_close"
 TASKS = (TASK,)
 FALLBACK_PREHEAL_ACCURACY = 0.98
+PREFERRED_SCOPED_SCAN_HEADS = ("7.11",)
+FINAL_AUX_EVERY_STEPS = 10
+FINAL_AUX_BATCH_SIZE = 32
+FINAL_CIRCUIT_LOSS_WEIGHT = 4.0
+FINAL_SAMPLED_LOSS_WEIGHT = 4.0
 
 
 class BoundedQuoteRunner(PhaseCRunner):
@@ -76,6 +81,48 @@ class BoundedQuoteRunner(PhaseCRunner):
             or fallback.get("tasks") != [TASK]
         ):
             raise PipelineError("Bounded quote fallback configuration is invalid")
+
+    def write_heal_config(self) -> None:
+        source = load_json(self.root / "configs/gpt2_program_healing.json")
+        source.update(
+            {
+                "train_batch_size_per_device": 8,
+                "eval_batch_size_per_device": 8,
+                "gradient_accumulation_steps": 4,
+                "ablation_aware_aux_every_steps": FINAL_AUX_EVERY_STEPS,
+                "ablation_aware_behavior_batch_size": FINAL_AUX_BATCH_SIZE,
+                "ablation_aware_circuit_loss_weight": (
+                    FINAL_CIRCUIT_LOSS_WEIGHT
+                ),
+                "ablation_aware_sampled_loss_weight": (
+                    FINAL_SAMPLED_LOSS_WEIGHT
+                ),
+                "bounded_recovery_protocol": (
+                    "gpt2_bounded_quote_program_fallback_v1_final"
+                ),
+                "bounded_recovery_kill_criterion": (
+                    "Stop Phase Q if this unchanged core-aware objective does "
+                    "not pass every locked gate; introduce no new objective."
+                ),
+            }
+        )
+        atomic_json(self.heal_config, source)
+
+    def preserve_first_healing_failure(self) -> None:
+        destination = self.run_dir / "core_aware_attempt1_failure_status.json"
+        if (
+            destination.exists()
+            or self.status.get("status") != "failed"
+            or self.status.get("stage") != "bounded_core_aware_healing"
+        ):
+            return
+        record = dict(self.status)
+        record["preserved_at_utc"] = utc_now()
+        record["healing_artifact"] = str(
+            self.artifacts
+            / "gpt2-program-healed-bounded-quote-core-aware"
+        )
+        atomic_json(destination, record)
 
     @staticmethod
     def file_sha256(path: Path) -> str:
@@ -191,6 +238,8 @@ class BoundedQuoteRunner(PhaseCRunner):
                 and result.get("circuit_referee") is True
                 and float(result.get("healable_agreement", 0.0))
                 == FALLBACK_PREHEAL_ACCURACY
+                and result.get("preferred_scoped_scan_heads")
+                == list(PREFERRED_SCOPED_SCAN_HEADS)
                 and result["domain"][TASK]["manifest_sha256"] == expected_sha
                 and result["base_accuracy_against_reference"][TASK] == 1.0
                 and bool(programs)
@@ -199,10 +248,10 @@ class BoundedQuoteRunner(PhaseCRunner):
             return False
 
     def ensure_synthesis(self, circuit_root: Path) -> Path:
-        # Keep the exact-only attempt at gpt2-programs-bounded-quote unchanged.
-        # This path is the registered scan/healing-slack fallback.
+        # Keep both the exact-only attempt and the first fallback unchanged.
+        # This final path forces the registered scan candidate before healing.
         output_dir = (
-            self.artifacts / "gpt2-programs-bounded-quote-scan-fallback"
+            self.artifacts / "gpt2-programs-bounded-quote-scan-fallback-final"
         )
         if self.synthesis_complete(output_dir, circuit_root):
             self.log("REUSE: bounded quote program synthesis")
@@ -243,6 +292,8 @@ class BoundedQuoteRunner(PhaseCRunner):
                 "--healable_agreement",
                 str(FALLBACK_PREHEAL_ACCURACY),
                 "--circuit_referee",
+                "--prefer_scoped_scan_heads",
+                *PREFERRED_SCOPED_SCAN_HEADS,
                 "--projected_candidates",
                 "512",
                 "--max_token_values",
@@ -252,7 +303,7 @@ class BoundedQuoteRunner(PhaseCRunner):
                 "--tasks",
                 TASK,
             ),
-            log_name="03-synthesize-quote-programs.log",
+            log_name="03-synthesize-quote-programs-final.log",
             extra_environment={
                 "CUDA_VISIBLE_DEVICES": str(self.gpus[0]),
                 "NVIDIA_TF32_OVERRIDE": "0",
@@ -393,7 +444,10 @@ class BoundedQuoteRunner(PhaseCRunner):
             return False
 
     def ensure_healing(self, circuit_root: Path, programs: Path) -> Path:
-        output_dir = self.artifacts / "gpt2-program-healed-bounded-quote-core-aware"
+        output_dir = (
+            self.artifacts
+            / "gpt2-program-healed-bounded-quote-core-aware-final"
+        )
         if self.healing_complete(output_dir):
             self.log("REUSE: passing bounded quote healing result")
             return output_dir
@@ -424,7 +478,7 @@ class BoundedQuoteRunner(PhaseCRunner):
         try:
             self.run_logged(
                 command,
-                log_name="05-heal-bounded-quote-core-aware.log",
+                log_name="05-heal-bounded-quote-core-aware-final.log",
                 extra_environment={
                     "CUDA_VISIBLE_DEVICES": ",".join(map(str, self.gpus))
                 },
@@ -570,6 +624,8 @@ class BoundedQuoteRunner(PhaseCRunner):
             self.artifacts / "gpt2-circuits-bounded-quote",
             self.artifacts / "gpt2-programs-bounded-quote",
             self.artifacts / "gpt2-programs-bounded-quote-scan-fallback",
+            self.artifacts / "gpt2-programs-bounded-quote-scan-fallback-final",
+            self.artifacts / "gpt2-program-healed-bounded-quote-core-aware",
             healed_model,
             self.run_dir,
             self.artifacts / "gpt2-unified-cost-table.json",
@@ -630,6 +686,7 @@ class BoundedQuoteRunner(PhaseCRunner):
     def execute(self) -> None:
         self.acquire_lock()
         os.chdir(self.root)
+        self.preserve_first_healing_failure()
         self.stage("preflight", self.run_preflight)
         self.stage("bounded_domain", self.ensure_bounded_domain)
         self.stage("bounded_behavior_scan", self.ensure_bounded_behavior_scan)

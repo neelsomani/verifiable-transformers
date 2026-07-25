@@ -81,6 +81,15 @@ def parse_args() -> argparse.Namespace:
             "selected-circuit accuracies against P(x)."
         ),
     )
+    parser.add_argument(
+        "--prefer_scoped_scan_heads",
+        nargs="*",
+        default=(),
+        help=(
+            "Head keys whose registered manifest-derived scan candidate is "
+            "evaluated before IoU-ranked candidates (for example 7.11)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -215,6 +224,7 @@ def main() -> None:
         raise ValueError("--healable_agreement must be between 0 and 1")
     if args.projected_candidates <= 0:
         raise ValueError("--projected_candidates must be positive")
+    preferred_scan_heads = set(args.prefer_scoped_scan_heads)
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model_with_variants(args.model_path, device).eval()
     tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
@@ -334,6 +344,11 @@ def main() -> None:
                 projected_evaluator=projected_evaluator,
                 attention_mask=attention_mask.cpu(),
                 extra_candidates=scoped_scan_candidates(task, examples),
+                projected_priority_names=(
+                    ("scan_manifest_quote_opener",)
+                    if f"{layer}.{head}" in preferred_scan_heads
+                    else ()
+                ),
             )
             key = f"{layer}.{head}"
             program_dict = result.program.to_dict()
@@ -388,6 +403,7 @@ def main() -> None:
         ),
         "healable_agreement": args.healable_agreement,
         "circuit_referee": args.circuit_referee,
+        "preferred_scoped_scan_heads": sorted(preferred_scan_heads),
         "projected_candidates": args.projected_candidates,
         "max_token_values": args.max_token_values,
         "max_conjunction_values": args.max_conjunction_values,

@@ -18,6 +18,9 @@
     "max_conjunction_values": 16,
     "referee": "minimum of full and selected-circuit accuracy against P(x) on D",
     "scoped_scan": "one restricted key_token membership rule over the frozen manifest's opener_context_token_id values",
+    "preferred_scoped_scan_heads": [
+      "7.11"
+    ],
     "lm_proposer": "not configured on the offline GPU host; no unrecorded external proposal is used"
   },
   "composition_gate_before_healing": "every retained attention head is replaced and both full and circuit-only accuracy are at least 0.98 on D",
@@ -27,5 +30,29 @@
     "maximum_eval_perplexity": 28.617593822841776,
     "migration_and_lesion_sweep": "full and unsampled"
   },
-  "preservation": "The exact-only attempt remains unchanged under artifacts/gpt2-programs-bounded-quote. This fallback writes to artifacts/gpt2-programs-bounded-quote-scan-fallback."
+  "failed_attempt_evidence": {
+    "program_selection": "The first fallback attempt selected distance_le_3 for 7.11 before evaluating the registered scan candidate. Its pre-heal circuit accuracy was 1275/1280 and full accuracy was 1257/1280.",
+    "healing_coverage": "The first healing attempt ran the auxiliary objective on 8 rows every 100 optimizer steps: 800 row-visits in 10,000 steps, less than one complete pass over D. Final full agreement was 0.639843761920929 while perplexity passed at 24.402525992650908.",
+    "artifacts": [
+      "artifacts/gpt2-programs-bounded-quote-scan-fallback",
+      "artifacts/gpt2-program-healed-bounded-quote-core-aware"
+    ]
+  },
+  "final_recovery_attempt": {
+    "objective": "unchanged core-aware healing objective",
+    "program_selection": "evaluate the registered scan_manifest_quote_opener candidate first for head 7.11",
+    "auxiliary_schedule": {
+      "every_optimizer_steps": 10,
+      "behavior_batch_size": 32,
+      "circuit_loss_weight": 4.0,
+      "sampled_loss_weight": 4.0
+    },
+    "coverage": "At least one complete 1,280-row pass before the first step-500 locked-gate evaluation; 25 complete passes by step 10,000.",
+    "output_paths": [
+      "artifacts/gpt2-programs-bounded-quote-scan-fallback-final",
+      "artifacts/gpt2-program-healed-bounded-quote-core-aware-final"
+    ],
+    "kill_criterion": "If this run cannot achieve every unchanged locked gate, Phase Q stops. No additional healing objective will be introduced."
+  },
+  "preservation": "The exact-only attempt and first fallback/healing attempt remain unchanged. The final recovery attempt writes only to the final-suffixed artifact paths."
 }
