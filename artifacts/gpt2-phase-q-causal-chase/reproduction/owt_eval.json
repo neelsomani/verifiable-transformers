@@ -1,0 +1,14 @@
+{
+  "model_path": "/workspace/verifiable-transformers/artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2",
+  "processed_dataset_dir": "/dev/shm/openwebtext-gpt2-block1024",
+  "eval_examples": 11059,
+  "eval_loss": 3.228891372680664,
+  "eval_perplexity": 25.251646781920677,
+  "metrics": {
+    "eval_loss": 3.228891372680664,
+    "eval_model_preparation_time": 0.0015,
+    "eval_runtime": 140.3157,
+    "eval_samples_per_second": 78.815,
+    "eval_steps_per_second": 9.856
+  }
+}
