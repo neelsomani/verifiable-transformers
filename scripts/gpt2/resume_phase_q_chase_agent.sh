@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 if (( $# != 1 )); then
-  echo "Usage: $0 CODEX_SESSION_ID" >&2
+  echo "Usage: $0 CODEX_SESSION_ID|--new" >&2
   exit 2
 fi
 
@@ -12,6 +12,11 @@ CODEX_BIN="${CODEX_BIN:-/root/.local/bin/codex}"
 BRIEF="$REPO_ROOT/docs/PHASE_Q_CHASE_FOLLOWUP.md"
 RUN_ROOT="$REPO_ROOT/artifacts/gpt2-phase-q-agent"
 SESSION_ID="$1"
+if [[ "$SESSION_ID" == "--new" ]]; then
+  SESSION_LABEL="fresh-session"
+else
+  SESSION_LABEL="$SESSION_ID"
+fi
 
 if [[ ! -x "$CODEX_BIN" ]]; then
   echo "STOP: Codex CLI is missing at $CODEX_BIN" >&2
@@ -35,20 +40,33 @@ FINAL="$RUN_ROOT/codex-chase-$STAMP.final.md"
 
 {
   echo "Resuming Phase Q for lesion-conditioned circuit chasing"
-  echo "Session:  $SESSION_ID"
+  echo "Session:  $SESSION_LABEL"
   echo "Brief:    $BRIEF"
   echo "Events:   $EVENTS"
   echo "Progress: $PROGRESS"
   echo "Final:    $FINAL"
 } | tee -a "$PROGRESS"
 
-exec "$CODEX_BIN" exec \
-  --cd "$REPO_ROOT" \
-  --sandbox danger-full-access \
-  --config 'approval_policy="never"' \
-  --json \
-  --output-last-message "$FINAL" \
-  resume "$SESSION_ID" - \
-  < "$BRIEF" \
-  > >(tee -a "$EVENTS") \
-  2> >(tee -a "$PROGRESS" >&2)
+if [[ "$SESSION_ID" == "--new" ]]; then
+  exec "$CODEX_BIN" exec \
+    --cd "$REPO_ROOT" \
+    --sandbox danger-full-access \
+    --config 'approval_policy="never"' \
+    --json \
+    --output-last-message "$FINAL" \
+    - \
+    < "$BRIEF" \
+    > >(tee -a "$EVENTS") \
+    2> >(tee -a "$PROGRESS" >&2)
+else
+  exec "$CODEX_BIN" exec \
+    --cd "$REPO_ROOT" \
+    --sandbox danger-full-access \
+    --config 'approval_policy="never"' \
+    --json \
+    --output-last-message "$FINAL" \
+    resume "$SESSION_ID" - \
+    < "$BRIEF" \
+    > >(tee -a "$EVENTS") \
+    2> >(tee -a "$PROGRESS" >&2)
+fi
