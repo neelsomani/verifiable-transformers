@@ -552,7 +552,8 @@ Exhaustive evaluation on the 1,280 finite prompts establishes bounded-domain
 behavioral faithfulness. The SMT sanity check and four formal properties use
 their own separately declared bounded token-sequence domains; those results are
 reported separately and are not described as SMT proofs over D unless D itself
-is encoded.
+is encoded. In the final result below, D itself is encoded input-by-input, so
+the four properties are SMT-checked claims over D.
 
 The resumable one-command run is:
 
@@ -561,7 +562,7 @@ The resumable one-command run is:
   --processed_dataset_dir /dev/shm/openwebtext-gpt2-block1024
 ```
 
-#### Terminal bounded quote result (2026-07-25)
+#### Bounded quote healing result (2026-07-25; superseded by the constrained-calibration follow-up below)
 
 The preregistered bounded continuation reached its kill criterion after both
 10,000-step core-aware healing attempts failed exact agreement. The second
@@ -594,13 +595,88 @@ bypass suppression reduced margins but did not require an argmax change; a
 50-step exploratory counterfactual lesion objective directly targeted the
 opposite binary decision and still did not change the unsampled lesion matrix.
 
-Therefore the terminal GPT-2 result is an exact bounded-domain symbolic
+Therefore the terminal result of the healing-based route is an exact bounded-domain symbolic
 composition within the perplexity budget, but not a migrated or verified
 program-mediated circuit. Re-extraction and SMT verification are intentionally
 not run after a failed migration gate. This result is adaptive bounded-domain
 engineering, not held-out generalization, and it does not revise the stopped
 v4 track or the preregistered Phase Q failure. Complete evidence and protocols
 are indexed in `artifacts/gpt2-phase-q-agent/FINAL_REPORT.md`.
+
+#### Pre-healing causal audit and constrained calibration (registered follow-up)
+
+Before further healing attempts, a causal audit measured the missing
+pre-intervention baselines. In the untouched norm-free model, jointly
+zero-ablating the two circuit heads `7.11` and `9.0` leaves full-model accuracy
+at 1256/1280, and ablating the whole selected circuit drops it to 710/1280. The
+programs-installed zero-step model shows the identical 1256/1280 under the
+joint head lesion. The redundant route therefore pre-existed at 98.1% coverage;
+healing did not create the bypass, it closed the remaining 24 inputs. All 23
+pre-calibration full-model errors lie inside those 24 backup-uncovered inputs.
+
+The registered constrained-calibration follow-up then abandoned whole-model
+healing. Starting from the programs-installed zero-step model, every non-program
+parameter was frozen and hash-verified; only program-local parameters were
+trained, on an escalation ladder of two scalar output gains, per-channel
+diagonal gains, and program-local W_V/W_O. Because every trainable contribution
+vanishes when the programs are lesioned, bypass is impossible by construction:
+the lesioned forward is bit-identical to the zero-step baseline, checked as an
+identity gate on parameters, decisions, and margins rather than a statistical
+bound. All three ladder rungs reached 1280/1280 full and circuit-only agreement
+within the locked perplexity budget (scalar 25.6691, diagonal 25.7157,
+W_V/W_O 25.5707 vs. budget 28.6176), with joint-head lesion exactly 1256/1280
+and whole-circuit lesion exactly 710/1280, as the identity guarantee requires.
+The rung-3 program-local W_V/W_O checkpoint is the model of record.
+
+The run stopped at the original individual-necessity gate: head `9.0` is
+individually unnecessary (removing it changes nothing even circuit-internally),
+while `7.11` is strongly necessary (circuit-only accuracy collapses to
+640/1280 without it). This redundancy is a measured property of the untouched
+model, not an artifact of calibration. The gate was amended under documented
+registration: for the constrained design, individual-head necessity is replaced
+by (a) the leakage identity battery, (b) joint necessity of the program-head
+set (1256 < 1280), (c) whole-circuit necessity (710 < 1280), and (d)
+circuit-internal edge necessity, deferred to the SMT property where it formally
+lives. Rationale: in the constrained design the no-bypass guarantee is
+deductive, so individual necessity no longer performs migration detection; it
+instead tests non-redundancy of the original model's mechanism, which
+calibration cannot and should not manufacture. Audit and calibration evidence:
+commits `daf939e` and `ee35774`.
+
+#### Verified bounded quote circuit (final GPT-2 result)
+
+Re-extraction on the full declared domain D under the amended registration
+selected a three-edge circuit: `emb → mlp_0 → program head 7.11 → logits`.
+Head `9.0` (still a frozen program in the model) lies outside the selected
+circuit, consistent with the lesion asymmetry above. Structurally, this
+matches the string-closing mechanism reported for weight-sparse models by
+Gao et al.: an early MLP constructs quote features and a single later
+attention head copies the type to the closing position — found here
+independently in a densely trained model.
+
+The exact SMT encoding of this circuit matches PyTorch to a maximum
+candidate-logit error of 1.11e-8; the monolithic encoding builds in ~494 s with
+9,216 LeakyReLU trace constraints validated SAT. The verification battery runs
+on a constant-folded encoding: traced LeakyReLU signs are certified externally
+in exact rational arithmetic, the per-input forward folds to exact rational
+candidate logits, and each property reduces to ground comparisons in linear
+real arithmetic (for robustness, one linear margin inequality in the final
+residual perturbation per input). Folded and monolithic encodings agree to
+exact rational equality on all eight anchor sequences.
+
+All four properties are verified over all 1,280 prompts of D: functional
+equivalence 1280/1280; content invariance 1280/1280; edge necessity with exact
+witnesses for all three edges (640 witnesses each — every edge is load-bearing
+for one full input class); continuous robustness at the locked ε = 0.01 with
+minimum certified per-input radius ≈ 0.01514986. Because the model is norm-free
+and the circuit's attention is programmatic, the encoding contains no
+normalization branches and no bilinear terms, and the *unknown* verification
+outcome is structurally unreachable. One solver counterexample on a legacy
+max-length-3 synthetic input is preserved as a genuine outside-D witness,
+marking the declared domain boundary constructively; it does not affect any
+claim over D. Verification evidence: commits `bc7cfaf`, `0374707`, `7f237a1`.
+The model of record is the calibrated checkpoint pinned in
+`artifacts/gpt2-phase-q-agent/evidence_manifest.json`.
 
 Before extracting circuits, test whether the model actually exhibits the target behaviors. This prevents wasting time extracting "circuits" for behaviors the model does not perform.
 
@@ -867,7 +943,7 @@ Threshold sweep results:
 
 Once circuits are extracted, we can in theory formally verify their properties using SMT solvers. The properties vary by circuit and are described above in 3b.
 
-Naive SMT encoding of extracted *neural* GPT-2-scale circuits is not currently tractable: the retained heads contribute bilinear QK and value-aggregation terms at hidden width 768. This is the motivation for the program-replacement route in [VERIFIED_DISTILLATION.md](VERIFIED_DISTILLATION.md): replacing a circuit's attention heads with token/position programs removes those bilinear terms entirely, which at small scale roughly halved per-edge encoding cost and made all four properties provable. Verifying a program-healed GPT-2-scale circuit is the goal of Phase C; the commands below exercise the encoder path and would in principle prove the target properties given a tractable circuit.
+Naive SMT encoding of extracted *neural* GPT-2-scale circuits is not currently tractable: the retained heads contribute bilinear QK and value-aggregation terms at hidden width 768. This is the motivation for the program-replacement route in [VERIFIED_DISTILLATION.md](VERIFIED_DISTILLATION.md): replacing a circuit's attention heads with token/position programs removes those bilinear terms entirely, which at small scale roughly halved per-edge encoding cost and made all four properties provable. This route has now been completed for quote closing: the verified bounded quote circuit above passes all four properties over its declared 1,280-prompt domain via the constant-folded encoding. The commands below exercise the legacy monolithic encoder path.
 
 The SMT verification system is implemented in `/scripts/smt/` (core encoders) and `/scripts/gpt2/` (GPT-2 specific) with the following modules:
 
@@ -924,4 +1000,10 @@ python scripts/gpt2/verify.py \
   --timeout_ms 60000
 ```
 
-The GPT-2 verification script is intended to check all projected properties (functional equivalence, content invariance, edge necessity, and continuous robustness), but as mentioned, these checks are not currently tractable for the extracted GPT-2-scale circuits.
+The `--max_length 3` harness above is the legacy synthetic-domain path,
+retained because its sequence set provides the folded-vs-monolithic regression
+anchors and produced the preserved outside-D counterexample. The verified
+result over the declared domain D uses
+`scripts/gpt2/folded_phase_q_verification.py`, with outputs and resumable
+per-input records under
+`artifacts/gpt2-phase-q-readside-calibration/folded_verification/`.

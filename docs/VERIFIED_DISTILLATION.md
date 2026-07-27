@@ -1,6 +1,6 @@
-# Program-Mediated Attention and Normalization Removal: Verified Zero-Bilinear Circuits at Small Scale
+# Program-Mediated Attention and Normalization Removal: Verified Zero-Bilinear Circuits at Two Scales
 
-This section reports an end-to-end extension of the direct-verification pipeline in which the two components previously identified as the principal encoding obstacles — normalization and QK attention — are removed from a trained model's task circuits by post-training surgery rather than by from-scratch architectural replacement. Starting from the small sparsemax + LeakyReLU model, we (i) remove LayerNorm entirely via attenuation fine-tuning, (ii) replace the attention heads of each extracted task circuit with frozen symbolic programs that compute attention weights from token positions alone, and (iii) fine-tune the surrounding network under objectives that force the task mechanism to run through the installed programs. The resulting model admits task circuits whose SMT encodings contain no bilinear terms and no normalization branches. All four circuit-level properties — projected functional equivalence, content invariance, edge necessity, and continuous final-residual robustness — are verified for both tasks on the exhaustive 128-input domains, with the SMT encoding validated against the PyTorch implementation before each solver run.
+This section reports an end-to-end extension of the direct-verification pipeline in which the two components previously identified as the principal encoding obstacles — normalization and QK attention — are removed from trained models' task circuits by post-training surgery rather than by from-scratch architectural replacement. At small scale, we (i) remove LayerNorm entirely via attenuation fine-tuning, (ii) replace the attention heads of each extracted task circuit with frozen symbolic programs that compute attention weights from token positions alone, and (iii) fine-tune the surrounding network under objectives that force the task mechanism to run through the installed programs. At GPT-2 scale, the successful route instead freezes and hash-verifies every non-program parameter, calibrates only program-local value/output parameters, re-extracts the causal core, and verifies a constant-folded exact encoding. The resulting task circuits contain no bilinear attention terms and no normalization branches. All four circuit-level properties — projected functional equivalence, content invariance, edge necessity, and continuous final-residual robustness — are verified for both small-model tasks on their exhaustive 128-input domains and for GPT-2 quote closing on its declared, hash-pinned 1,280-prompt domain.
 
 Two negative results obtained along the way are reported with equal weight, because each motivates a method introduced to overcome it. First, branch-certified robustness verification of a retrained BandNorm model returns *unknown* at every perturbation radius tested, exposing a seed-dependent incompleteness of certificate-based proving that normalization removal eliminates by construction. Second, naive fine-tuning after program installation silently reroutes the task mechanism around the installed programs — even in an 8K-parameter model — and a single round of mechanism-pinning proved insufficient once a circuit involved multiple program heads. The healing objectives introduced below are the direct responses.
 
@@ -96,33 +96,119 @@ Assertion attribution instruments each encoder with a source category (norm, att
 
 ## 8. Claim discipline and limitations
 
-The verified object is the final healed hybrid model, a specific checkpoint, not the originally trained model; this pipeline is verified distillation or editing-for-verifiability, not post-hoc interpretation of the pre-surgery network. The circuits are zero-bilinear; the model is not attention-free (one head remains neural, outside both circuits). All guarantees are bounded to the 128-input domains, the two-token projections, and zero-ablation semantics, per Section 1.4. The attention programs are position-conditioned and exploit the fixed template of the task domains (the opener always occupies position 3); variable-position analogues require the token-identity and scan features of the DSL and are untested. Program acceptance is behavioral (projected agreement), not attention-map-exact: support IoU against the replaced heads ranges from 0.69 to 0.88, and the healing stage is what reconciles the difference — accordingly, no claim is made that the programs describe the original heads' attention. The branch-adjacency finding shows certificate-based robustness proving is seed-dependent for BandNorm models; it does not show any BandNorm model is non-robust (no decision violation was found at any radius). Finally, everything here concerns an 8K-parameter model with crisply symbolic head roles and near-one-hot sparsemax targets; whether program coverage, healing under a perplexity budget, and drift control survive GPT-2 scale is exactly the question the staged Phase A4/C experiments are designed to answer, and none of the small-scale results are evidence about scale beyond establishing that the pipeline's logic is sound and its failure modes are identifiable and treatable.
+At small scale, the verified object is the final healed hybrid checkpoint, not the originally trained model; this pipeline is verified distillation or editing-for-verifiability, not post-hoc interpretation of the pre-surgery network. The task circuits are zero-bilinear, although a neural head remains outside both circuits. The small-scale guarantees are bounded to the 128-input domains, the two-token projections, and zero-ablation semantics, per Section 1.4. Their position-conditioned attention programs exploit fixed templates, and their behavioral acceptance does not imply attention-map identity.
+
+At GPT-2 scale, the verified object is the rung-3 program-local W_V/W_O calibrated checkpoint named in the evidence manifest. Every other parameter is frozen and hash-verified, so the causal no-leakage claim is deductive rather than inferred from individual-head non-redundancy. The guarantee is exact only over the frozen 1,280-prompt quote domain D and the two-token quote projection; it is not an unrestricted-language or held-out-generalization theorem. The preserved synthetic counterexample outside D demonstrates that boundary. Bracket type is not verified at this scale: its only exactly-generalizing selected circuit retains all 144 attention heads, which is reported as a localization limit rather than hidden as unfinished surgery.
 
 ## 9. Artifact index
 
-Norm removal: `artifacts/small_layer_norm/` (source), `artifacts/small_norm_free/` (model + `removal_metrics.json`). Per-head regression: `artifacts/per-head-block-regression.json`. Robustness diagnosis: `artifacts/robustness_eps_sweep.json`; matched BandNorm model and circuits under `artifacts/small_band_norm_matched*/`. Programs: `artifacts/small_programs/` (layer-0 synthesis), `artifacts/small_program_chase_round1/` (layer-1 synthesis). Healing generations: `artifacts/small_program_healed/` (plain; failing migration report preserved at `small_program_healed_circuits/migration_report.json`), `artifacts/small_program_healed_ablation_aware/`, `artifacts/small_program_healed_chase_round1_core_aware/` (final model of record). Drift record: `artifacts/mechanism_drift.json` (includes a SHA-256 of the plain-heal failure report). Chase summary: `artifacts/program_chase_report.json`. Final circuits and verification outputs: `artifacts/small_program_healed_chase_round1_core_aware_circuits/`. Cost accounting: `artifacts/small-unified-cost-table.{json,csv}`, matched-topology selection under `artifacts/small_matched_topology/`.
+Norm removal: `artifacts/small_layer_norm/` (source), `artifacts/small_norm_free/` (model + `removal_metrics.json`). Per-head regression: `artifacts/per-head-block-regression.json`. Robustness diagnosis: `artifacts/robustness_eps_sweep.json`; matched BandNorm model and circuits under `artifacts/small_band_norm_matched*/`. Programs: `artifacts/small_programs/` (layer-0 synthesis), `artifacts/small_program_chase_round1/` (layer-1 synthesis). Healing generations: `artifacts/small_program_healed/` (plain; failing migration report preserved at `small_program_healed_circuits/migration_report.json`), `artifacts/small_program_healed_ablation_aware/`, `artifacts/small_program_healed_chase_round1_core_aware/` (final model of record). Drift record: `artifacts/mechanism_drift.json` (includes a SHA-256 of the plain-heal failure report). Chase summary: `artifacts/program_chase_report.json`. Final small-scale circuits and verification outputs: `artifacts/small_program_healed_chase_round1_core_aware_circuits/`. Cost accounting: `artifacts/small-unified-cost-table.{json,csv}`, matched-topology selection under `artifacts/small_matched_topology/`.
 
-## 10. GPT-2 bounded-domain boundary result
+GPT-2 Phase Q: `artifacts/gpt2-phase-q-agent/evidence_manifest.json` is the evidence root and pins the checkpoint, programs, selected circuit, domain, causal gates, verification records, and their hashes. The calibrated FP32 checkpoint is kept outside Git at `artifacts/gpt2-phase-q-readside-calibration/fp32_export/model.safetensors`; its SHA-256 is recorded in the manifest. The exact verification summary, resumable per-input records, anchor regression, and narrative report are under `artifacts/gpt2-phase-q-readside-calibration/folded_verification/` and `artifacts/gpt2-phase-q-readside-calibration/FOLDED_VERIFICATION_REPORT.md`.
 
-The GPT-2-scale continuation declares a fixed 1,280-prompt quote domain D with
-no held-out split. Extraction retained heads `7.11` and `9.0`; both were
-replaced by frozen restricted-DSL programs (a manifest-scoped quote-opener scan
-and uniform causal attention). The resulting selected circuit has zero active
-neural-attention bilinear terms and is exact against P(x) on D before healing.
+## 10. GPT-2-scale bounded verification
 
-The preregistered healing attempts failed. In an adaptive engineering
-continuation, correcting fourfold gradient-accumulation mis-scaling and adding
-the previously omitted full-forward task loss produced a checkpoint with exact
-full and circuit-only decisions on all 1,280 rows and perplexity 25.2506, below
-the unchanged 28.6176 budget. This establishes that symbolic replacement and
-bounded task healing are jointly feasible at this scale.
+### 10.1 Generalization boundary and declared domain
 
-It does not establish verified distillation at GPT-2 scale. The full unsampled
-lesion matrix continued to show a complete neural backup in the full graph,
-and program head `9.0` remained individually bypassable even inside the
-selected circuit. Four longer-run gates and a counterfactual lesion-target
-probe left those categorical results unchanged. Because migration is a
-prerequisite, re-extraction, FP32 encoder sanity, and the four SMT properties
-were not run on the exploratory checkpoints. The evidence therefore marks a
-sharp boundary: bounded behavioral healing and zero-bilinear symbolic coverage
-passed, while mechanism migration failed.
+The held-out-generalization track ended at protocol v4. On a fresh 512-prompt
+gate, the full norm-free model was exact on both tasks, the selected bracket
+circuit was exact, and the selected quote circuit scored 511/512. The
+exactly-generalizing bracket circuit retained 340 edges and all 144 attention
+heads. No v5 was run. These results establish a sparsity-versus-exactness
+frontier, not a failure of bounded verification.
+
+The flagship continuation therefore declares D as the ordered union of the
+frozen v4 development and gate manifests: 1,280 unique, hash-pinned quote
+prompts, balanced 640/640 by quote class. There is no held-out split in this
+claim. Every verification statement below is scoped to D.
+
+### 10.2 Symbolic replacement and causal pinning
+
+The first bounded extraction retained heads `7.11` and `9.0`, and both were
+replaced by frozen restricted-DSL programs. Ordinary whole-model healing could
+recover exact behavior and stay within the perplexity budget, but its lesion
+result could not establish that the programs carried the mechanism. A
+pre-healing causal audit then supplied the missing baseline: in the untouched
+model, jointly ablating those two heads already left 1,256/1,280 prompts
+correct, while ablating the selected circuit reduced accuracy to 710/1,280.
+The redundant route therefore predated healing.
+
+The successful follow-up did not fine-tune the whole model. It froze and
+hash-verified every non-program parameter and trained only program-local
+parameters on a registered ladder. The model of record is rung 3, which
+calibrates program-local W_V/W_O parameters. It reaches 1,280/1,280 agreement
+in both full and circuit-only forwards, with OpenWebText perplexity 25.5707
+against the locked 28.6176 budget. The joint program-set lesion remains
+1,256/1,280 and the registered whole-circuit lesion remains 710/1,280.
+Because every trainable contribution disappears under the corresponding
+lesion and all other parameters are unchanged, no bypass can be introduced by
+calibration.
+
+The original individual-head-necessity gate was amended under documented
+registration. It had imported a migration diagnostic into a constrained design
+where leakage identity already proves the relevant no-bypass fact, and it
+instead rejected native redundancy: `7.11` is load-bearing, while `9.0` is
+auxiliary even circuit-internally. The amended causal gate requires leakage
+identity, joint necessity of the program set, whole-circuit necessity, and
+circuit-internal edge necessity in the formal property.
+
+### 10.3 Re-extracted causal core
+
+Re-extraction on all of D selected exactly three edges:
+
+```text
+emb → mlp_0 → attn_7_h_11 → logits
+```
+
+Head `9.0` remains a frozen program in the full checkpoint but is absent from
+the selected circuit. The verified circuit therefore contains one symbolic
+program head, no neural attention head, no QK computation, and no normalization.
+Its mechanism shape qualitatively converges with the string-closing circuit
+reported by Gao et al. — an early MLP constructs quote features and a later
+copy head carries the quote type — here recovered independently from a densely
+trained model. This comparison concerns mechanism shape, not circuit stability.
+
+### 10.4 Exact folded verification
+
+The FP32 encoder agrees with PyTorch to a maximum candidate-logit error of
+1.11 × 10⁻⁸. The independent monolithic exact encoder builds in approximately
+494 seconds and validates 9,216 LeakyReLU trace constraints as SAT. The
+registered verification battery uses a semantics-preserving constant fold:
+LeakyReLU signs are certified externally in exact rational arithmetic,
+per-input forward computations contract to exact rational candidate logits,
+and the four properties reduce to ground comparisons in linear real
+arithmetic. Robustness is an exact linear margin computation at the
+final-residual interface. Folded and monolithic evaluators agree by literal
+rational equality on all eight preserved anchor sequences.
+
+All four properties pass over every row of D:
+
+| Property | Result |
+|---|---|
+| Projected functional equivalence | 1,280/1,280 |
+| Content invariance | 1,280/1,280 |
+| Circuit-internal edge necessity | all 3 edges; 640 decision-changing witnesses per edge |
+| Continuous robustness | 1,280/1,280 at ε = 0.01 |
+
+The minimum exact per-input robustness radius is approximately 0.01514986,
+more than 1.5 times the locked ε. The proof records contain 5,911,040
+categorized assertions and 62 unique exact MLP sign signatures. There are no
+normalization branches or bilinear terms, so *unknown* is structurally
+unreachable.
+
+One legacy max-length-3 sequence, `[10, 1, 10]`, is a genuine counterexample
+outside D: token 1 is an output quote token but not one of the four registered
+opener-context IDs, so the restricted scan program takes its exact
+self-fallback. The folded and monolithic evaluators reproduce the same result.
+This constructive boundary exhibit is preserved; it does not weaken any claim
+over D.
+
+### 10.5 Scale boundary
+
+Quote closing is the verified GPT-2 flagship. Bracket type remains a measured
+localization boundary: its only exactly-generalizing circuit retained all 144
+attention heads, so no claim of a small verified bracket circuit is made.
+Together, the two tasks show why the final claim is bounded and task-specific:
+program replacement plus causally constrained calibration can produce a
+formally verified GPT-2-derived circuit, but sparse exact localization is not
+guaranteed for every behavior.

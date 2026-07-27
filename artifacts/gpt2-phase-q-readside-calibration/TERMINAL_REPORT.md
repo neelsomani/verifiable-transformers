@@ -1,6 +1,11 @@
-# Terminal report
+# Historical preflight stop (superseded by the completed continuation)
 
-The constrained causal-integration follow-up stopped at the mandatory
+This preserved report records the first constrained causal-integration
+preflight stop. A registered paired-baseline amendment resolved the numerical
+reproducibility issue without changing epsilon, and the continuation ultimately
+completed the causal gates and formal verification described below.
+
+The initial constrained causal-integration follow-up stopped at the mandatory
 deterministic FP32 preflight. No search, optimization, calibration step, OWT
 evaluation, migration sweep, extraction, or SMT verification was run.
 
@@ -55,3 +60,73 @@ explicitly forbids relaxing epsilon or continuing after that observation.
 
 All prior artifacts remain unchanged. The registration is commit `1046efc`.
 The follow-up made zero optimizer steps and did not run any ladder rung.
+
+## Final Phase Q result
+
+The completed registered continuation produced a formally verified
+GPT-2-derived quote-closing circuit over the frozen, hash-pinned 1,280-prompt
+domain D. The model of record is the rung-3 program-local W_V/W_O calibrated
+checkpoint; every non-program parameter was frozen and hash-verified. It
+achieves 1,280/1,280 full and circuit-only decisions with OpenWebText
+perplexity 25.5707, below the locked 28.6176 budget.
+
+### Causal result
+
+The pre-healing audit showed that redundancy predated calibration. Jointly
+lesioning program heads `7.11` and `9.0` leaves 1,256/1,280 prompts correct in
+both the untouched baseline and the calibrated model, while the registered
+whole-circuit lesion leaves 710/1,280. Calibration cannot create a bypass:
+every trainable contribution is program-local and vanishes under the
+corresponding lesion, and all remaining parameters are hash-identical. The
+registered final criterion therefore uses leakage identity, joint
+program-set necessity, whole-circuit necessity, and formal edge necessity
+rather than demanding that the original model's redundant auxiliary head
+become individually necessary.
+
+Re-extraction selected the three-edge causal core:
+
+```text
+emb → mlp_0 → attn_7_h_11 → logits
+```
+
+Head `9.0` remains a frozen program in the full checkpoint but lies outside
+the selected core. The circuit's mechanism shape—early-MLP quote features
+followed by one copy head—qualitatively converges with the string-closing
+mechanism reported by Gao et al., here found independently in a densely
+trained model.
+
+### Exact four-property verification
+
+The FP32 encoder matches PyTorch with maximum candidate-logit error
+1.11 × 10⁻⁸. A semantics-preserving exact fold certifies every used LeakyReLU
+branch, contracts each concrete input to exact rational constants, and leaves
+only ground linear-real-arithmetic comparisons. Folded and independent
+monolithic evaluators agree by exact rational equality on all eight preserved
+anchors.
+
+All four registered properties pass on every prompt in D:
+
+| Property | Result |
+|---|---|
+| Functional equivalence | 1,280/1,280 |
+| Content invariance | 1,280/1,280 |
+| Edge necessity | all 3 edges; 640 decision-changing witnesses per edge |
+| Continuous robustness | 1,280/1,280 at ε = 0.01 |
+
+The minimum exact certified radius is approximately 0.01514986. The records
+attribute 5,911,040 assertions and contain no normalization branches or
+bilinear attention terms; *unknown* is structurally unreachable. Full
+per-input proof records are under `folded_verification/`.
+
+### Declared boundary
+
+The legacy synthetic sequence `[10, 1, 10]` is a genuine outside-D
+counterexample, reproduced exactly by folded and monolithic evaluators. It is
+preserved as a constructive boundary exhibit rather than represented as a
+claim over D. Bracket type is the separate scale boundary: its only
+exactly-generalizing selected circuit retains all 144 attention heads, so it
+is reported as a localization result rather than verified.
+
+The checkpoint hash, domain hashes, circuit and program hashes, causal gates,
+verification records, and Phase Q commits are pinned in
+`artifacts/gpt2-phase-q-agent/evidence_manifest.json`.

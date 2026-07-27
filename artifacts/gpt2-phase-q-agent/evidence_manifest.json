@@ -1,35 +1,104 @@
 {
-  "schema_version": 1,
-  "claim_scope": "exploratory exact behavior only on frozen 1280-row quote_close domain D; no held-out claim",
+  "schema_version": 2,
+  "status": "phase_q_complete",
+  "claim_scope": "Exact four-property verification of the extracted quote_close circuit over the frozen 1280-row bounded domain D; no held-out or unrestricted generalization claim.",
   "domain": {
     "path": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
     "sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
     "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+    "ordered_example_ids_newline_sha256": "6c769c18764b847e0d9bb927df2cc0fab68148ef3996cb02b231fae76f079ecc",
     "rows": 1280
   },
+  "model_of_record": {
+    "name": "two_program_rung3",
+    "checkpoint_path_outside_git": "artifacts/gpt2-phase-q-readside-calibration/fp32_export/model.safetensors",
+    "checkpoint_sha256": "bcec649b087b984a986760a18aedad2477bd118460b33067e9186cd633f8e65d",
+    "checkpoint_bytes": 651420044,
+    "dtype": "float32",
+    "export_manifest_path": "artifacts/gpt2-phase-q-readside-calibration/fp32_export_manifest.json",
+    "export_manifest_sha256": "bc7f825376366319e816c54de6c3d7a42a031a0a5c18a4f437f83c89e98a0d58",
+    "weights_committed_to_git": false
+  },
   "programs": {
-    "path": "artifacts/gpt2-programs-bounded-quote-scan-fallback-final/bounded-selection/programs_selected.json",
+    "path": "artifacts/gpt2-phase-q-readside-calibration/fp32_export/programs.json",
     "sha256": "40afc75464e92c82d2a1f3c1c8ae44583f7892633539a3c09fe3fe4f3e6579f1",
-    "heads": ["7.11", "9.0"]
+    "installed_heads": [
+      "7.11",
+      "9.0"
+    ],
+    "selected_circuit_heads": [
+      "7.11"
+    ],
+    "neural_attention_bilinear_terms_in_selected_circuit": 0
   },
-  "best_exact_checkpoint": {
-    "path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/model.safetensors",
-    "sha256": "4a70e2f9045a3859dd9f5e41c528595f40d48b45646f64bbe23d9a1a20687c70",
-    "full_accuracy": 1.0,
-    "circuit_accuracy": 1.0,
-    "openwebtext_perplexity": 25.25059924330555,
-    "migration_pass": false
+  "selected_circuit": {
+    "path": "artifacts/gpt2-phase-q-readside-calibration/fp32_export/circuit.json",
+    "sha256": "4c72e3ee7abcd2d4987997b0f4b807258b4788153db5671c25aab918f0c96d00",
+    "topology_sha256": "9177fd1a3f6ed3600a757a90ee4f0898868e824115b1726210f7783eed18e0d1",
+    "edges": [
+      [
+        "emb",
+        "mlp_0"
+      ],
+      [
+        "mlp_0",
+        "attn_7_h_11"
+      ],
+      [
+        "attn_7_h_11",
+        "logits"
+      ]
+    ]
   },
-  "terminal_counterfactual_probe": {
-    "path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v3/model.safetensors",
-    "sha256": "ebafbac7a359ae0b4fbf2d40d923f14a914e13075b554e74551d5ce27d69cc12",
-    "full_accuracy": 1.0,
-    "circuit_accuracy": 1.0,
-    "openwebtext_perplexity": 25.29011670416976,
-    "migration_pass": false
+  "causal_and_quality_gates": {
+    "full_exact": "1280/1280",
+    "circuit_only_exact": "1280/1280",
+    "joint_program_set_lesion": "1256/1280",
+    "selected_circuit_node_lesion": "1191/1280",
+    "registered_whole_circuit_lesion": "710/1280",
+    "leakage_identity": "passed",
+    "openwebtext_perplexity": 25.570720305855296,
+    "openwebtext_perplexity_budget": 28.617593822841776
   },
   "verification": {
-    "run": false,
-    "reason": "locked full unsampled migration/lesion prerequisite failed"
-  }
+    "status": "PASSED",
+    "report_path": "artifacts/gpt2-phase-q-readside-calibration/FOLDED_VERIFICATION_REPORT.md",
+    "report_sha256": "18c52192c911a090f26150bd22bdc46fc9c0c29ab8a75666e4bb99ac1c4a7eaf",
+    "summary_path": "artifacts/gpt2-phase-q-readside-calibration/folded_verification/summary.json",
+    "summary_sha256": "bd36c648ac6afae3548ba207c0f175fde291ef88b4983af0ca9ad4f6bec11ea9",
+    "per_input_path": "artifacts/gpt2-phase-q-readside-calibration/folded_verification/per_input.jsonl",
+    "per_input_sha256": "4fd43bc2c5f360eb51c910531fc58e628fb5f3c76abd3db8e2e6e293d233a9b9",
+    "anchor_equality_path": "artifacts/gpt2-phase-q-readside-calibration/folded_verification/anchor_equality.json",
+    "anchor_equality_sha256": "85b5335fb7eb870cdd2871a61cb8ed0ca4c031e2f85c14a7970c9a9870c83cbb",
+    "properties": {
+      "functional_equivalence": "1280/1280 PASSED",
+      "content_invariance": "1280/1280 PASSED",
+      "edge_necessity": {
+        "status": "PASSED",
+        "decision_changing_witnesses_per_edge": 640
+      },
+      "continuous_robustness": {
+        "status": "1280/1280 PASSED",
+        "registered_epsilon": 0.01,
+        "minimum_certified_radius": 0.015149857919489826
+      }
+    },
+    "logic": "decidable exact linear real arithmetic with ground exact comparisons after semantics-preserving branch-certified folding",
+    "unknown_outcomes": 0
+  },
+  "outside_domain_boundary_exhibit": {
+    "smoke_log_path": "artifacts/gpt2-phase-q-readside-calibration/verification_max_length_3.log",
+    "smoke_log_sha256": "ff54f7aa046961eb75c37d9a5d26fe8af2f0d3c5aea89bad05a3be0510c99fd7",
+    "counterexample_tokens": [
+      10,
+      1,
+      10
+    ],
+    "interpretation": "Genuine synthetic smoke-domain counterexample outside D; reproduced exactly by folded and monolithic rational evaluators."
+  },
+  "phase_q_commits": [
+    "bc7cfaf",
+    "0374707",
+    "7f237a1"
+  ]
 }
