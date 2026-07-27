@@ -56,6 +56,8 @@ def _compute_head(
         batch, seq_len, _ = normalized.shape
         start = head * attention.head_dim
         stop = start + attention.head_dim
+        if head in getattr(attention, "hard_pruned_heads", set()):
+            return normalized.new_zeros(batch, seq_len, attention.head_dim)
         value = torch.nn.functional.linear(
             normalized,
             attention.value_proj.weight[start:stop],
