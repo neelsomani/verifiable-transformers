@@ -82,8 +82,10 @@ class ExactFoldedCircuit:
     """Contract downstream maps and cache exact positionwise MLP signatures."""
 
     def __init__(self, state: dict[str, torch.Tensor], program: AttentionProgram):
+        contraction_started = time.perf_counter()
         self.state = state
         self.program = program
+        self.evidence_hashes: dict[str, str] = {}
         self.signature_cache: dict[tuple[int, int, bool], SignatureFold] = {}
         self.wte = state["transformer.wte.weight"].cpu().float()
         self.wpe = state["transformer.wpe.weight"].cpu().float()
@@ -110,6 +112,7 @@ class ExactFoldedCircuit:
             for a, b in zip(qvector(self.lm[CANDIDATES[0]]), qvector(self.lm[CANDIDATES[1]]))
         ]
         self.robustness_l1 = sum((abs(x) for x in self.lm_difference), gmpy2.mpq(0))
+        self.constant_contraction_seconds = time.perf_counter() - contraction_started
 
     def _contract_candidate(self, token: int) -> dict:
         lm = qvector(self.lm[token])
@@ -289,7 +292,17 @@ def load_circuit(root: Path) -> ExactFoldedCircuit:
     programs = json.loads((export / "programs.json").read_text())
     if sorted(programs) != ["7.11", "9.0"]:
         raise RuntimeError(f"Fixed two-program export changed: {sorted(programs)}")
-    return ExactFoldedCircuit(state, AttentionProgram.from_dict(programs["7.11"]))
+    circuit = ExactFoldedCircuit(state, AttentionProgram.from_dict(programs["7.11"]))
+    circuit.evidence_hashes = {
+        "model_weights_sha256": sha256_bytes((export / "model.safetensors").read_bytes()),
+        "programs_sha256": sha256_bytes((export / "programs.json").read_bytes()),
+        "selected_circuit_sha256": sha256_bytes((export / "circuit.json").read_bytes()),
+        "calibrated_constants_rational_sha256": sha256_bytes(
+            (export / "calibrated_constants_rational.json").read_bytes()
+        ),
+        "topology_sha256": canonical_hash([list(edge) for edge in EDGES]),
+    }
+    return circuit
 
 
 def anchor_sequences():
@@ -419,6 +432,7 @@ def per_input_record(
         "encode_fold_seconds": fold_seconds,
         "solve_seconds": 0.0,
         "program_weights": metadata["program_weights"],
+        "evidence_hashes": circuit.evidence_hashes,
     }
 
 
@@ -441,6 +455,8 @@ def run(args) -> None:
         return
 
     records_path = output / "per_input.jsonl"
+    if not args.resume and records_path.exists():
+        records_path.unlink()
     completed = set()
     records = []
     if args.resume and records_path.exists():
@@ -526,8 +542,10 @@ def run(args) -> None:
         "per_input_sha256": sha256_bytes(records_path.read_bytes()),
         "assertion_count": sum(r["assertion_count"] for r in records),
         "encode_fold_seconds": sum(r["encode_fold_seconds"] for r in records),
+        "constant_contraction_seconds": circuit.constant_contraction_seconds,
         "solve_seconds": sum(r["solve_seconds"] for r in records),
         "unique_exact_mlp_signatures": len(circuit.signature_cache),
+        "evidence_hashes": circuit.evidence_hashes,
     }
     write_json(output / "summary.json", summary)
 
