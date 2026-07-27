@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "rung": 2,
+  "name": "diagonal_per_channel_readside",
+  "steps_run": 200,
+  "objective_evaluations": 200,
+  "history": [
+    {
+      "step": 200,
+      "objective": 0.6154768466949463,
+      "task_loss": 0.25871187448501587,
+      "owt_preservation_loss": 3.5676498413085938,
+      "native_full_correct": 1280,
+      "circuit_only_correct": 1280,
+      "task_pass": true,
+      "identity_pass": true,
+      "diagonal_sha256": "82d5404126625e4df4303b3443b7a726e9844196f31e00ce9d1ec72f5bac42b7",
+      "owt": {
+        "eval_examples": 11059,
+        "eval_tokens": 11313357,
+        "eval_loss": 3.24710231499617,
+        "eval_perplexity": 25.715715806769772
+      },
+      "owt_pass": true
+    }
+  ],
+  "terminal_diagonal_sha256": "82d5404126625e4df4303b3443b7a726e9844196f31e00ce9d1ec72f5bac42b7",
+  "pass": true,
+  "checkpoint_state_not_for_git": "rung2_diagonal_state.pt"
+}

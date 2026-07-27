@@ -495,6 +495,165 @@ def run_diagonal_rung(
     return report, passing_candidate
 
 
+def _enable_program_local_trainables(model):
+    for parameter in model.parameters():
+        parameter.requires_grad_(False)
+    trainables = []
+    masks = []
+    for node in PROGRAM_NODES:
+        _, layer_text, _, head_text = node.split("_")
+        layer, head = int(layer_text), int(head_text)
+        attention = model.transformer.h[layer].attn
+        start, stop = head * attention.head_dim, (head + 1) * attention.head_dim
+        for parameter, axis in (
+            (attention.value_proj.weight, 0),
+            (attention.value_proj.bias, 0),
+            (attention.c_proj.weight, 0),
+        ):
+            parameter.requires_grad_(True)
+            mask = torch.zeros_like(parameter)
+            index = [slice(None)] * parameter.ndim
+            index[axis] = slice(start, stop)
+            mask[tuple(index)] = 1
+            parameter.register_hook(lambda gradient, mask=mask: gradient * mask)
+            trainables.append(parameter)
+            masks.append(mask)
+    return trainables, masks
+
+
+def _candidate_loss(logits, attention_mask, candidate_ids, targets):
+    projected = select_last_real_logits(logits, attention_mask)[:, candidate_ids]
+    return F.cross_entropy(projected, targets)
+
+
+def run_program_local_rung(
+    model,
+    values,
+    graph,
+    selected_edges,
+    registration,
+    output_dir,
+    processed_dataset_dir,
+    device,
+):
+    rung = registration["ladder"][2]
+    trainables, masks = _enable_program_local_trainables(model)
+    optimizer = torch.optim.Adam(
+        trainables, lr=rung["learning_rate"], weight_decay=0.0
+    )
+    owt_train = load_from_disk(processed_dataset_dir)["validation"]
+    batch_size = rung["batch_size"]
+    targets = values["targets"].to(device)
+    history = []
+    passing = False
+    for step in range(1, rung["max_steps"] + 1):
+        optimizer.zero_grad(set_to_none=True)
+        start = ((step - 1) * batch_size) % len(targets)
+        indices = torch.arange(start, start + batch_size, device=device) % len(targets)
+        ids = values["input_ids"][indices]
+        mask = values["attention_mask"][indices]
+        task_targets = targets[indices]
+        native_logits = model(
+            input_ids=ids, attention_mask=mask, use_cache=False
+        ).logits
+        native_loss = _candidate_loss(
+            native_logits,
+            mask,
+            values["candidate_token_ids"],
+            task_targets,
+        )
+        circuit_logits = controlled_forward(
+            model, ids, mask, selected_edges, graph
+        )
+        circuit_loss = _candidate_loss(
+            circuit_logits,
+            mask,
+            values["candidate_token_ids"],
+            task_targets,
+        )
+        task_loss = native_loss + circuit_loss
+        task_loss.backward()
+
+        owt_rows = owt_train[
+            ((step - 1) * batch_size) % len(owt_train) :
+            ((step - 1) * batch_size) % len(owt_train) + batch_size
+        ]
+        if len(owt_rows["input_ids"]) < batch_size:
+            owt_rows = owt_train[0:batch_size]
+        owt_ids = torch.tensor(owt_rows["input_ids"], device=device)
+        owt_mask = torch.tensor(owt_rows["attention_mask"], device=device)
+        owt_labels = torch.tensor(owt_rows["labels"], device=device)
+        owt_loss = model(
+            input_ids=owt_ids,
+            attention_mask=owt_mask,
+            labels=owt_labels,
+            use_cache=False,
+        ).loss
+        (registration["objective"]["owt_preservation_weight"] * owt_loss).backward()
+        torch.nn.utils.clip_grad_norm_(trainables, rung["gradient_clip_norm"])
+        optimizer.step()
+        with torch.no_grad():
+            decay = 1.0 - rung["learning_rate"] * rung["weight_decay"]
+            for parameter, parameter_mask in zip(trainables, masks):
+                parameter.mul_(1.0 - parameter_mask * (1.0 - decay))
+        if step % rung["gate_interval_steps"] != 0:
+            continue
+        native_rows = evaluate_rows(
+            model, values, registration["execution_policy"]["batch_size_for_identity"]
+        )
+        circuit_rows = evaluate_rows(
+            model,
+            values,
+            registration["execution_policy"]["batch_size_for_identity"],
+            edges=selected_edges,
+            graph=graph,
+        )
+        native_correct = sum(r["decision"] == r["target"] for r in native_rows)
+        circuit_correct = sum(r["decision"] == r["target"] for r in circuit_rows)
+        record = {
+            "step": step,
+            "native_full_correct": native_correct,
+            "circuit_only_correct": circuit_correct,
+            "task_pass": native_correct == len(targets)
+            and circuit_correct == len(targets),
+            "last_task_loss": float(task_loss.detach().cpu()),
+            "last_owt_preservation_loss": float(owt_loss.detach().cpu()),
+        }
+        history.append(record)
+        print(json.dumps({"program_local_gate": record}), flush=True)
+        if record["task_pass"]:
+            # A complete checkpoint is emitted outside Git before the expensive
+            # OWT and migration gates.
+            checkpoint = output_dir / "rung3_checkpoint"
+            checkpoint.mkdir(exist_ok=True)
+            model.save_pretrained(checkpoint, safe_serialization=True)
+            owt = evaluate_owt_scalar(
+                model, owt_train, torch.ones(2, device=device), device
+            )
+            record["owt"] = owt
+            record["owt_pass"] = (
+                owt["eval_perplexity"]
+                <= registration["locked_gates"]["owt_perplexity_max"]
+            )
+            if record["owt_pass"]:
+                passing = True
+                break
+    report = {
+        "schema_version": 1,
+        "rung": 3,
+        "name": rung["name"],
+        "steps_run": step,
+        "objective_evaluations": step,
+        "history": history,
+        "task_identity_owt_pass": passing,
+        "checkpoint_state_not_for_git": "rung3_checkpoint",
+    }
+    (output_dir / "rung3_program_local.json").write_text(
+        json.dumps(report, indent=2) + "\n"
+    )
+    return report, passing
+
+
 def compare_semantics_to_audit(rows, audit_rows):
     if [r["example_id"] for r in rows] != [r["example_id"] for r in audit_rows]:
         raise RuntimeError("Domain order does not reproduce the audit")
@@ -708,18 +867,35 @@ def main():
     if scalar_candidate is not None and scalar_migration_pass:
         print(json.dumps({"rung1": "pass", "gains": scalar_candidate.tolist()}))
         return
-    diagonal_report, diagonal_candidate = run_diagonal_rung(
-        model,
-        values,
-        graph,
-        selected_edges,
-        registration,
-        output_dir,
-        str(root / args.processed_dataset_dir),
-        args.device,
-        scalar_candidate,
+    diagonal_path = output_dir / "rung2_diagonal.json"
+    if diagonal_path.exists():
+        diagonal_report = json.loads(diagonal_path.read_text())
+        diagonal_candidate = (
+            torch.load(
+                output_dir / "rung2_diagonal_state.pt", weights_only=True
+            )["diagonal"]
+            if diagonal_report.get("pass")
+            else None
+        )
+    else:
+        diagonal_report, diagonal_candidate = run_diagonal_rung(
+            model,
+            values,
+            graph,
+            selected_edges,
+            registration,
+            output_dir,
+            str(root / args.processed_dataset_dir),
+            args.device,
+            scalar_candidate,
+        )
+    diagonal_migration_path = output_dir / "rung2_migration_sweep.json"
+    diagonal_migration_pass = (
+        diagonal_migration_path.exists()
+        and json.loads(diagonal_migration_path.read_text()).get("migration_pass")
+        is True
     )
-    if diagonal_candidate is not None:
+    if diagonal_candidate is not None and diagonal_migration_pass:
         print(
             json.dumps(
                 {
@@ -731,7 +907,26 @@ def main():
             )
         )
         return
-    raise NotImplementedError("Rung 2 failed; program-local fallback is pending")
+    rung3_report, rung3_candidate = run_program_local_rung(
+        model,
+        values,
+        graph,
+        selected_edges,
+        registration,
+        output_dir,
+        str(root / args.processed_dataset_dir),
+        args.device,
+    )
+    print(
+        json.dumps(
+            {
+                "rung3": (
+                    "task_identity_owt_pass" if rung3_candidate else "failed"
+                ),
+                "steps": rung3_report["steps_run"],
+            }
+        )
+    )
 
 
 if __name__ == "__main__":
