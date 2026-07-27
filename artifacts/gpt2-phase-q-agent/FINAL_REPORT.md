@@ -13,6 +13,13 @@ continuous robustness all pass over D.
 The claim is bounded to D and the registered two-token quote projection. It is
 not a held-out-generalization or unrestricted-language claim.
 
+The project set out to verify extracted circuits and found it had to construct
+the object it could verify: for attention, symbolic replacement is the method
+rather than a retreat, because naive encoding is intractable (measured),
+extracted neural circuits are near-exact but not exact beyond their extraction
+data (measured across three protocols), and the distilled artifact's
+faithfulness to the deployed model is deductive rather than interpretive.
+
 ## 1. Healing-based route
 
 The preregistered core-aware healing attempts did not produce a causally pinned

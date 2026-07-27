@@ -51,7 +51,7 @@ This finding strengthens the case for removal over replacement on the provabilit
 
 We define a restricted rule-list DSL for attention programs. A program consists of a default weight and an ordered list of rules; each rule adds a constant weight to a (query, key) pair when its conditions hold, and conditions test only token positions, relative distances, and token identities. Per-row scores are normalized to a distribution. Programs are therefore functions of tokens and positions alone: they read no hidden state, and for any concrete input the resulting attention matrix is a matrix of rational constants.
 
-Programs are synthesized against a head's attention maps over the task domain by enumerating a candidate space (120 candidates per head here; no LM proposer was required at this scale). Candidates are ranked by attention-map similarity but *accepted* by a behavioral criterion: exact projected agreement — installing the candidate as the head's attention, with all else fixed, must leave the model's projected decision unchanged on every input in the domain. This deliberately admits programs coarser than the attention they replace; the healing stage absorbs the difference, and the formal claims ultimately attach to the healed model, not to attention-map fidelity.
+Programs are synthesized against a head's attention maps over the task domain by enumerating a candidate space (120 candidates per head here; no LM proposer was required at this scale). Synthesis is search under a registered acceptance criterion, not manual authorship; "symbolic program" throughout this document means a search-selected rule list, and no program was hand-written. Candidates are ranked by attention-map similarity but *accepted* by a behavioral criterion: exact projected agreement — installing the candidate as the head's attention, with all else fixed, must leave the model's projected decision unchanged on every input in the domain. This deliberately admits programs coarser than the attention they replace; the healing stage absorbs the difference, and the formal claims ultimately attach to the healed model, not to attention-map fidelity.
 
 The small-scale programs below are position-conditioned and do not exercise
 token scanning. The restricted token-identity scan primitive is subsequently
@@ -105,13 +105,9 @@ At small scale, the verified object is the final healed hybrid checkpoint, not t
 
 At GPT-2 scale, the verified object is the rung-3 program-local W_V/W_O calibrated checkpoint named in the evidence manifest. Every other parameter is frozen and hash-verified, so the causal no-leakage claim is deductive rather than inferred from individual-head non-redundancy. The guarantee is exact only over the frozen 1,280-prompt quote domain D and the two-token quote projection; it is not an unrestricted-language or held-out-generalization theorem. The preserved synthetic counterexample outside D demonstrates that boundary. Bracket type is not verified at this scale: its only exactly-generalizing selected circuit retains all 144 attention heads, which is reported as a localization limit rather than hidden as unfinished surgery.
 
-Finally, everything in Sections 1–9 concerns an 8K-parameter model with crisply symbolic head roles and near-one-hot sparsemax targets. The GPT-2-scale continuation (Section 10) tested which parts survive scale: normalization removal, program synthesis, bounded healing, and folded verification transferred; healing-based mechanism migration did not, and was replaced by a causally constrained calibration design.
+## 9. Scale transition
 
-## 9. Artifact index
-
-Norm removal: `artifacts/small_layer_norm/` (source), `artifacts/small_norm_free/` (model + `removal_metrics.json`). Per-head regression: `artifacts/per-head-block-regression.json`. Robustness diagnosis: `artifacts/robustness_eps_sweep.json`; matched BandNorm model and circuits under `artifacts/small_band_norm_matched*/`. Programs: `artifacts/small_programs/` (layer-0 synthesis), `artifacts/small_program_chase_round1/` (layer-1 synthesis). Healing generations: `artifacts/small_program_healed/` (plain; failing migration report preserved at `small_program_healed_circuits/migration_report.json`), `artifacts/small_program_healed_ablation_aware/`, `artifacts/small_program_healed_chase_round1_core_aware/` (final model of record). Drift record: `artifacts/mechanism_drift.json` (includes a SHA-256 of the plain-heal failure report). Chase summary: `artifacts/program_chase_report.json`. Final small-scale circuits and verification outputs: `artifacts/small_program_healed_chase_round1_core_aware_circuits/`. Cost accounting: `artifacts/small-unified-cost-table.{json,csv}`, matched-topology selection under `artifacts/small_matched_topology/`.
-
-GPT-2 Phase Q: `artifacts/gpt2-phase-q-agent/FINAL_REPORT.md` is the protocol index, and `artifacts/gpt2-phase-q-agent/evidence_manifest.json` pins the checkpoint, programs, selected circuit, domain, causal gates, verification records, and their hashes. The calibrated FP32 checkpoint is kept outside Git at `artifacts/gpt2-phase-q-readside-calibration/fp32_export/model.safetensors`; its SHA-256 is recorded in the manifest. The exact verification summary, resumable per-input records, anchor regression, and narrative report are under `artifacts/gpt2-phase-q-readside-calibration/folded_verification/` and `artifacts/gpt2-phase-q-readside-calibration/FOLDED_VERIFICATION_REPORT.md`.
+Everything in Sections 1–8 concerns an 8K-parameter model with crisply symbolic head roles and near-one-hot sparsemax targets. The GPT-2-scale continuation (Section 10) tested which parts survive scale: normalization removal, program synthesis, bounded healing, and folded verification transferred; healing-based mechanism migration did not, and was replaced by a causally constrained calibration design.
 
 ## 10. GPT-2 bounded-domain result: verified quote circuit via constrained calibration
 
@@ -166,7 +162,16 @@ all eight anchor sequences. All four properties are verified over all 1,280
 prompts: equivalence and invariance 1280/1280; edge necessity with 640 exact
 witnesses per edge; robustness at the locked ε = 0.01 with minimum certified
 radius ≈ 0.01515. No normalization branches, no bilinear terms, and no
-reachable *unknown* outcome. One solver counterexample on a legacy synthetic
+reachable *unknown* outcome. The verified circuit is causally load-bearing in
+the deployed model, not a decorative attachment: whole-circuit ablation
+collapses full-model task accuracy from 1280/1280 to 710/1280, while the
+calibrated model retains general language-model quality at perplexity 25.5707
+versus its norm-free base's 24.6703 (+3.7%), with all 124M non-program
+parameters bit-identical to the base by hash. Within the circuit, the learned
+MLP-0 - a full, untouched 768×3072×768 GPT-2 module - performs the feature
+computation; the symbolic program performs the routing, the same division of
+labor as the string-closing circuit in weight-sparse models. One solver
+counterexample on a legacy synthetic
 length-3 input is preserved as a genuine outside-D witness of the domain
 boundary. The claim is scoped exactly: a verified, fully symbolic-attention
 task circuit of a calibrated GPT-2-scale model over its declared domain — with
@@ -175,3 +180,17 @@ than by trained migration, and with the model's native head-level redundancy
 reported as measured. Evidence: audit and calibration commits `daf939e`,
 `ee35774`; verification commits `bc7cfaf`, `0374707`, `7f237a1`; complete
 protocol index in `artifacts/gpt2-phase-q-agent/FINAL_REPORT.md`.
+
+## 11. What is and is not verified
+
+**Verified (formal, over declared domains):** the four circuit-level properties of the final artifacts — the small-scale healed model's two circuits over their exhaustive 128-input domains, and the GPT-2 calibrated model's three-edge quote circuit over its 1,280-prompt domain D. These artifacts have symbolic attention by construction; their faithfulness to the deployed model is deductive (frozen non-program parameters, lesion-identity battery), and their causal necessity is measured (710/1280 under whole-circuit ablation at GPT-2 scale).
+
+**Measured but not formally verified:** properties of the original, pre-surgery models — the lesion matrix of the untouched GPT-2 model (joint-head ablation 1256/1280, whole-circuit 710/1280, i.e. a native redundant route covering 98.1% of the domain), the near-exact-but-not-exact generalization of extracted neural circuits (v2–v4: 247/256, 255/256, 511/512 on untouched gates), and the bracket-type localization finding (the only exactly-generalizing bracket circuit retains all 144 attention heads).
+
+**Not claimed:** formal verification of unmodified GPT-2 or of its original neural attention (naive encoding remains intractable; this is the motivation for distillation, not an oversight of it); any behavior outside the declared domains (a preserved solver counterexample marks the boundary constructively); any bracket-type verification at GPT-2 scale.
+
+## 12. Artifact index
+
+Norm removal: `artifacts/small_layer_norm/` (source), `artifacts/small_norm_free/` (model + `removal_metrics.json`). Per-head regression: `artifacts/per-head-block-regression.json`. Robustness diagnosis: `artifacts/robustness_eps_sweep.json`; matched BandNorm model and circuits under `artifacts/small_band_norm_matched*/`. Programs: `artifacts/small_programs/` (layer-0 synthesis), `artifacts/small_program_chase_round1/` (layer-1 synthesis). Healing generations: `artifacts/small_program_healed/` (plain; failing migration report preserved at `small_program_healed_circuits/migration_report.json`), `artifacts/small_program_healed_ablation_aware/`, `artifacts/small_program_healed_chase_round1_core_aware/` (final model of record). Drift record: `artifacts/mechanism_drift.json` (includes a SHA-256 of the plain-heal failure report). Chase summary: `artifacts/program_chase_report.json`. Final small-scale circuits and verification outputs: `artifacts/small_program_healed_chase_round1_core_aware_circuits/`. Cost accounting: `artifacts/small-unified-cost-table.{json,csv}`, matched-topology selection under `artifacts/small_matched_topology/`.
+
+GPT-2 Phase Q: `artifacts/gpt2-phase-q-agent/FINAL_REPORT.md` is the protocol index, and `artifacts/gpt2-phase-q-agent/evidence_manifest.json` pins the checkpoint, programs, selected circuit, domain, causal gates, verification records, and their hashes. The calibrated FP32 checkpoint is kept outside Git at `artifacts/gpt2-phase-q-readside-calibration/fp32_export/model.safetensors`; its SHA-256 is recorded in the manifest. The exact verification summary, resumable per-input records, anchor regression, and narrative report are under `artifacts/gpt2-phase-q-readside-calibration/folded_verification/` and `artifacts/gpt2-phase-q-readside-calibration/FOLDED_VERIFICATION_REPORT.md`.

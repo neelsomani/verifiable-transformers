@@ -70,6 +70,13 @@ checkpoint; every non-program parameter was frozen and hash-verified. It
 achieves 1,280/1,280 full and circuit-only decisions with OpenWebText
 perplexity 25.5707, below the locked 28.6176 budget.
 
+The project set out to verify extracted circuits and found it had to construct
+the object it could verify: for attention, symbolic replacement is the method
+rather than a retreat, because naive encoding is intractable (measured),
+extracted neural circuits are near-exact but not exact beyond their extraction
+data (measured across three protocols), and the distilled artifact's
+faithfulness to the deployed model is deductive rather than interpretive.
+
 ### Causal result
 
 The pre-healing audit showed that redundancy predated calibration. Jointly

@@ -671,7 +671,10 @@ for one full input class); continuous robustness at the locked ε = 0.01 with
 minimum certified per-input radius ≈ 0.01514986. Because the model is norm-free
 and the circuit's attention is programmatic, the encoding contains no
 normalization branches and no bilinear terms, and the *unknown* verification
-outcome is structurally unreachable. One solver counterexample on a legacy
+outcome is structurally unreachable. The calibrated model of record retains
+general LM quality at perplexity 25.5707 (norm-free base: 24.6703; locked
+budget: 28.6176), with every non-program parameter hash-identical to the base.
+One solver counterexample on a legacy
 max-length-3 synthetic input is preserved as a genuine outside-D witness,
 marking the declared domain boundary constructively; it does not affect any
 claim over D. Verification evidence: commits `bc7cfaf`, `0374707`, `7f237a1`.
