@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "rung": 3,
+  "name": "program_local_WV_WO",
+  "steps_run": 200,
+  "objective_evaluations": 200,
+  "history": [
+    {
+      "step": 200,
+      "native_full_correct": 1280,
+      "circuit_only_correct": 1280,
+      "task_pass": true,
+      "last_task_loss": 0.005298624746501446,
+      "last_owt_preservation_loss": 3.214164972305298,
+      "owt": {
+        "eval_examples": 11059,
+        "eval_tokens": 11313357,
+        "eval_loss": 3.2414479588654728,
+        "eval_perplexity": 25.570720305855296
+      },
+      "owt_pass": true
+    }
+  ],
+  "task_identity_owt_pass": true,
+  "checkpoint_state_not_for_git": "rung3_checkpoint"
+}
