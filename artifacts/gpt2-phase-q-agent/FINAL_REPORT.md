@@ -1,119 +1,177 @@
-# Phase Q autonomous Codex terminal report
+# Phase Q terminal report
 
-Date: 2026-07-25
-Branch: `codex/phase-q-agent`
+Date: 2026-07-27
 
-Local scientific commit: `ac607d2`. The requested push is blocked by missing
-GitHub HTTPS credentials on the host; see `BLOCKED.md`.
+Status: **complete**
 
-## Outcome
+Phase Q produced a formally verified GPT-2-derived quote-closing circuit over
+the frozen, hash-pinned 1,280-prompt domain D. The final circuit contains one
+symbolic attention head, no neural-attention bilinear terms, and no
+normalization. Functional equivalence, content invariance, edge necessity, and
+continuous robustness all pass over D.
 
-The desired GPT-2 flagship endpoint was not achieved. The adaptive exploratory
-continuation recovered exact bounded behavior and the perplexity gate, but the
-full unsampled migration/lesion gate failed. Consequently re-extraction, FP32
-encoder sanity, and the four bounded SMT properties were not run.
+The claim is bounded to D and the registered two-token quote projection. It is
+not a held-out-generalization or unrestricted-language claim.
 
-This does not alter the preregistered result: Phase Q had already reached its
-kill criterion after the two preserved 10,000-step failures. Everything added
-here is explicitly adaptive bounded-domain engineering, not preregistration
-and not held-out generalization.
+## 1. Healing-based route
 
-## Achieved gates
+The preregistered core-aware healing attempts did not produce a causally pinned
+GPT-2-scale mechanism. One run failed destructively. After correcting a
+fourfold gradient-accumulation mis-scaling and adding the omitted full-forward
+task loss, an adaptive run recovered exact full and circuit-only behavior
+within the perplexity budget, but the installed programs remained jointly
+bypassable in the full model.
 
-- Frozen domain D: 1,280 unique quote prompts, unchanged prompt-set SHA-256
-  `3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48`.
-- Symbolic coverage: retained heads `7.11` and `9.0` are frozen restricted-DSL
-  programs; the selected circuit has zero active neural-attention bilinear
-  terms.
-- Best exploratory checkpoint:
-  `artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/`.
-  Full agreement = 1.0 (1,280/1,280), circuit agreement = 1.0
-  (1,280/1,280), OWT perplexity = 25.25059924330555, below
-  28.617593822841776.
+That negative result is preserved. It establishes the scale limit of
+healing-based mechanism migration in this experiment; it is not the final
+Phase Q result.
 
-## Failed gate
+## 2. Pre-healing causal audit
 
-At the best exact checkpoint, the unsampled lesion sweep reported:
+The missing pre-intervention lesion baselines were measured before any further
+optimization:
 
-- joint full agreement after removing both programs: 1.0;
-- joint core agreement: 0.5;
-- `7.11` necessary in core but not full;
-- `9.0` necessary in neither full nor core;
-- migration pass: false.
+- jointly ablating original heads `7.11` and `9.0` in the untouched model
+  leaves 1,256/1,280 prompts correct;
+- the programs-installed zero-step model has the same 1,256/1,280 joint-lesion
+  result;
+- ablating the whole selected circuit leaves 710/1,280 prompts correct; and
+- all 23 zero-step full-model errors lie within the 24 prompts not covered by
+  the native redundant route.
 
-The longer exploratory continuation preserved four complete gates at steps
-100, 200, 300, and 400. Full/circuit accuracy stayed 1.0 and perplexity
-improved from 25.10097 to 24.96165, but the lesion matrix did not change.
-That run was stopped at step 421 because KL-to-uniform can shrink a signed
-margin toward zero without requiring its argmax to flip. Its checkpoint-250
-and gate history remain under
-`artifacts/gpt2-program-healed-bounded-quote-exploratory-full-v1/`.
+The 98.1%-coverage backup therefore predates healing. Healing did not create
+the redundancy; it closed the final 24 cases.
 
-A final 50-step counterfactual probe used opposite-P targets only on ablated
-forwards. It retained exact full/circuit behavior and perplexity 25.29012, but
-the lesion matrix was again unchanged. Evidence is under
-`artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v3/`.
+## 3. Constrained calibration
 
-## Root-cause findings
+The registered follow-up freezes and hash-verifies every non-program parameter.
+Only program-local contributions can train, and every trainable contribution
+vanishes under the corresponding program lesion. A bypass cannot be learned
+without violating the parameter and lesion-identity gates.
 
-1. The original core-aware objective never supervised the actual full forward
-   used by the gate. Its sampled-forward loss could be nearly zero while the
-   full model collapsed.
-2. The program-context wrapper accepts `**kwargs`; Transformers 4.49 therefore
-   inferred support for accumulation-aware loss kwargs and skipped the normal
-   division by `gradient_accumulation_steps=4`. The old ~13.3 logged loss
-   versus ~3.2 OWT loss exposed this fourfold scaling error.
-3. Programs were frozen, programmed heads had no Q/K parameters, candidate
-   targets were valid binary indices, and ordinary eight-rank DDP averaging
-   was otherwise correct.
-4. Uniform bypass suppression optimizes margin magnitude, not the categorical
-   lesion event. Direct counterfactual supervision supplies the right gradient
-   but did not overcome the simultaneous intact/full/core constraints within
-   the bounded probe.
+All three registered rungs reached exact 1,280/1,280 full and circuit-only
+agreement under the locked OpenWebText perplexity budget:
 
-The deterministic gradient evidence is
-`artifacts/gpt2-phase-q-agent/healing_objective_diagnostic.json`.
+| Rung | Trainable parameters | OWT perplexity | Budget |
+|---|---|---:|---:|
+| 1 | two scalar output gains | 25.6691 | 28.6176 |
+| 2 | per-channel diagonal gains | 25.7157 | 28.6176 |
+| 3 | program-local W_V/W_O | 25.5707 | 28.6176 |
 
-## Code and tests
+Rung 3 is the model of record. Its joint-head lesion remains exactly
+1,256/1,280 and its registered whole-circuit lesion remains exactly 710/1,280,
+matching the frozen baseline.
 
-Changes:
+The original individual-head-necessity gate stopped the first continuation
+because `9.0` is individually redundant even inside the circuit, while `7.11`
+is load-bearing. Under a documented amendment, that criterion was replaced for
+the constrained design by:
 
-- correct custom mean-loss accumulation scaling;
-- add optional direct full-forward behavior loss;
-- add early wrong-direction termination;
-- make failed-result persistence rank-zero safe;
-- add optional counterfactual bypass targets;
-- add a deterministic objective/gradient diagnostic;
-- add focused regression tests.
+1. the leakage-identity battery;
+2. joint necessity of the program-head set;
+3. whole-circuit necessity; and
+4. circuit-internal edge necessity as a formal verification property.
 
-Focused tests: `26 passed`.
+The amendment does not relax task exactness, the perplexity budget, lesion
+identity, or any formal property. It removes a requirement that calibration
+manufacture non-redundancy absent from the original model.
 
-Full suite: 55 passed. Local scientific commit: `ac607d2`. Remote durability
-is pending authentication; the failed push and exact error are recorded in
-`BLOCKED.md`.
+Audit and calibration commits: `daf939e`, `ee35774`.
 
-## Artifact index
+## 4. Re-extracted circuit
 
-- Machine journal: `artifacts/gpt2-phase-q-agent/agent_journal.jsonl`
-- Evidence manifest: `artifacts/gpt2-phase-q-agent/evidence_manifest.json`
-- Protocols: `protocol_exploratory_probe_v1.json`,
-  `protocol_exploratory_probe_v2.json`, `protocol_exploratory_full_v1.json`,
-  `protocol_exploratory_probe_v3.json`
-- Preregistered failures:
-  `artifacts/gpt2-program-healed-bounded-quote-core-aware/` and
-  `artifacts/gpt2-program-healed-bounded-quote-core-aware-final/`
-- Exploratory exact checkpoint:
-  `artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/`
-- Falsified long continuation:
-  `artifacts/gpt2-program-healed-bounded-quote-exploratory-full-v1/`
-- Terminal counterfactual probe:
-  `artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v3/`
+Exact re-extraction on D selected three edges:
 
-## Remaining limitation
+```text
+emb → mlp_0 → attn_7_h_11 → logits
+```
 
-The evidence does not show that migration is impossible in principle. It shows
-that the preregistered objective, the corrected full-supervision objective,
-its measured longer continuation, and a short direct counterfactual lesion
-objective all failed the same locked migration matrix. A future experiment
-would need a newly registered mechanism-localization strategy and budget; it
-must not be described as continuation of the preregistered Phase Q result.
+Head `7.11` is a frozen restricted-DSL program using manifest-scoped
+token-identity scanning over the four registered quote-opener token IDs. Head
+`9.0` remains a frozen program in the full checkpoint but lies outside the
+selected circuit, consistent with the lesion asymmetry.
+
+The selected circuit has:
+
+- one program attention head;
+- zero neural attention heads;
+- zero QK/value-aggregation bilinear terms; and
+- zero normalization branches.
+
+Its mechanism shape qualitatively matches the string-closing organization
+reported by Gao et al. for weight-sparse models—early-MLP quote features
+followed by one copy head—here found independently in a densely trained model.
+This is a mechanism-shape comparison, not a circuit-stability claim.
+
+## 5. Exact verification
+
+The FP32 encoder agrees with PyTorch to maximum candidate-logit error
+1.11 × 10⁻⁸. The registered constant-folded verifier certifies every used
+LeakyReLU sign in exact rational arithmetic, contracts each concrete forward
+to exact rational candidate logits, and reduces every property to decidable
+linear real arithmetic. Folded and independent monolithic evaluators agree by
+literal rational equality on all eight preserved synthetic anchors.
+
+All four registered properties pass:
+
+| Property | Result |
+|---|---|
+| Functional equivalence | 1,280/1,280 |
+| Content invariance | 1,280/1,280 |
+| Edge necessity | all 3 edges; 640 decision-changing witnesses per edge |
+| Continuous robustness | 1,280/1,280 at ε = 0.01 |
+
+The minimum exact certified robustness radius is approximately 0.01514986.
+The proof records attribute 5,911,040 assertions and contain 62 unique exact
+MLP sign signatures. No *unknown* result is reachable.
+
+One legacy length-3 sequence, `[10, 1, 10]`, is a genuine counterexample
+outside D. It is reproduced exactly by both evaluators and preserved as a
+constructive exhibit of the declared domain boundary.
+
+Verification commits: `bc7cfaf`, `0374707`, `7f237a1`.
+
+## 6. Bracket localization boundary
+
+The held-out-generalization track ended at protocol v4. The full norm-free
+model was exact on both fresh 512-prompt gates. The exactly-generalizing
+bracket circuit retained 340 edges and all 144 attention heads, while the
+sparse quote circuit missed one fresh prompt. There is no protocol v5.
+
+Bracket type is therefore reported as a localization boundary rather than a
+verified GPT-2-scale circuit. It does not weaken the bounded quote result.
+
+## 7. Model and evidence
+
+The FP32 model-of-record weights are intentionally outside Git:
+
+```text
+artifacts/gpt2-phase-q-readside-calibration/fp32_export/model.safetensors
+```
+
+SHA-256:
+
+```text
+bcec649b087b984a986760a18aedad2477bd118460b33067e9186cd633f8e65d
+```
+
+The complete hash and claim root is:
+
+```text
+artifacts/gpt2-phase-q-agent/evidence_manifest.json
+```
+
+Principal verification artifacts:
+
+- `artifacts/gpt2-phase-q-readside-calibration/FOLDED_VERIFICATION_REPORT.md`
+- `artifacts/gpt2-phase-q-readside-calibration/folded_verification/summary.json`
+- `artifacts/gpt2-phase-q-readside-calibration/folded_verification/per_input.jsonl`
+- `artifacts/gpt2-phase-q-readside-calibration/folded_verification/anchor_equality.json`
+- `artifacts/gpt2-phase-q-readside-calibration/encoder_sanity.json`
+- `artifacts/gpt2-phase-q-readside-calibration/reextraction/selection.json`
+- `artifacts/gpt2-phase-q-readside-calibration/rung3_causal_migration.json`
+- `artifacts/gpt2-phase-q-readside-calibration/rung3_program_local.json`
+- `artifacts/gpt2-phase-q-readside-calibration/amended_causal_replay.json`
+
+The earlier healing failures, causal audit, criterion amendments, and legacy
+synthetic-domain counterexample remain preserved alongside the final result.
