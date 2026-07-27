@@ -2,6 +2,10 @@ import torch
 
 from scripts.circuits.forward import _build_residual
 from scripts.circuits.graph import CircuitGraph
+from scripts.gpt2.readside_calibration import (
+    compare_paired_rows,
+    compare_semantics_to_audit,
+)
 
 
 class _Conv1D:
@@ -121,3 +125,38 @@ def test_unselected_reader_is_unchanged():
         {("attn_0_h_0", "logits"): torch.tensor(3.0)},
     )
     torch.testing.assert_close(calibrated, baseline, rtol=0, atol=0)
+
+
+def _row(example_id="x", decision=0, logits=(1.0, 0.0), margin=1.0):
+    return {
+        "example_id": example_id,
+        "target": 0,
+        "decision": decision,
+        "candidate_logits": list(logits),
+        "candidate_margin": margin,
+    }
+
+
+def test_paired_baseline_compares_current_logits_and_margins_at_epsilon():
+    comparison = compare_paired_rows(
+        [_row()],
+        [_row(logits=(1.0 + 9e-6, 0.0), margin=1.0 + 9e-6)],
+        1e-5,
+    )
+    assert comparison["pass"]
+    failed = compare_paired_rows(
+        [_row()],
+        [_row(logits=(1.0 + 2e-5, 0.0), margin=1.0 + 2e-5)],
+        1e-5,
+    )
+    assert not failed["pass"]
+
+
+def test_old_audit_is_semantic_only_after_amendment():
+    current = [_row(logits=(100.0, -100.0), margin=200.0)]
+    old_audit = [_row()]
+    comparison = compare_semantics_to_audit(current, old_audit)
+    assert comparison["pass"]
+    assert comparison["numerical_comparison_to_old_audit"] == (
+        "not_performed_by_amendment"
+    )
