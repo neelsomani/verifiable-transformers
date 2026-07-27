@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "rung": 1,
+  "name": "scalar_readside_gains",
+  "steps_run": 100,
+  "objective_evaluations": 100,
+  "history": [
+    {
+      "step": 100,
+      "gains": [
+        1.923632025718689,
+        1.8428443670272827
+      ],
+      "objective": 0.6677743196487427,
+      "task_loss": 0.3469462990760803,
+      "owt_preservation_loss": 3.208280324935913,
+      "native_full_correct": 1280,
+      "circuit_only_correct": 1280,
+      "task_pass": true,
+      "identity_pass": true,
+      "identity_basis": "The only calibrated selected edges are absent in all locked lesion edge sets, so their delta is exactly zero by construction.",
+      "owt": {
+        "eval_examples": 11059,
+        "eval_tokens": 11313357,
+        "eval_loss": 3.2452865278308307,
+        "eval_perplexity": 25.66906390783792
+      },
+      "owt_pass": true
+    }
+  ],
+  "terminal_gains": [
+    1.923632025718689,
+    1.8428443670272827
+  ],
+  "pass": true
+}
