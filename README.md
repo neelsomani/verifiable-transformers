@@ -247,6 +247,13 @@ done
 | quote_close | 128 | 3 | PASSED | VERIFIED | VERIFIED | VERIFIED | VERIFIED |
 | bracket_type | 128 | 6 | PASSED | VERIFIED | VERIFIED | VERIFIED | VERIFIED |
 
+**GPT-2-scale results** (verified distillation continuation; see [docs/VERIFIED_DISTILLATION.md](docs/VERIFIED_DISTILLATION.md)):
+
+| Task | Inputs (D) | Circuit edges | Encoder sanity | Equivalence | Invariance | Edge necessity | Robustness |
+|---|---:|---:|---|---|---|---|---|
+| quote_close | 1,280 | 3 | PASSED (max logit err 1.11e-8) | VERIFIED (1280/1280) | VERIFIED (1280/1280) | VERIFIED (640 exact witnesses per edge) | VERIFIED (locked ε = 0.01; min certified radius ≈ 0.01515) |
+| bracket_type | 1,280 | — | — | not attempted (localization boundary: exact circuit retains all 144 heads) | — | — | — |
+
 ## Scalability Appendix
 
 The main experiments target a small end-to-end verifiable Transformer where SMT verification is intended to be tractable.

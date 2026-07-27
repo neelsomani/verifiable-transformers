@@ -674,6 +674,11 @@ normalization branches and no bilinear terms, and the *unknown* verification
 outcome is structurally unreachable. The calibrated model of record retains
 general LM quality at perplexity 25.5707 (norm-free base: 24.6703; locked
 budget: 28.6176), with every non-program parameter hash-identical to the base.
+The exact certified-radius distribution over D is 0.01514986 minimum,
+0.02260854 median, and 0.03640277 maximum. The complete folded battery records
+66.61 seconds of verification work (16.04 seconds of one-time exact
+contraction, 50.58 seconds for all 1,280 per-input folds, and zero solver
+seconds), versus approximately 494 seconds to build one monolithic exact input.
 One solver counterexample on a legacy
 max-length-3 synthetic input is preserved as a genuine outside-D witness,
 marking the declared domain boundary constructively; it does not affect any

@@ -181,6 +181,19 @@ reported as measured. Evidence: audit and calibration commits `daf939e`,
 `ee35774`; verification commits `bc7cfaf`, `0374707`, `7f237a1`; complete
 protocol index in `artifacts/gpt2-phase-q-agent/FINAL_REPORT.md`.
 
+| Task | Inputs (D) | Circuit edges | Encoder sanity | Equivalence | Invariance | Edge necessity | Robustness |
+|---|---:|---:|---|---|---|---|---|
+| quote_close | 1,280 | 3 | PASSED (max logit err 1.11e-8) | VERIFIED (1280/1280) | VERIFIED (1280/1280) | VERIFIED (640 exact witnesses per edge) | VERIFIED (locked ε = 0.01; min certified radius ≈ 0.01515) |
+| bracket_type | 1,280 | — | — | not attempted (localization boundary: exact circuit retains all 144 heads) | — | — | — |
+
+Across the 1,280 quote inputs, the exact certified-radius distribution has
+minimum 0.01514986, median 0.02260854, and maximum 0.03640277. The complete
+folded battery records 66.61 seconds of verification work: 16.04 seconds for
+one-time exact constant contraction, 50.58 seconds for all per-input
+encode/fold work, and zero solver seconds because the post-fold queries are
+ground exact comparisons. For scale, one monolithic exact input build takes
+approximately 494 seconds.
+
 ## 11. What is and is not verified
 
 **Verified (formal, over declared domains):** the four circuit-level properties of the final artifacts — the small-scale healed model's two circuits over their exhaustive 128-input domains, and the GPT-2 calibrated model's three-edge quote circuit over its 1,280-prompt domain D. These artifacts have symbolic attention by construction; their faithfulness to the deployed model is deductive (frozen non-program parameters, lesion-identity battery), and their causal necessity is measured (710/1280 under whole-circuit ablation at GPT-2 scale).
