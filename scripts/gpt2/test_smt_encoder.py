@@ -20,6 +20,8 @@ from transformers import GPT2Tokenizer, GPT2LMHeadModel
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from scripts.smt import encode_circuit_forward
+from scripts.smt.attribution import new_assertion_profile
+from scripts.smt.trace import trace_circuit_forward
 from scripts.gpt2.model_weights import load_model_weights
 from scripts.smt.utils import parse_circuit_edges
 from scripts.gpt2.extract import (
@@ -116,12 +118,13 @@ def get_smt_logits(
     circuit_edges: set,
     model_weights: Dict,
     candidate_tokens: List[int],
+    timeout_ms: int,
 ) -> Dict[int, float]:
     """Get logits from SMT encoder."""
     import time
 
     solver = Solver()
-    solver.set("timeout", 30000)
+    solver.set("timeout", timeout_ms)
 
     # Encode circuit forward pass
     print(f"     Encoding circuit...", end="", flush=True)
@@ -133,6 +136,10 @@ def get_smt_logits(
         candidate_tokens,
         solver,
         "test",
+        trace=trace_circuit_forward(
+            input_tokens, circuit_edges, model_weights, "test"
+        ),
+        assertion_profile=new_assertion_profile(),
     )
     encode_time = time.time() - start
     num_constraints = len(solver.assertions())
@@ -170,6 +177,7 @@ def test_encoder_sanity(
     test_sequences: List[List[int]],
     tolerance: float = 1e-3,
     output_json: str = None,
+    timeout_ms: int = 30000,
 ):
     """Test SMT encoder against PyTorch on test sequences.
 
@@ -221,6 +229,7 @@ def test_encoder_sanity(
                 circuit_edges,
                 model_weights,
                 candidate_tokens,
+                timeout_ms,
             )
         except Exception as e:
             print(f"  ❌ FAILED: SMT encoding error: {e}\n")
@@ -301,6 +310,7 @@ def test_encoder_sanity(
                     "model_path": model_path,
                     "circuit_path": circuit_path,
                     "tolerance": tolerance,
+                    "timeout_ms": timeout_ms,
                     "status": "PASSED" if all_pass else "FAILED",
                     "sequences": sequence_results,
                 },
@@ -324,6 +334,10 @@ def main():
                         help="Maximum allowed logit difference")
     parser.add_argument("--output_json", type=str, default=None,
                         help="Optional machine-readable sanity-test artifact")
+    parser.add_argument("--timeout_ms", type=int, default=30000,
+                        help="Per-sequence SMT timeout")
+    parser.add_argument("--max_sequences", type=int, default=None,
+                        help="Optional prefix length for a smoke/sanity run")
 
     args = parser.parse_args()
 
@@ -365,9 +379,14 @@ def main():
         args.model_path,
         args.circuit_path,
         candidate_tokens,
-        test_sequences,
+        (
+            test_sequences
+            if args.max_sequences is None
+            else test_sequences[: args.max_sequences]
+        ),
         args.tolerance,
         args.output_json,
+        args.timeout_ms,
     )
 
     sys.exit(0 if success else 1)

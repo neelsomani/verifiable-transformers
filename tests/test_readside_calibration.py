@@ -6,6 +6,9 @@ from scripts.gpt2.readside_calibration import (
     compare_paired_rows,
     compare_semantics_to_audit,
 )
+from scripts.gpt2.phase_q_constrained_verification import (
+    fp32_tensor_rational_payload,
+)
 
 
 class _Conv1D:
@@ -160,3 +163,18 @@ def test_old_audit_is_semantic_only_after_amendment():
     assert comparison["numerical_comparison_to_old_audit"] == (
         "not_performed_by_amendment"
     )
+
+
+def test_fp32_calibration_serialization_is_exact_and_row_major():
+    values = torch.tensor([[0.1, -0.25], [1.5, 0.0]], dtype=torch.float32)
+    payload = fp32_tensor_rational_payload(values)
+    restored = torch.tensor(
+        [
+            numerator / denominator
+            for numerator, denominator in zip(
+                payload["numerators"], payload["denominators"]
+            )
+        ],
+        dtype=torch.float32,
+    ).reshape(payload["shape"])
+    torch.testing.assert_close(restored, values, rtol=0, atol=0)

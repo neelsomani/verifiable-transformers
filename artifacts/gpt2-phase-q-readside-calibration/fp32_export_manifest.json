@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "export_directory_not_for_git": "artifacts/gpt2-phase-q-readside-calibration/fp32_export",
+  "fixed_flagship": "two_program_rung3",
+  "dtype": "float32",
+  "programs": [
+    "7.11",
+    "9.0"
+  ],
+  "selected_circuit_programs": [
+    "7.11"
+  ],
+  "hard_pruning_mask": [],
+  "selected_circuit_edges": [
+    [
+      "attn_7_h_11",
+      "logits"
+    ],
+    [
+      "emb",
+      "mlp_0"
+    ],
+    [
+      "mlp_0",
+      "attn_7_h_11"
+    ]
+  ],
+  "calibrated_slice_count": 6,
+  "rational_encoding": "Each FP32 scalar is encoded by its exact integer numerator and power-of-two denominator; ordering is row-major.",
+  "files": {
+    "model.safetensors": {
+      "sha256": "bcec649b087b984a986760a18aedad2477bd118460b33067e9186cd633f8e65d",
+      "bytes": 651420044
+    },
+    "config.json": {
+      "sha256": "e3e1b889c8924a050039859661c7b721a597e481efcf72046e3b9a7bdd904211",
+      "bytes": 915
+    },
+    "programs.json": {
+      "sha256": "40afc75464e92c82d2a1f3c1c8ae44583f7892633539a3c09fe3fe4f3e6579f1",
+      "bytes": 520
+    },
+    "model_info.json": {
+      "sha256": "90e07e9b4b8dd43e31dc1fa64f35de4fe1ed36a8e2e7456f4d910b4b39b1d8cb",
+      "bytes": 211
+    },
+    "circuit.json": {
+      "sha256": "4c72e3ee7abcd2d4987997b0f4b807258b4788153db5671c25aab918f0c96d00",
+      "bytes": 1926
+    },
+    "calibrated_constants_rational.json": {
+      "sha256": "c4426388a92919f7c1f61561851545a33d2b8037034362cf14f60fb38a792d7d",
+      "bytes": 3738548
+    }
+  },
+  "weights_committed_to_git": false
+}

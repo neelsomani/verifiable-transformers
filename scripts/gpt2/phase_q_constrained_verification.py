@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from fractions import Fraction
 import hashlib
 import json
 import math
@@ -46,6 +47,7 @@ from scripts.programs import (
     hard_prune_attention_heads,
     install_program_heads,
     load_programs,
+    save_programs,
 )
 
 
@@ -87,6 +89,29 @@ def _copy_program_local_slice(target, source_state, layer: int, head: int) -> li
             )
             copied.append(name)
     return copied
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def fp32_tensor_rational_payload(tensor: torch.Tensor) -> dict:
+    """Serialize FP32 values as exact binary rationals with a byte hash."""
+    value = tensor.detach().cpu().to(torch.float32).contiguous()
+    fractions = [Fraction(float(item)) for item in value.flatten().tolist()]
+    return {
+        "shape": list(value.shape),
+        "dtype": "float32",
+        "fp32_bytes_sha256": hashlib.sha256(
+            value.numpy().tobytes()
+        ).hexdigest(),
+        "numerators": [item.numerator for item in fractions],
+        "denominators": [item.denominator for item in fractions],
+    }
 
 
 def load_rung3_candidate(
@@ -735,11 +760,125 @@ def run_causal_replay(args) -> None:
         raise SystemExit(2)
 
 
+def run_export(args) -> None:
+    root = Path(__file__).resolve().parents[2]
+    registration = json.loads(Path(args.registration).read_text())
+    configure_determinism(registration["execution_policy"]["seed"])
+    frozen = registration["frozen_inputs"]
+    model, programs, _rung3, _copied = load_rung3_candidate(
+        root, registration, "cpu", lean=False
+    )
+    export_dir = Path(args.output_dir) / "fp32_export"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(export_dir, safe_serialization=True)
+    tokenizer = GPT2Tokenizer.from_pretrained(root / frozen["source_model"])
+    tokenizer.save_pretrained(export_dir)
+    save_programs(programs, export_dir / "programs.json")
+    (export_dir / "model_info.json").write_text(
+        json.dumps(
+            {
+                "model_name": "gpt2-phase-q-two-program-rung3",
+                "norm_variant": "none",
+                "attn_variant": "sparsemax",
+                "activation_variant": "leaky_relu",
+                "fixed_flagship": "two_program_rung3",
+                "pruned_heads": [],
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    selected = json.loads(
+        (Path(args.output_dir) / "reextraction/selection.json").read_text()
+    )["selected"]
+    circuit = {
+        "model_path": str(export_dir.resolve()),
+        "task": "quote_close",
+        "metric": selected["metric"],
+        "threshold": selected["threshold"],
+        "min_agreement": selected["min_agreement"],
+        "ablation": selected["ablation"],
+        "n_examples": 1280,
+        "domain": registration["frozen_inputs"],
+        "n_layers": model.config.n_layer,
+        "n_heads": model.config.n_head,
+        "granularity": "head",
+        "nodes": sorted(
+            {node for edge in selected["edges"] for node in edge}
+        ),
+        "edges": selected["edges"],
+        "num_edges": selected["num_edges"],
+        "retained_program_heads": selected["retained_program_heads"],
+        "hard_pruning_mask": [],
+        "reference_semantics": "fixed_two_program_rung3",
+    }
+    (export_dir / "circuit.json").write_text(
+        json.dumps(circuit, indent=2) + "\n"
+    )
+
+    rational = {
+        "schema_version": 1,
+        "source": "exact values of selected permitted FP32 program-local slices",
+        "tensors": {},
+    }
+    for layer, head in (PROGRAM_711, PROGRAM_90):
+        attention = model.transformer.h[layer].attn
+        start, stop = head * attention.head_dim, (head + 1) * attention.head_dim
+        for suffix, parameter in (
+            ("value_proj.weight", attention.value_proj.weight[start:stop]),
+            ("value_proj.bias", attention.value_proj.bias[start:stop]),
+            ("c_proj.weight", attention.c_proj.weight[start:stop]),
+        ):
+            rational["tensors"][
+                f"transformer.h.{layer}.attn.{suffix}[{start}:{stop}]"
+            ] = fp32_tensor_rational_payload(parameter)
+    rational_path = export_dir / "calibrated_constants_rational.json"
+    rational_path.write_text(json.dumps(rational, separators=(",", ":")) + "\n")
+
+    files = {}
+    for name in (
+        "model.safetensors",
+        "config.json",
+        "programs.json",
+        "model_info.json",
+        "circuit.json",
+        "calibrated_constants_rational.json",
+    ):
+        path = export_dir / name
+        files[name] = {
+            "sha256": sha256_file(path),
+            "bytes": path.stat().st_size,
+        }
+    manifest = {
+        "schema_version": 1,
+        "export_directory_not_for_git": str(
+            export_dir.resolve().relative_to(root)
+        ),
+        "fixed_flagship": "two_program_rung3",
+        "dtype": "float32",
+        "programs": ["7.11", "9.0"],
+        "selected_circuit_programs": ["7.11"],
+        "hard_pruning_mask": [],
+        "selected_circuit_edges": selected["edges"],
+        "calibrated_slice_count": len(rational["tensors"]),
+        "rational_encoding": (
+            "Each FP32 scalar is encoded by its exact integer numerator and "
+            "power-of-two denominator; ordering is row-major."
+        ),
+        "files": files,
+        "weights_committed_to_git": False,
+    }
+    (Path(args.output_dir) / "fp32_export_manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n"
+    )
+    print(json.dumps(manifest, indent=2))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=("lean-selection", "reextract", "causal-replay"),
+        choices=("lean-selection", "reextract", "causal-replay", "export"),
     )
     parser.add_argument("--registration", required=True)
     parser.add_argument("--output_dir", required=True)
@@ -759,3 +898,5 @@ if __name__ == "__main__":
         run_reextract(parsed)
     elif parsed.command == "causal-replay":
         run_causal_replay(parsed)
+    elif parsed.command == "export":
+        run_export(parsed)
