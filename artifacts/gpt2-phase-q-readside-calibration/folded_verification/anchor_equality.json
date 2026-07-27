@@ -1,0 +1,208 @@
+{
+  "old_smoke_log_sha256": "ff54f7aa046961eb75c37d9a5d26fe8af2f0d3c5aea89bad05a3be0510c99fd7",
+  "records": [
+    {
+      "candidate_logits": {
+        "1": "-41622736207240310910244570235912609655103420993656976768580951254641/134799733335753198973335075435098153368185722112702862405518051246080",
+        "6": "12144397808433900125103110836361215405635773292956260636820950146822333/10783978666860255917866806034807852269454857769016228992441444099686400"
+      },
+      "decision": 6,
+      "expected": 6,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": true,
+      "in_D_as_exact_token_sequence": false,
+      "label": "single",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 9.741698840633035,
+      "sequence_index": 0,
+      "tokens": [
+        10,
+        6,
+        10
+      ]
+    },
+    {
+      "candidate_logits": {
+        "1": "-41622736207240310910244570235912609655103420993656976768580951254641/134799733335753198973335075435098153368185722112702862405518051246080",
+        "6": "12144397808433900125103110836361215405635773292956260636820950146822333/10783978666860255917866806034807852269454857769016228992441444099686400"
+      },
+      "decision": 6,
+      "expected": 1,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": false,
+      "in_D_as_exact_token_sequence": false,
+      "label": "double",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 8.198866171762347,
+      "sequence_index": 1,
+      "tokens": [
+        10,
+        1,
+        10
+      ]
+    },
+    {
+      "candidate_logits": {
+        "1": "3987734962966422858019984194969488938922917676857536807328847772834719/21567957333720511835733612069615704538909715538032457984882888199372800",
+        "6": "-90065098361518592753688164270823391184939304005002550437680849588677753/172543658669764094685868896556925636311277724304259663879063105594982400"
+      },
+      "decision": 1,
+      "expected": 6,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": false,
+      "in_D_as_exact_token_sequence": false,
+      "label": "single",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 9.721624560654163,
+      "sequence_index": 2,
+      "tokens": [
+        10,
+        6,
+        11
+      ]
+    },
+    {
+      "candidate_logits": {
+        "1": "3987734962966422858019984194969488938922917676857536807328847772834719/21567957333720511835733612069615704538909715538032457984882888199372800",
+        "6": "-90065098361518592753688164270823391184939304005002550437680849588677753/172543658669764094685868896556925636311277724304259663879063105594982400"
+      },
+      "decision": 1,
+      "expected": 1,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": true,
+      "in_D_as_exact_token_sequence": false,
+      "label": "double",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 8.190697684884071,
+      "sequence_index": 3,
+      "tokens": [
+        10,
+        1,
+        11
+      ]
+    },
+    {
+      "candidate_logits": {
+        "1": "-41622736207240310910244570235912609655103420993656976768580951254641/134799733335753198973335075435098153368185722112702862405518051246080",
+        "6": "12144397808433900125103110836361215405635773292956260636820950146822333/10783978666860255917866806034807852269454857769016228992441444099686400"
+      },
+      "decision": 6,
+      "expected": 6,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": true,
+      "in_D_as_exact_token_sequence": false,
+      "label": "single",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 8.249326154589653,
+      "sequence_index": 4,
+      "tokens": [
+        11,
+        6,
+        10
+      ]
+    },
+    {
+      "candidate_logits": {
+        "1": "-41622736207240310910244570235912609655103420993656976768580951254641/134799733335753198973335075435098153368185722112702862405518051246080",
+        "6": "12144397808433900125103110836361215405635773292956260636820950146822333/10783978666860255917866806034807852269454857769016228992441444099686400"
+      },
+      "decision": 6,
+      "expected": 1,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": false,
+      "in_D_as_exact_token_sequence": false,
+      "label": "double",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 8.181692695245147,
+      "sequence_index": 5,
+      "tokens": [
+        11,
+        1,
+        10
+      ]
+    },
+    {
+      "candidate_logits": {
+        "1": "3987734962966422858019984194969488938922917676857536807328847772834719/21567957333720511835733612069615704538909715538032457984882888199372800",
+        "6": "-90065098361518592753688164270823391184939304005002550437680849588677753/172543658669764094685868896556925636311277724304259663879063105594982400"
+      },
+      "decision": 1,
+      "expected": 6,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": false,
+      "in_D_as_exact_token_sequence": false,
+      "label": "single",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 8.216850090771914,
+      "sequence_index": 6,
+      "tokens": [
+        11,
+        6,
+        11
+      ]
+    },
+    {
+      "candidate_logits": {
+        "1": "3987734962966422858019984194969488938922917676857536807328847772834719/21567957333720511835733612069615704538909715538032457984882888199372800",
+        "6": "-90065098361518592753688164270823391184939304005002550437680849588677753/172543658669764094685868896556925636311277724304259663879063105594982400"
+      },
+      "decision": 1,
+      "expected": 1,
+      "folded_equals_monolithic_exact_rational": true,
+      "functional_match": true,
+      "in_D_as_exact_token_sequence": false,
+      "label": "double",
+      "program_weights": [
+        [
+          2,
+          "1/1"
+        ]
+      ],
+      "seconds": 8.199812123551965,
+      "sequence_index": 7,
+      "tokens": [
+        11,
+        1,
+        11
+      ]
+    }
+  ],
+  "seq1_interpretation": "Outside D. The restricted scan program does not treat synthetic token ID 1 as a key-token opener, so its exact self-fallback yields a genuine smoke-domain functional counterexample without contradicting exactness on D.",
+  "seq1_old_monolithic_violation_result": "SAT",
+  "status": "PASSED"
+}
