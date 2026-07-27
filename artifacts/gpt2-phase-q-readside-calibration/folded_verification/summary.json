@@ -1,0 +1,92 @@
+{
+  "assertion_count": 5911040,
+  "constant_contraction_seconds": 16.03561787493527,
+  "domain": {
+    "manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+    "ordered_example_ids_newline_sha256": "6c769c18764b847e0d9bb927df2cc0fab68148ef3996cb02b231fae76f079ecc",
+    "path": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+    "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+    "rows": 1280
+  },
+  "encode_fold_seconds": 50.57797282002866,
+  "evidence_hashes": {
+    "calibrated_constants_rational_sha256": "c4426388a92919f7c1f61561851545a33d2b8037034362cf14f60fb38a792d7d",
+    "model_weights_sha256": "bcec649b087b984a986760a18aedad2477bd118460b33067e9186cd633f8e65d",
+    "programs_sha256": "40afc75464e92c82d2a1f3c1c8ae44583f7892633539a3c09fe3fe4f3e6579f1",
+    "selected_circuit_sha256": "4c72e3ee7abcd2d4987997b0f4b807258b4788153db5671c25aab918f0c96d00",
+    "topology_sha256": "9177fd1a3f6ed3600a757a90ee4f0898868e824115b1726210f7783eed18e0d1"
+  },
+  "per_input_path": "artifacts/gpt2-phase-q-readside-calibration/folded_verification/per_input.jsonl",
+  "per_input_sha256": "4fd43bc2c5f360eb51c910531fc58e628fb5f3c76abd3db8e2e6e293d233a9b9",
+  "properties": {
+    "content_invariance": {
+      "checked": 1280,
+      "semantics": "same registered quote stratum implies same projected decision",
+      "status": "PASSED"
+    },
+    "continuous_robustness": {
+      "checked": 1280,
+      "minimum_maximum_epsilon": "106302753145838114582811419361320437872636088662797442126380209384817807/7016749180801418050551083983878063208043793439326543902527951887925248000",
+      "registered_epsilon": "1/100",
+      "status": "PASSED"
+    },
+    "edge_necessity": {
+      "canonical_edges": [
+        [
+          "mlp_0",
+          "attn_7_h_11"
+        ],
+        [
+          "attn_7_h_11",
+          "logits"
+        ],
+        [
+          "emb",
+          "mlp_0"
+        ]
+      ],
+      "status": "PASSED",
+      "witnesses": {
+        "attn_7_h_11->logits": {
+          "ablated_decision": 6,
+          "example_id": "v4:quote_close:double:00111fb255035cc7",
+          "full_decision": 1,
+          "index": 0
+        },
+        "emb->mlp_0": {
+          "ablated_decision": 1,
+          "example_id": "v4:quote_close:single:0020c3a8d19caa9f",
+          "full_decision": 6,
+          "index": 1
+        },
+        "mlp_0->attn_7_h_11": {
+          "ablated_decision": 1,
+          "example_id": "v4:quote_close:single:0020c3a8d19caa9f",
+          "full_decision": 6,
+          "index": 1
+        }
+      }
+    },
+    "functional_equivalence": {
+      "checked": 1280,
+      "status": "PASSED"
+    }
+  },
+  "solve_seconds": 0.0,
+  "status": "PASSED",
+  "topology": [
+    [
+      "attn_7_h_11",
+      "logits"
+    ],
+    [
+      "emb",
+      "mlp_0"
+    ],
+    [
+      "mlp_0",
+      "attn_7_h_11"
+    ]
+  ],
+  "unique_exact_mlp_signatures": 62
+}
