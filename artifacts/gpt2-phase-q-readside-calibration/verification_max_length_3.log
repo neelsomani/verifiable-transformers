@@ -1,0 +1,44 @@
+
+################################################################################
+VERIFYING QUOTE CLOSE CIRCUIT
+################################################################################
+
+Circuit: artifacts/gpt2-phase-q-readside-calibration/fp32_export/circuit.json
+Edges: 3
+Task: quote_close
+Model: artifacts/gpt2-phase-q-readside-calibration/fp32_export
+
+Loading model weights...
+Model variants: norm=none, attn=sparsemax, act=leaky_relu
+Loaded weights from artifacts/gpt2-phase-q-readside-calibration/fp32_export/model.safetensors
+Loaded model with 12 layers, 768 dimensions
+
+Candidate tokens: ' = 6, " = 1
+
+
+================================================================================
+PROPERTY 1: Functional Equivalence
+================================================================================
+
+Verifying: y_C(x) = P_quote(x) for bounded inputs
+Reference program: predict closing quote matching opening quote
+
+Generated 8 test sequences
+
+Verifying functional equivalence on 8 sequences...
+  seq 0: encoding...
+  seq 0: encoded in 491.28s, assertions=9216
+  seq 0: validating base constraints...
+  seq 0: base result=sat
+  seq 0: checking violation...
+  seq 0: violation result=unsat in 0.00s
+  seq 1: encoding...
+  seq 1: encoded in 394.71s, assertions=9216
+  seq 1: validating base constraints...
+  seq 1: base result=sat
+  seq 1: checking violation...
+  seq 1: violation result=sat in 0.00s
+  seq 2: encoding...
+  seq 2: encoded in 391.17s, assertions=9216
+  seq 2: validating base constraints...
+  seq 2: base result=sat
