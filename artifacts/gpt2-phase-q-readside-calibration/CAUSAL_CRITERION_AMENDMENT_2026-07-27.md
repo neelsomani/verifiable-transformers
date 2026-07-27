@@ -1,7 +1,7 @@
 # Protocol amendment: constrained-calibration causal criterion
 
 Registered 2026-07-27 from commit
-`ee357745e6f4ed71bf17237b5c7b36ee1ac30d7a`, before any new model
+`ee3577463ed4691e42f47d12fc2ad525609c7053`, before any new model
 evaluation, extraction, pruning experiment, or SMT run.
 
 This amendment preserves every earlier registration, terminal report,
