@@ -1,0 +1,20 @@
+Exact two-head redundancy is absent in both pre-healing states and first appears in the recorded post-healing state; healing created or reinforced an outside route enough to make it exact on D.
+The untouched selected circuit is sufficient and necessary under both whole-circuit interventions, but the two heads are not an exclusive mechanism. Do not claim program exclusivity; the later exact bypass is a healing-induced or healing-reinforced effect.
+
+A_untouched_neural
+  native_full_forward: 1280/1280 (1.000000), mean margin 6.247519
+  circuit_only: 1280/1280 (1.000000), mean margin 0.112147
+  zero_attn_7_h_11: 1280/1280 (1.000000), mean margin 5.382681
+  zero_attn_9_h_0: 1277/1280 (0.997656), mean margin 4.688628
+  zero_both_program_heads: 1256/1280 (0.981250), mean margin 3.917399
+  whole_selected_circuit_edge_zero: 818/1280 (0.639062), mean margin 0.208113
+  whole_selected_circuit_node_zero: 710/1280 (0.554688), mean margin 0.134284
+
+B_programs_installed_step_zero
+  native_full_forward: 1257/1280 (0.982031), mean margin 3.945796
+  circuit_only: 1280/1280 (1.000000), mean margin 0.530302
+  zero_attn_7_h_11: 1279/1280 (0.999219), mean margin 4.209132
+  zero_attn_9_h_0: 1280/1280 (1.000000), mean margin 5.200328
+  zero_both_program_heads: 1256/1280 (0.981250), mean margin 3.917399
+  whole_selected_circuit_edge_zero: 820/1280 (0.640625), mean margin 0.227080
+  whole_selected_circuit_node_zero: 710/1280 (0.554688), mean margin 0.134284

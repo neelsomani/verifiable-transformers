@@ -1,0 +1,27 @@
+{
+  "model_path": "artifacts/gpt2-phase-q-readside-calibration/fp32_export",
+  "circuit_path": "artifacts/gpt2-phase-q-readside-calibration/fp32_export/circuit.json",
+  "tolerance": 0.001,
+  "timeout_ms": 600000,
+  "status": "PASSED",
+  "sequences": [
+    {
+      "input_tokens": [
+        6,
+        12,
+        13
+      ],
+      "status": "PASSED",
+      "pytorch_logits": {
+        "6": -0.2988572120666504,
+        "1": 0.2819899320602417
+      },
+      "smt_logits": {
+        "6": -0.2988572016870839,
+        "1": 0.28198992096215963
+      },
+      "max_abs_diff": 1.1098082064453507e-08,
+      "decision_match": true
+    }
+  ]
+}

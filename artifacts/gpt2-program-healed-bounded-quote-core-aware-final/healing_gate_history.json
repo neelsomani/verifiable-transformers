@@ -1,0 +1,359 @@
+[
+  {
+    "step": 500,
+    "projected_agreement": {
+      "quote_close": 0.50390625
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.21209454536438,
+    "eval_perplexity": 24.831041537158008,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 1000,
+    "projected_agreement": {
+      "quote_close": 0.500781238079071
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.2087156772613525,
+    "eval_perplexity": 24.747282308324642,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 1500,
+    "projected_agreement": {
+      "quote_close": 0.4945312440395355
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.206583023071289,
+    "eval_perplexity": 24.694561150997906,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 2000,
+    "projected_agreement": {
+      "quote_close": 0.48750001192092896
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.2054381370544434,
+    "eval_perplexity": 24.666304871440108,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 2500,
+    "projected_agreement": {
+      "quote_close": 0.47734373807907104
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.204352855682373,
+    "eval_perplexity": 24.639549511418362,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 3000,
+    "projected_agreement": {
+      "quote_close": 0.46015626192092896
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.202800750732422,
+    "eval_perplexity": 24.601336008012474,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 3500,
+    "projected_agreement": {
+      "quote_close": 0.4468750059604645
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.201920509338379,
+    "eval_perplexity": 24.57969042177759,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 4000,
+    "projected_agreement": {
+      "quote_close": 0.36250001192092896
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.2007505893707275,
+    "eval_perplexity": 24.550950965864136,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 4500,
+    "projected_agreement": {
+      "quote_close": 0.45625001192092896
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1998136043548584,
+    "eval_perplexity": 24.527957866460802,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 5000,
+    "projected_agreement": {
+      "quote_close": 0.4468750059604645
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1994049549102783,
+    "eval_perplexity": 24.517936577838462,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 5500,
+    "projected_agreement": {
+      "quote_close": 0.4203124940395355
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1986172199249268,
+    "eval_perplexity": 24.498630546443973,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 6000,
+    "projected_agreement": {
+      "quote_close": 0.25390625
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1976232528686523,
+    "eval_perplexity": 24.474291812710558,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 6500,
+    "projected_agreement": {
+      "quote_close": 0.22734375298023224
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.197443723678589,
+    "eval_perplexity": 24.46989835731259,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 7000,
+    "projected_agreement": {
+      "quote_close": 0.2562499940395355
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.196823835372925,
+    "eval_perplexity": 24.454734453928868,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 7500,
+    "projected_agreement": {
+      "quote_close": 0.203125
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1963462829589844,
+    "eval_perplexity": 24.44305882454251,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 8000,
+    "projected_agreement": {
+      "quote_close": 0.19687500596046448
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1961991786956787,
+    "eval_perplexity": 24.439463410838016,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 8500,
+    "projected_agreement": {
+      "quote_close": 0.19765624403953552
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1960294246673584,
+    "eval_perplexity": 24.43531506558316,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 9000,
+    "projected_agreement": {
+      "quote_close": 0.19453124701976776
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.1957836151123047,
+    "eval_perplexity": 24.429309369818235,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 9500,
+    "projected_agreement": {
+      "quote_close": 0.19218750298023224
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.195786237716675,
+    "eval_perplexity": 24.42937343831576,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 10000,
+    "projected_agreement": {
+      "quote_close": 0.18515625596046448
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.195758581161499,
+    "eval_perplexity": 24.428697815344098,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  },
+  {
+    "step": 10000,
+    "projected_agreement": {
+      "quote_close": 0.18515625596046448
+    },
+    "required_projected_agreement": 1.0,
+    "eval_loss": 3.195758581161499,
+    "eval_perplexity": 24.428697815344098,
+    "perplexity_budget": 28.617593822841776,
+    "agreement_pass": false,
+    "perplexity_pass": true,
+    "suppression_visit_counts": null,
+    "suppression_coverage_pass": true,
+    "full_unsampled_lesion_sweep": null,
+    "migration_pass": false,
+    "acceptance_pass": false
+  }
+]

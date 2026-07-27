@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "protocol_id": "gpt2_phase_q_readside_calibration_v1",
+  "registered_utc": "2026-07-27",
+  "distinct_followup": true,
+  "git": {
+    "branch": "codex/phase-q-agent",
+    "parent_commit": "daf939e616d031cf3429285aff8d5664083d235f",
+    "push_permitted": false,
+    "agents_md_commit_permitted": false
+  },
+  "frozen_inputs": {
+    "domain_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+    "domain_manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+    "rows": 1280,
+    "unique_prompts": 1280,
+    "task": "quote_close",
+    "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+    "ordered_example_ids_newline_sha256": "6c769c18764b847e0d9bb927df2cc0fab68148ef3996cb02b231fae76f079ecc",
+    "source_model": "artifacts/gpt2-norm-free",
+    "source_model_weights_sha256": "f6af2e9061f583a6d2bc7aa4c823c8058c0e2e9ed740cbba32a1347fad7ac815",
+    "programs": "artifacts/gpt2-programs-bounded-quote-scan-fallback-final/bounded-selection/programs_selected.json",
+    "programs_sha256": "40afc75464e92c82d2a1f3c1c8ae44583f7892633539a3c09fe3fe4f3e6579f1",
+    "program_nodes": ["attn_7_h_11", "attn_9_h_0"],
+    "circuit": "artifacts/gpt2-circuits-bounded-quote/base-selected/quote_close/circuit.json",
+    "circuit_sha256": "fd367939e402662a4091bbf3360c5be9b19ed0220b0620b6a140b0eae5faff05",
+    "audit": "artifacts/gpt2-phase-q-preheal-necessity-audit/audit.json",
+    "audit_source_commit": "daf939e616d031cf3429285aff8d5664083d235f"
+  },
+  "state_B": {
+    "construction": "fresh source load followed only by install_program_heads; no optimizer construction and no optimizer step",
+    "native_full": {"correct": 1257, "rows": 1280, "failures": 23},
+    "circuit_only": {"correct": 1280, "rows": 1280},
+    "joint_program_head_lesion": {"correct": 1256, "rows": 1280, "failures": 24},
+    "whole_selected_circuit_node_zero": {"correct": 710, "rows": 1280},
+    "whole_selected_circuit_edge_zero": {"correct": 820, "rows": 1280}
+  },
+  "failure_set_geometry": {
+    "native_full_failure_ids_newline_sha256": "abc313755278d09d34d15c44e7ce63adebe501579c5e3d90bb6aba61025f3bf2",
+    "joint_program_lesion_failure_ids_newline_sha256": "433fcfd41b4360f80bd449851361431c9b3ae899005fe1f4ed03b03d2e46e2c6",
+    "native_is_strict_subset_of_lesion": true,
+    "lesion_only_ids": ["v4:quote_close:single:366310ced48097af"],
+    "native_failure_margins": {
+      "count": 23,
+      "minimum": -0.639340877532959,
+      "maximum": -0.010783672332763672,
+      "mean": -0.26300193952477496,
+      "median": -0.21177291870117188
+    },
+    "joint_program_lesion_failure_margins": {
+      "count": 24,
+      "minimum": -0.7479128837585449,
+      "maximum": -0.0017366409301757812,
+      "mean": -0.30825668573379517,
+      "median": -0.24216365814208984
+    },
+    "interpretation": "baseline characterization only; no lesion drift is permitted"
+  },
+  "execution_policy": {
+    "dtype": "float32",
+    "device": "cuda",
+    "autocast": false,
+    "allow_tf32": false,
+    "deterministic_algorithms": true,
+    "cudnn_deterministic": true,
+    "cudnn_benchmark": false,
+    "seed": 42,
+    "batch_size_for_identity": 8,
+    "fixed_domain_order": true,
+    "identity_epsilon_max_abs": 0.00001,
+    "preflight_failure_action": "terminal_stop_without_training_or_epsilon_change"
+  },
+  "architecture": {
+    "rungs_1_2": "calibrate each programmed-head contribution only when consumed by retained downstream circuit nodes; do not alter the residual write",
+    "selected_edge_zero_invariant": "calibration delta vanishes by construction",
+    "frozen": "all original GPT-2 parameters and both symbolic programs",
+    "rung_3_boundary": "program-local W_V/W_O changes residual write; selected-edge zero is observational only; joint-head and whole-node identity remain mandatory"
+  },
+  "ladder": [
+    {
+      "rung": 1,
+      "name": "scalar_readside_gains",
+      "parameters": 2,
+      "initialization": 1.0,
+      "optimizer": "Adam",
+      "learning_rate": 0.01,
+      "weight_decay": 0.0,
+      "batch": "full_D_frozen_order",
+      "max_steps": 4000,
+      "max_objective_evaluations": 4000,
+      "gate_interval_steps": 100
+    },
+    {
+      "rung": 2,
+      "name": "diagonal_per_channel_readside",
+      "parameters": 1536,
+      "initialization": "terminal scalar gains broadcast by head",
+      "optimizer": "AdamW",
+      "learning_rate": 0.002,
+      "weight_decay": 0.0001,
+      "batch_size": 64,
+      "gradient_clip_norm": 1.0,
+      "max_steps": 6000,
+      "max_objective_evaluations": 6000,
+      "gate_interval_steps": 200
+    },
+    {
+      "rung": 3,
+      "name": "program_local_WV_WO",
+      "optimizer": "AdamW",
+      "learning_rate": 0.00005,
+      "weight_decay": 0.01,
+      "batch_size": 32,
+      "gradient_clip_norm": 1.0,
+      "max_steps": 4000,
+      "max_objective_evaluations": 4000,
+      "gate_interval_steps": 200,
+      "weaker_causal_boundary": true
+    }
+  ],
+  "objective": {
+    "task": "cross_entropy_against_P(x)_on_all_D",
+    "owt_preservation_weight": 0.1,
+    "owt_data": "the frozen Phase Q OWT evaluation corpus and order",
+    "forbidden_trainables": ["mlp", "embedding", "lm_head", "shared_residual_write_rungs_1_2", "outside_circuit"]
+  },
+  "locked_gates": {
+    "native_full_correct": 1280,
+    "circuit_only_correct": 1280,
+    "owt_perplexity_max": 28.617593822841776,
+    "joint_program_head_lesion_identity": true,
+    "whole_selected_circuit_node_zero_identity": true,
+    "selected_edge_zero_identity_rungs_1_2": true,
+    "identity_epsilon_max_abs": 0.00001,
+    "exact_decisions_and_mismatch_ids": true,
+    "non_program_non_calibration_hash_identical": true,
+    "full_unsampled_migration_lesion_sweep": true,
+    "reextraction_drift_check": true
+  },
+  "success_actions": [
+    "export FP32 and exact decimal/rational calibration",
+    "rerun full circuit and identity gates",
+    "rerun full unsampled migration/lesion sweep",
+    "rerun per-head extraction",
+    "encoder_vs_pytorch_sanity",
+    "verify all four SMT properties on D"
+  ],
+  "terminal_rule": "If all three registered rungs fail, stop and report; invent no objective, rung, threshold, or epsilon."
+}

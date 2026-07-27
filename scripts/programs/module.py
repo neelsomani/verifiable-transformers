@@ -74,8 +74,13 @@ class ProgrammedAttention(nn.Module):
             if head in existing_programs and existing_programs[head] != program:
                 raise ValueError(f"Refusing to replace existing program head {head}")
         self.programs = {**existing_programs, **dict(programs)}
+        self.hard_pruned_heads = set(
+            getattr(original, "hard_pruned_heads", set())
+        )
         self.neural_heads = tuple(
-            head for head in range(self.num_heads) if head not in self.programs
+            head
+            for head in range(self.num_heads)
+            if head not in self.programs and head not in self.hard_pruned_heads
         )
         if any(head < 0 or head >= self.num_heads for head in self.programs):
             raise ValueError("Program head index is outside the attention module")
@@ -254,7 +259,12 @@ class ProgrammedAttention(nn.Module):
         mixtures = []
         all_weights = []
         for head in range(self.num_heads):
-            if head in self.programs:
+            if head in self.hard_pruned_heads:
+                mixtures.append(torch.zeros_like(values[:, head, :, :]))
+                all_weights.append(
+                    values.new_zeros(batch, 1, length, length)
+                )
+            elif head in self.programs:
                 weights = self._program_weights(
                     self.programs[head], values[:, head, :, :], attention_mask
                 )
@@ -270,6 +280,31 @@ class ProgrammedAttention(nn.Module):
         if output_attentions:
             result += (torch.cat(all_weights, dim=1),)
         return result
+
+
+def hard_prune_attention_heads(model, heads) -> None:
+    """Permanently zero selected pre-W_O heads without a neural fallback."""
+    by_layer: Dict[int, set[int]] = {}
+    for layer, head in heads:
+        by_layer.setdefault(int(layer), set()).add(int(head))
+    for layer, layer_heads in by_layer.items():
+        attention = model.transformer.h[layer].attn
+        if not isinstance(attention, ProgrammedAttention):
+            raise TypeError(
+                "Hard pruning requires ProgrammedAttention so a pruned "
+                "program head cannot silently become neural"
+            )
+        if not layer_heads <= set(attention.programs):
+            missing = sorted(layer_heads - set(attention.programs))
+            raise ValueError(
+                f"Hard-pruned heads must already be installed programs: {missing}"
+            )
+        attention.hard_pruned_heads.update(layer_heads)
+        attention.neural_heads = tuple(
+            head
+            for head in attention.neural_heads
+            if head not in attention.hard_pruned_heads
+        )
 
 
 def install_program_heads(

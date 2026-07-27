@@ -1,0 +1,51 @@
+{
+  "threshold": 0.2,
+  "metric": "candidate_kl",
+  "min_agreement": 1.0,
+  "ablation": "zero",
+  "num_edges": 7,
+  "edges": [
+    [
+      "attn_7_h_11",
+      "logits"
+    ],
+    [
+      "emb",
+      "mlp_0"
+    ],
+    [
+      "emb",
+      "mlp_4"
+    ],
+    [
+      "mlp_0",
+      "mlp_4"
+    ],
+    [
+      "mlp_0",
+      "mlp_5"
+    ],
+    [
+      "mlp_4",
+      "mlp_5"
+    ],
+    [
+      "mlp_5",
+      "attn_7_h_11"
+    ]
+  ],
+  "retained_program_heads": [
+    "attn_7_h_11"
+  ],
+  "summary": {
+    "rows": 1280,
+    "correct": 1280,
+    "projected_agreement": 1.0,
+    "minimum_signed_correct_margin": 0.11771349608898163,
+    "mean_signed_correct_margin": 0.7247607707977295,
+    "decisions_sha256": "7654935cfffa35f9116e5cd18f12597fb4ec8b26fa6443d731b2e202206a8d3a",
+    "margins_sha256": "c74a37b7fe8d2bb6b52067bc32c10e94a8cdb3ef3697d83b9456de92c7194c74"
+  },
+  "edge_log_sha256": "2cecff9ceeec1a9515d4cfc3f093bdb959b5979f833d657ca98cafe3d77262a0",
+  "edge_log_entries": 11640
+}

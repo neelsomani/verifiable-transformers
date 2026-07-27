@@ -9,7 +9,12 @@ from safetensors.torch import load_file
 from transformers import GPT2Config, GPT2LMHeadModel
 
 from scripts.gpt2.cluster_preflight import checkpoint_ready, processed_dataset_ready
-from scripts.gpt2.extract import load_model_with_variants
+from scripts.gpt2.extract import (
+    build_circuit_graph,
+    find_circuit,
+    load_model_with_variants,
+    reference_edges_with_forbidden_heads,
+)
 from scripts.gpt2.remove_layernorm import (
     NormRemovalScheduleCallback,
     fold_and_measure_in_fp32,
@@ -41,6 +46,67 @@ def make_checkpoint(path):
     (path / "config.json").write_text("{}")
     (path / "model_info.json").write_text("{}")
     (path / "model.safetensors").write_bytes(b"stub")
+
+
+def test_lesion_conditioned_reference_permanently_forbids_head_outputs():
+    graph = build_circuit_graph(n_layers=2, n_heads=2)
+    edges, forbidden = reference_edges_with_forbidden_heads(
+        graph, ["attn_1_h_0", "attn_0_h_1", "attn_1_h_0"]
+    )
+    assert forbidden == ["attn_0_h_1", "attn_1_h_0"]
+    assert all(source not in forbidden for source, _ in edges)
+    assert edges < graph.all_edges
+
+    with pytest.raises(ValueError, match="Invalid forbidden attention heads"):
+        reference_edges_with_forbidden_heads(graph, ["attn_9_h_9"])
+
+
+def test_find_circuit_prunes_dead_node_inputs_without_forward(monkeypatch):
+    graph = build_circuit_graph(n_layers=1, n_heads=1)
+    initial_edges = {
+        edge
+        for edge in graph.all_edges
+        if edge != ("attn_0_h_0", "logits")
+    }
+    forward_calls = []
+
+    def fake_forward(*args, **kwargs):
+        forward_calls.append(
+            kwargs["edges_to_keep"] if "edges_to_keep" in kwargs else args[3]
+        )
+        return torch.zeros(1, 1, 4)
+
+    monkeypatch.setattr("scripts.gpt2.extract.controlled_forward", fake_forward)
+    def tokenizer(_prompts, return_tensors, padding):
+        assert return_tensors == "pt"
+        assert padding is True
+        return {
+            "input_ids": torch.ones(1, 1, dtype=torch.long),
+            "attention_mask": torch.ones(1, 1, dtype=torch.long),
+        }
+    edges, edge_log = find_circuit(
+        SimpleNamespace(),
+        tokenizer,
+        [SimpleNamespace(prompt="x")],
+        graph,
+        threshold=0.1,
+        metric="kl",
+        task="quote_close",
+        min_agreement=1.0,
+        ablation_mode="zero",
+        ablation_cache=None,
+        device="cpu",
+        initial_edges=initial_edges,
+        verbose=False,
+    )
+    assert not any(source == "attn_0_h_0" for source, _ in edges)
+    dead = [
+        record
+        for record in edge_log
+        if record.get("reason") == "dead_node_without_retained_outgoing_edge"
+    ]
+    assert dead
+    assert len(forward_calls) < len(initial_edges)
 
 
 def test_phase_c_base_selection_enforces_preregistered_gate(tmp_path):

@@ -2,8 +2,16 @@
 
 from z3 import *
 from fractions import Fraction
+from functools import lru_cache
 import math
 from typing import List, Tuple
+
+
+@lru_cache(maxsize=None)
+def _cached_decimal_real(value_float: float) -> ArithRef:
+    # RealVal parses the decimal as an exact rational. This is identical to
+    # Q(Fraction(str(value))) without Q's redundant per-call simplify pass.
+    return RealVal(str(value_float))
 
 
 def z3_real(value) -> ArithRef:
@@ -19,8 +27,7 @@ def z3_real(value) -> ArithRef:
     if not math.isfinite(value_float):
         raise ValueError(f"Non-finite SMT constant: {value!r}")
 
-    fraction = Fraction(str(value_float))
-    return Q(fraction.numerator, fraction.denominator)
+    return _cached_decimal_real(value_float)
 
 
 def encode_leaky_relu(x: ArithRef, alpha: float = 0.01) -> ArithRef:

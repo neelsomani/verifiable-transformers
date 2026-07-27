@@ -4,6 +4,7 @@ from .dsl import AttentionProgram, Condition, Rule
 from .module import (
     ProgramAttentionHead,
     ProgrammedAttention,
+    hard_prune_attention_heads,
     install_program_heads,
     load_programs,
     save_programs,
@@ -17,6 +18,7 @@ __all__ = [
     "Rule",
     "ProgramAttentionHead",
     "ProgrammedAttention",
+    "hard_prune_attention_heads",
     "install_program_heads",
     "load_programs",
     "save_programs",

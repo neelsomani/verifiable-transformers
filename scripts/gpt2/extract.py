@@ -444,6 +444,24 @@ def build_circuit_graph(n_layers: int, n_heads: int) -> PerHeadCircuitGraph:
     )
 
 
+def reference_edges_with_forbidden_heads(
+    graph: PerHeadCircuitGraph, forbidden_heads: Optional[List[str]] = None
+) -> Tuple[Set[Tuple[str, str]], List[str]]:
+    """Return a full reference graph with specified head outputs zero-lesioned."""
+    normalized = sorted(set(forbidden_heads or []))
+    invalid = [
+        node
+        for node in normalized
+        if node not in graph.nodes or not node.startswith("attn_")
+    ]
+    if invalid:
+        raise ValueError(f"Invalid forbidden attention heads: {invalid}")
+    return (
+        {edge for edge in graph.all_edges if edge[0] not in normalized},
+        normalized,
+    )
+
+
 # Keep the public call signature stable while using the shared per-head core.
 def controlled_forward(
     model: GPT2LMHeadModel,
@@ -455,6 +473,7 @@ def controlled_forward(
     ablation_mode: str = "zero",
     return_node_outputs: bool = False,
     return_final_resid: bool = False,
+    readside_calibration=None,
 ):
     if ablation_mode != "zero":
         raise ValueError("Per-head extraction currently supports zero ablation only")
@@ -468,6 +487,7 @@ def controlled_forward(
         graph=graph,
         return_node_outputs=return_node_outputs,
         return_final_resid=return_final_resid,
+        readside_calibration=readside_calibration,
     )
 
 
@@ -880,6 +900,7 @@ def find_circuit(
     ablation_mode: str,
     ablation_cache: Optional[Dict[str, torch.Tensor]],
     device: str,
+    initial_edges: Optional[Set[Tuple[str, str]]] = None,
     verbose: bool = True,
 ) -> Tuple[Set[Tuple[str, str]], List[Dict]]:
     """Find minimal circuit using ACDC algorithm.
@@ -911,7 +932,7 @@ def find_circuit(
     # Compute full model baseline
     if verbose:
         print("Computing full model baseline...")
-    edges_to_keep = set(graph.all_edges)
+    edges_to_keep = set(graph.all_edges if initial_edges is None else initial_edges)
     with torch.no_grad():
         full_logits = controlled_forward(
             model,
@@ -942,6 +963,28 @@ def find_circuit(
             continue  # Skip embedding node
 
         incoming = sorted(graph.incoming_edges[child])
+        live_outgoing = any(
+            source == child for source, _target in edges_to_keep
+        )
+        if child != "logits" and not live_outgoing:
+            dead_incoming = [edge for edge in incoming if edge in edges_to_keep]
+            edges_to_keep.difference_update(dead_incoming)
+            edge_log.extend(
+                {
+                    "edge": list(edge),
+                    "delta": 0.0,
+                    "agreement": 1.0,
+                    "decision": "removed",
+                    "reason": "dead_node_without_retained_outgoing_edge",
+                }
+                for edge in dead_incoming
+            )
+            if verbose and dead_incoming:
+                print(
+                    f"\nSkipping dead node: {child}; removed "
+                    f"{len(dead_incoming)} unreachable incoming edges"
+                )
+            continue
         if verbose:
             print(f"\nProcessing node: {child} ({len(incoming)} incoming edges)")
 
@@ -1185,6 +1228,7 @@ def write_circuit_outputs(
     trim_rounds: int,
     n_examples: int,
     domain_provenance: Optional[Dict[str, Any]] = None,
+    forbidden_heads: Optional[List[str]] = None,
 ):
     """Write circuit JSON, DOT, and summary."""
     os.makedirs(output_dir, exist_ok=True)
@@ -1213,6 +1257,12 @@ def write_circuit_outputs(
             "inverse_ablation": inverse_metrics,
         },
         "edge_log": edge_log,
+        "forbidden_heads": sorted(forbidden_heads or []),
+        "reference_semantics": (
+            "full_graph_with_forbidden_head_outputs_zeroed"
+            if forbidden_heads
+            else "unlesioned_full_graph"
+        ),
     }
 
     if mean_cache_path is not None:
@@ -1280,6 +1330,7 @@ def extract_circuit_for_task(
     output_dir: str,
     device: str,
     domain_manifest: str | None = None,
+    forbidden_heads: Optional[List[str]] = None,
 ):
     """Extract circuit for a specific task."""
     print(f"\n{'=' * 80}")
@@ -1309,6 +1360,14 @@ def extract_circuit_for_task(
     n_layers = model.config.n_layer
     graph = build_circuit_graph(n_layers, model.config.n_head)
     print(f"Built graph with {len(graph.nodes)} nodes and {len(graph.all_edges)} edges")
+    reference_edges, forbidden_heads = reference_edges_with_forbidden_heads(
+        graph, forbidden_heads
+    )
+    if forbidden_heads:
+        print(
+            "Lesion-conditioned extraction with forbidden heads: "
+            + ", ".join(forbidden_heads)
+        )
 
     # Zero ablation only (no cache needed)
     ablation_cache = None
@@ -1321,14 +1380,23 @@ def extract_circuit_for_task(
     input_ids = encoded["input_ids"].to(device)
     attention_mask = encoded["attention_mask"].to(device)
 
-    verify_controlled_forward_matches_native(model, input_ids, attention_mask, graph, atol=1e-2)
-    print("Controlled forward matches native model.\n")
+    if forbidden_heads:
+        print(
+            "Skipping native equivalence check because the registered reference "
+            "is the lesioned full graph.\n"
+        )
+    else:
+        verify_controlled_forward_matches_native(
+            model, input_ids, attention_mask, graph, atol=1e-2
+        )
+        print("Controlled forward matches native model.\n")
 
     # Run ACDC
     print(f"Running ACDC with {ablation_mode} ablation (threshold={threshold}, metric={metric}, min_agreement={min_agreement})...")
     edges_to_keep, edge_log = find_circuit(
         model, tokenizer, examples, graph, threshold, metric, task,
-        min_agreement, ablation_mode, ablation_cache, device, verbose=True
+        min_agreement, ablation_mode, ablation_cache, device,
+        initial_edges=reference_edges, verbose=True
     )
 
     print(f"\nACDC complete. Remaining edges: {len(edges_to_keep)} / {len(graph.all_edges)}")
@@ -1336,7 +1404,7 @@ def extract_circuit_for_task(
     # Compute full model logits for comparison
     with torch.no_grad():
         full_logits = controlled_forward(
-            model, input_ids, attention_mask, graph.all_edges, graph,
+            model, input_ids, attention_mask, reference_edges, graph,
             None, "zero"
         )
 
@@ -1399,7 +1467,7 @@ def extract_circuit_for_task(
             model, input_ids, attention_mask, ablated_edges, graph,
             ablation_cache, ablation_mode
         )
-        inverse_edges = graph.all_edges - edges_to_keep
+        inverse_edges = reference_edges - edges_to_keep
         inverse_logits = controlled_forward(
             model, input_ids, attention_mask, inverse_edges, graph,
             ablation_cache, ablation_mode
@@ -1453,7 +1521,7 @@ def extract_circuit_for_task(
         output_dir, model_path, task, edges_to_keep, edge_log, graph,
         full_metrics, circuit_metrics, ablated_metrics, inverse_metrics,
         threshold, metric, min_agreement, ablation_mode, mean_cache_path,
-        trim_rounds, len(examples), domain_provenance
+        trim_rounds, len(examples), domain_provenance, forbidden_heads
     )
 
     print(f"\nCircuit extraction complete!")
@@ -1496,6 +1564,15 @@ def main():
                         help="Ablation mode for removed edges (default: zero)")
     parser.add_argument("--trim_rounds", type=int, default=0,
                         help="Number of trimming rounds after ACDC")
+    parser.add_argument(
+        "--forbid_head",
+        action="append",
+        default=[],
+        help=(
+            "Keep this attn_<layer>_h_<head> output unavailable in the full "
+            "reference and every extraction candidate; repeat for multiple heads."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -1519,7 +1596,7 @@ def main():
         extract_circuit_for_task(
             args.model_path, task, args.n_examples, args.threshold,
             args.metric, args.min_agreement, args.ablation, args.trim_rounds,
-            args.output_dir, device, args.domain_manifest
+            args.output_dir, device, args.domain_manifest, args.forbid_head
         )
 
     else:

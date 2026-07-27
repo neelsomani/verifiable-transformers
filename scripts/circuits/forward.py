@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Mapping, Optional, Set, Tuple
 
 import torch
 from transformers import GPT2LMHeadModel
@@ -12,6 +12,7 @@ from scripts.circuits.graph import CircuitGraph, parse_head_node
 
 
 Edge = Tuple[str, str]
+ReadSideCalibration = Mapping[Edge, torch.Tensor]
 
 
 def _sparsemax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
@@ -55,6 +56,8 @@ def _compute_head(
         batch, seq_len, _ = normalized.shape
         start = head * attention.head_dim
         stop = start + attention.head_dim
+        if head in getattr(attention, "hard_pruned_heads", set()):
+            return normalized.new_zeros(batch, seq_len, attention.head_dim)
         value = torch.nn.functional.linear(
             normalized,
             attention.value_proj.weight[start:stop],
@@ -147,6 +150,7 @@ def _build_residual(
     edges_to_keep: Set[Edge],
     graph: CircuitGraph,
     template: torch.Tensor,
+    readside_calibration: Optional[ReadSideCalibration] = None,
 ) -> torch.Tensor:
     residual = torch.zeros_like(template)
     heads_by_layer: Dict[int, Dict[int, torch.Tensor]] = defaultdict(dict)
@@ -172,6 +176,32 @@ def _build_residual(
                 head_values.append(template.new_zeros(shape))
         concatenated = torch.cat(head_values, dim=-1)
         projected = attention.c_proj(concatenated)
+        if readside_calibration:
+            for head, head_output in selected.items():
+                edge = (f"attn_{layer}_h_{head}", child)
+                calibration = readside_calibration.get(edge)
+                if calibration is None:
+                    continue
+                start = head * attention.head_dim
+                stop = start + attention.head_dim
+                # Conv1D weight is [input, output].  Exclude c_proj.bias: it is
+                # shared by the whole attention module and must be applied once.
+                contribution = torch.matmul(
+                    head_output, attention.c_proj.weight[start:stop, :]
+                )
+                if calibration.numel() == 1:
+                    delta = contribution * (calibration.reshape(()) - 1.0)
+                elif calibration.numel() == contribution.size(-1):
+                    delta = contribution * (
+                        calibration.reshape(1, 1, -1) - 1.0
+                    )
+                else:
+                    raise ValueError(
+                        f"Read-side calibration for {edge} has "
+                        f"{calibration.numel()} values; expected 1 or "
+                        f"{contribution.size(-1)}"
+                    )
+                projected = projected + delta
         projected = attention.resid_dropout(projected)
         residual = residual + projected
 
@@ -186,6 +216,7 @@ def controlled_forward(
     attention_mask: Optional[torch.Tensor] = None,
     return_node_outputs: bool = False,
     return_final_resid: bool = False,
+    readside_calibration: Optional[ReadSideCalibration] = None,
 ):
     """Run GPT-2 with zero-ablation on residual edges and pre-``W_O`` heads."""
     if not graph.per_head:
@@ -221,7 +252,13 @@ def controlled_forward(
                 )
                 continue
             residual = _build_residual(
-                model, node_outputs, node, edges_to_keep, graph, embedding
+                model,
+                node_outputs,
+                node,
+                edges_to_keep,
+                graph,
+                embedding,
+                readside_calibration,
             )
             normalized = block.ln_1(residual)
             node_outputs[node] = _compute_head(
@@ -233,12 +270,24 @@ def controlled_forward(
             node_outputs[mlp_node] = torch.zeros_like(embedding)
             continue
         residual = _build_residual(
-            model, node_outputs, mlp_node, edges_to_keep, graph, embedding
+            model,
+            node_outputs,
+            mlp_node,
+            edges_to_keep,
+            graph,
+            embedding,
+            readside_calibration,
         )
         node_outputs[mlp_node] = block.mlp(block.ln_2(residual))
 
     final_residual = _build_residual(
-        model, node_outputs, "logits", edges_to_keep, graph, embedding
+        model,
+        node_outputs,
+        "logits",
+        edges_to_keep,
+        graph,
+        embedding,
+        readside_calibration,
     )
     logits = model.lm_head(model.transformer.ln_f(final_residual))
 

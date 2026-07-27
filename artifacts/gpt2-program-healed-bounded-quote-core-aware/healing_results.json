@@ -1,0 +1,466 @@
+{
+  "source_model": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+  "resume_from_checkpoint": null,
+  "programs": "/workspace/verifiable-transformers/artifacts/gpt2-programs-bounded-quote-scan-fallback/bounded-selection/programs_selected.json",
+  "program_heads": [
+    "7.11",
+    "9.0"
+  ],
+  "replacement_fraction": 0.013888888888888888,
+  "programs_frozen": true,
+  "method": "owt_plus_exact_P_targets_stochastic_edge_ablation_and_rotating_joint_and_individual_full_and_core_bypass_suppression",
+  "ablation_aware": true,
+  "circuit_root": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "behavior_domain_mode": "bounded_domain",
+  "tasks": [
+    "quote_close"
+  ],
+  "claim_scope": "exact only on the declared finite bounded domain; no held-out claim",
+  "bounded_behavior_manifest": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "behavior_train_manifest": null,
+  "behavior_gate_manifest": null,
+  "behavior_domain": {
+    "bounded": {
+      "quote_close": {
+        "protocol_id": "gpt2_behavior_domain_bounded_v1",
+        "split": "bounded",
+        "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+        "manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+        "rows": 1280,
+        "unique_prompts": 1280,
+        "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+        "strata": {
+          "double": 640,
+          "single": 640
+        },
+        "opener_token_positions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ]
+      }
+    }
+  },
+  "reference_target": "explicit_reference_program_P(x)",
+  "base_projected_accuracy": {
+    "bounded": {
+      "quote_close": 1.0
+    }
+  },
+  "ablation_aware_last_metrics": {
+    "step": 9900,
+    "behavior_examples_per_task": {
+      "quote_close": 8
+    },
+    "owt_loss": 3.2947065830230713,
+    "circuit_loss": 0.578762948513031,
+    "sampled_loss": 0.6328686475753784,
+    "joint_bypass_penalty": 0.03791772201657295,
+    "individual_bypass_penalty": 0.22178754210472107,
+    "suppression_visit_counts": {
+      "quote_close": {
+        "attn_7_h_11": 100,
+        "attn_9_h_0": 100
+      }
+    },
+    "total_loss": 4.766043186187744
+  },
+  "initial_projected_agreement": {
+    "quote_close": 0.9820312261581421
+  },
+  "minimum_initial_agreement": 0.98,
+  "initial_circuit_accuracy_against_P": {
+    "bounded": {
+      "quote_close": 0.99609375
+    }
+  },
+  "final_projected_agreement": {
+    "quote_close": 0.639843761920929
+  },
+  "projected_agreement_required": 1.0,
+  "reference_eval_perplexity": 24.67033950244981,
+  "final_eval_loss": 3.1946866512298584,
+  "final_eval_perplexity": 24.402525992650908,
+  "perplexity_budget": 28.617593822841776,
+  "relative_perplexity_increase_budget": 0.16,
+  "perplexity_budget_provenance": "Pre-registered before C4; no more than Hayes-style +16% at the measured replacement fraction.",
+  "agreement_pass": false,
+  "perplexity_pass": true,
+  "migration_pass": false,
+  "suppression_coverage_pass": true,
+  "full_unsampled_lesion_sweep": null,
+  "stopping_criteria": "projected accuracy against P(x) on every task in the declared bounded domain must equal the configured threshold; eval perplexity must stay within the pre-registered budget; core-aware runs also require suppression coverage and the complete unsampled full/core lesion sweep",
+  "gate_history": [
+    {
+      "step": 500,
+      "projected_agreement": {
+        "quote_close": 0.7281249761581421
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.209299325942993,
+      "eval_perplexity": 24.76173024286692,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 1000,
+      "projected_agreement": {
+        "quote_close": 0.80078125
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.2064003944396973,
+      "eval_perplexity": 24.690051628883598,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 1500,
+      "projected_agreement": {
+        "quote_close": 0.6625000238418579
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.204819679260254,
+      "eval_perplexity": 24.651054519274183,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 2000,
+      "projected_agreement": {
+        "quote_close": 0.573437511920929
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.2038440704345703,
+      "eval_perplexity": 24.627016460700464,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 2500,
+      "projected_agreement": {
+        "quote_close": 0.6859375238418579
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.20292329788208,
+      "eval_perplexity": 24.604351016354606,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 3000,
+      "projected_agreement": {
+        "quote_close": 0.65234375
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.201244354248047,
+      "eval_perplexity": 24.563076356455515,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 3500,
+      "projected_agreement": {
+        "quote_close": 0.6656249761581421
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.200411558151245,
+      "eval_perplexity": 24.542628837829046,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 4000,
+      "projected_agreement": {
+        "quote_close": 0.5171874761581421
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1994528770446777,
+      "eval_perplexity": 24.519111557843893,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 4500,
+      "projected_agreement": {
+        "quote_close": 0.657031238079071
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1987953186035156,
+      "eval_perplexity": 24.502994108732334,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 5000,
+      "projected_agreement": {
+        "quote_close": 0.632031261920929
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1982696056365967,
+      "eval_perplexity": 24.49011595240452,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 5500,
+      "projected_agreement": {
+        "quote_close": 0.6343749761581421
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.19738507270813,
+      "eval_perplexity": 24.468463216113523,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 6000,
+      "projected_agreement": {
+        "quote_close": 0.547656238079071
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1967952251434326,
+      "eval_perplexity": 24.454034808372526,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 6500,
+      "projected_agreement": {
+        "quote_close": 0.635937511920929
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1963298320770264,
+      "eval_perplexity": 24.44265671797461,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 7000,
+      "projected_agreement": {
+        "quote_close": 0.5882812738418579
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1957929134368896,
+      "eval_perplexity": 24.42953652252221,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 7500,
+      "projected_agreement": {
+        "quote_close": 0.62109375
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1953272819519043,
+      "eval_perplexity": 24.418164009059364,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 8000,
+      "projected_agreement": {
+        "quote_close": 0.653124988079071
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.195106267929077,
+      "eval_perplexity": 24.412767848737186,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 8500,
+      "projected_agreement": {
+        "quote_close": 0.633593738079071
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.194977045059204,
+      "eval_perplexity": 24.40961336463436,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 9000,
+      "projected_agreement": {
+        "quote_close": 0.635937511920929
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1947357654571533,
+      "eval_perplexity": 24.403724533291538,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 9500,
+      "projected_agreement": {
+        "quote_close": 0.637499988079071
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1947154998779297,
+      "eval_perplexity": 24.40322998268985,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 10000,
+      "projected_agreement": {
+        "quote_close": 0.639843761920929
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1946866512298584,
+      "eval_perplexity": 24.402525992650908,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    },
+    {
+      "step": 10000,
+      "projected_agreement": {
+        "quote_close": 0.639843761920929
+      },
+      "required_projected_agreement": 1.0,
+      "eval_loss": 3.1946866512298584,
+      "eval_perplexity": 24.402525992650908,
+      "perplexity_budget": 28.617593822841776,
+      "agreement_pass": false,
+      "perplexity_pass": true,
+      "suppression_visit_counts": null,
+      "suppression_coverage_pass": true,
+      "full_unsampled_lesion_sweep": null,
+      "migration_pass": false,
+      "acceptance_pass": false
+    }
+  ],
+  "success": false,
+  "global_step": 10000,
+  "epoch": 0.2933153433256094,
+  "effective_global_batch_size": 256
+}

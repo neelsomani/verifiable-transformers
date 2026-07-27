@@ -1,0 +1,111 @@
+{
+  "model_path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2",
+  "circuit_root": "artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "program_nodes": [
+    "attn_7_h_11",
+    "attn_9_h_0"
+  ],
+  "num_examples": 1280,
+  "tasks_evaluated": [
+    "quote_close"
+  ],
+  "domain_manifest": "artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "reference_target": "explicit_reference_program_P(x)",
+  "tasks": {
+    "quote_close": {
+      "domain": {
+        "protocol_id": "gpt2_behavior_domain_bounded_v1",
+        "split": "bounded",
+        "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+        "manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+        "rows": 1280,
+        "unique_prompts": 1280,
+        "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+        "strata": {
+          "double": 640,
+          "single": 640
+        },
+        "opener_token_positions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ]
+      },
+      "intended_program_heads": [
+        "attn_7_h_11",
+        "attn_9_h_0"
+      ],
+      "circuit": {
+        "projected_agreement": 1.0,
+        "mean_candidate_kl": 0.22607985138893127,
+        "candidate_accuracy_against_P": 1.0
+      },
+      "full_candidate_accuracy_against_P": 1.0,
+      "individual_ablations": {
+        "attn_7_h_11": {
+          "metrics": {
+            "projected_agreement": 1.0,
+            "mean_candidate_kl": 0.0003726479480974376
+          },
+          "full_metrics": {
+            "projected_agreement": 1.0,
+            "mean_candidate_kl": 0.0003726479480974376
+          },
+          "core_metrics": {
+            "projected_agreement": 0.5,
+            "mean_candidate_kl": 0.18094122409820557
+          },
+          "necessary_in_full": false,
+          "necessary_in_core": true,
+          "necessary": false
+        },
+        "attn_9_h_0": {
+          "metrics": {
+            "projected_agreement": 1.0,
+            "mean_candidate_kl": 5.937052992521785e-05
+          },
+          "full_metrics": {
+            "projected_agreement": 1.0,
+            "mean_candidate_kl": 5.937052992521785e-05
+          },
+          "core_metrics": {
+            "projected_agreement": 1.0,
+            "mean_candidate_kl": 0.00010250768536934629
+          },
+          "necessary_in_full": false,
+          "necessary_in_core": false,
+          "necessary": false
+        }
+      },
+      "without_intended_program_heads": {
+        "full": {
+          "projected_agreement": 1.0,
+          "mean_candidate_kl": 0.000571369135286659
+        },
+        "core": {
+          "projected_agreement": 0.5,
+          "mean_candidate_kl": 0.1813896745443344
+        }
+      },
+      "without_all_program_heads": {
+        "projected_agreement": 1.0,
+        "mean_candidate_kl": 0.000571369135286659
+      },
+      "necessary": false,
+      "non_bypassed_in_full": false,
+      "non_bypassed_in_core": true,
+      "non_bypassed": false
+    }
+  },
+  "migration_pass": false
+}

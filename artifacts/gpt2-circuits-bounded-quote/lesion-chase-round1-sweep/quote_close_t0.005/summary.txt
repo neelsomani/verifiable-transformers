@@ -1,0 +1,44 @@
+================================================================================
+CIRCUIT EXTRACTION SUMMARY
+================================================================================
+
+Task: quote_close
+Model: artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2
+Metric: candidate_kl
+Threshold: 0.005
+Min agreement: 1.0
+Ablation: zero
+Trim rounds: 0
+
+--------------------------------------------------------------------------------
+FULL MODEL
+--------------------------------------------------------------------------------
+binary_accuracy               : 1.000000
+mean_logit_diff               : 6.520236
+n_examples                    : 1280.000000
+candidate_accuracy            : 1.000000
+mean_margin                   : 6.520236
+
+--------------------------------------------------------------------------------
+EXTRACTED CIRCUIT (81 edges)
+--------------------------------------------------------------------------------
+binary_accuracy               : 1.000000
+mean_logit_diff               : 0.507500
+n_examples                    : 1280.000000
+candidate_accuracy            : 1.000000
+mean_margin                   : 0.507500
+kl_from_full                  : 5.993381
+candidate_kl_from_full        : 0.461780
+projected_agreement_with_full : 1.000000
+
+--------------------------------------------------------------------------------
+INVERSE ABLATION
+--------------------------------------------------------------------------------
+binary_accuracy               : 0.500000
+mean_logit_diff               : -0.024908
+n_examples                    : 1280.000000
+candidate_accuracy            : 0.500000
+mean_margin                   : -0.024908
+kl_from_full                  : 4.982406
+candidate_kl_from_full        : 0.823208
+projected_agreement_with_full : 0.500000

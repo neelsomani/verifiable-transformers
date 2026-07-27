@@ -1,0 +1,95 @@
+{
+  "timestamp_utc": "2026-07-26T03:34:07Z",
+  "status": "stopped_on_registered_diffuse_unprogrammable_backup",
+  "claim_scope": "bounded_domain_only",
+  "domain": {
+    "rows": 1280,
+    "unique_prompts": 1280,
+    "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48"
+  },
+  "source_checkpoint": {
+    "path": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2/checkpoint-100",
+    "evaluated_byte_identical_export": "artifacts/gpt2-program-healed-bounded-quote-exploratory-probe-v2",
+    "model_safetensors_sha256": "4a70e2f9045a3859dd9f5e41c528595f40d48b45646f64bbe23d9a1a20687c70"
+  },
+  "reproduction": {
+    "full_accuracy_against_P": 1.0,
+    "circuit_accuracy_against_P": 1.0,
+    "joint_program_lesion_full_agreement": 1.0,
+    "joint_program_lesion_core_agreement": 0.5,
+    "owt_eval_examples": 11059,
+    "owt_eval_perplexity": 25.251646781920677,
+    "perplexity_budget": 28.617593822841776,
+    "migration_pass": false
+  },
+  "lesion_conditioning": {
+    "forbidden_heads": [
+      "attn_7_h_11",
+      "attn_9_h_0"
+    ],
+    "reference_semantics": "full_graph_with_forbidden_head_outputs_zeroed",
+    "min_agreement": 1.0,
+    "ablation": "zero"
+  },
+  "completed_backup_circuit": {
+    "threshold": 0.005,
+    "exact_projected_agreement": 1.0,
+    "candidate_accuracy": 1.0,
+    "edges": 81,
+    "attention_heads": [
+      "attn_10_h_3",
+      "attn_3_h_8",
+      "attn_4_h_3",
+      "attn_5_h_5",
+      "attn_5_h_9",
+      "attn_6_h_2",
+      "attn_6_h_9",
+      "attn_7_h_6",
+      "attn_7_h_9",
+      "attn_8_h_8",
+      "attn_9_h_10"
+    ],
+    "mlps": [
+      "mlp_0",
+      "mlp_1",
+      "mlp_10",
+      "mlp_2",
+      "mlp_3",
+      "mlp_4",
+      "mlp_5",
+      "mlp_6",
+      "mlp_7",
+      "mlp_8",
+      "mlp_9"
+    ],
+    "original_edge_overlap_count": 5,
+    "original_attention_head_overlap_count": 0,
+    "circuit_sha256": "b45d0f8378db9c742d593ad6f72dc9aba07c21df0be2fe11f4dbef23a4154b1c"
+  },
+  "threshold_sweep": {
+    "launched": [
+      0.005,
+      0.01,
+      0.02,
+      0.05,
+      0.1,
+      0.2
+    ],
+    "completed": [
+      0.005
+    ],
+    "remaining_jobs_stopped_reason": "The lowest-threshold exact fixed point already met the authorized effectively diffuse/unprogrammable backup stop condition."
+  },
+  "decision": {
+    "chase_rounds_consumed": 0,
+    "new_program_synthesis_run": false,
+    "new_healing_run": false,
+    "fp32_smt_and_four_properties_run": false,
+    "reason": "The exact backup requires 11 neural attention heads, 11 MLP nodes, and 81 edges; it is not a specific fittable head route or a single structurally gateable non-circuit path."
+  },
+  "preservation": {
+    "earlier_penalty_only_report": "artifacts/gpt2-phase-q-agent/FINAL_REPORT.md",
+    "earlier_penalty_only_report_sha256": "1a17bef4a420f61333ec2dc3e43ec3fa72cfde81c69b0e4654bb5091d596c75b",
+    "earlier_evidence_manifest_sha256": "1d2e4af0c19de2f27262e1b02febadce125c7a66aa980287b9d82d5225750452"
+  }
+}

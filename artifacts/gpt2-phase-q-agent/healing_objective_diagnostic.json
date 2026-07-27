@@ -1,0 +1,70 @@
+{
+  "scope": "exploratory bounded-domain diagnostic",
+  "rows": 8,
+  "losses": {
+    "full": 0.08084478229284286,
+    "circuit": 0.50296550989151,
+    "bypass_uniform": 1.751658320426941
+  },
+  "probe_parameter": "transformer.h.7.attn.c_proj.weight",
+  "gradient_norms": {
+    "full": 6.382795810699463,
+    "circuit": 2.555177927017212,
+    "bypass_uniform": 22.463518142700195
+  },
+  "gradient_cosines": {
+    "full_vs_circuit": 0.00012905304902233183,
+    "full_vs_bypass_uniform": -0.06076515465974808,
+    "circuit_vs_bypass_uniform": 0.0
+  },
+  "programmed_layers": {
+    "7": {
+      "program_heads": [
+        11
+      ],
+      "neural_heads": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "query_key_parameters_for_program_heads": 0
+    },
+    "9": {
+      "program_heads": [
+        0
+      ],
+      "neural_heads": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "query_key_parameters_for_program_heads": 0
+    }
+  },
+  "program_objects_have_parameters": false,
+  "targets": {
+    "values": [
+      0,
+      1
+    ],
+    "candidate_count": 2,
+    "valid_candidate_indices": true
+  },
+  "finite": true
+}

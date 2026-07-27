@@ -532,10 +532,12 @@ def verify_edge_necessity(
         Verification result dict
     """
     circuit_edges = parse_circuit_edges(circuit)
-    edges = sorted(circuit_edges)
+    # Amendment-registered canonical order: child first, then parent.
+    edges = sorted(circuit_edges, key=lambda edge: (edge[1], edge[0]))
 
     unnecessary_edges = []
     necessary_edges = []
+    necessary_edge_witnesses = []
     unresolved_edges = []
     timeout_count = 0
     error_count = 0
@@ -635,6 +637,57 @@ def verify_edge_necessity(
                     # Decisions differ - edge is necessary
                     found_witness = True
                     necessary_edges.append(edge)
+                    witness_model = solver.model()
+
+                    def exact_float(expression):
+                        value = witness_model.eval(
+                            expression, model_completion=True
+                        )
+                        return float(value.numerator_as_long()) / float(
+                            value.denominator_as_long()
+                        )
+
+                    full_values = {
+                        str(token): exact_float(logits_full[token])
+                        for token in candidate_tokens
+                    }
+                    ablated_values = {
+                        str(token): exact_float(logits_ablated[token])
+                        for token in candidate_tokens
+                    }
+                    full_decision = max(
+                        candidate_tokens, key=lambda token: full_values[str(token)]
+                    )
+                    ablated_decision = max(
+                        candidate_tokens,
+                        key=lambda token: ablated_values[str(token)],
+                    )
+                    other_full = next(
+                        token for token in candidate_tokens if token != full_decision
+                    )
+                    other_ablated = next(
+                        token
+                        for token in candidate_tokens
+                        if token != ablated_decision
+                    )
+                    necessary_edge_witnesses.append(
+                        {
+                            "edge": [edge_from, edge_to],
+                            "input": input_tokens,
+                            "full_candidate_logits": full_values,
+                            "ablated_candidate_logits": ablated_values,
+                            "full_decision": full_decision,
+                            "ablated_decision": ablated_decision,
+                            "full_margin": (
+                                full_values[str(full_decision)]
+                                - full_values[str(other_full)]
+                            ),
+                            "ablated_margin": (
+                                ablated_values[str(ablated_decision)]
+                                - ablated_values[str(other_ablated)]
+                            ),
+                        }
+                    )
                     break
                 elif result == unsat:
                     # Outputs same on this input - try next input
@@ -675,6 +728,8 @@ def verify_edge_necessity(
         "status": status,
         "total_edges": len(edges),
         "necessary_edges": len(necessary_edges),
+        "necessary_edge_list": [list(edge) for edge in necessary_edges],
+        "necessary_edge_witnesses": necessary_edge_witnesses,
         "unnecessary_edges_found": len(unnecessary_edges),
         "unresolved_edges_found": len(unresolved_edges),
         "timeout_count": timeout_count,

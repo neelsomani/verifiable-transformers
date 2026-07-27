@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "protocol_id": "gpt2_phase_q_readside_calibration_v1",
+  "rung": 1,
+  "dtype": "float32",
+  "read_edges": [
+    {
+      "source": "attn_7_h_11",
+      "target": "logits",
+      "float32_decimal": "1.923632025718689",
+      "exact_rational": "16136595/8388608"
+    },
+    {
+      "source": "attn_9_h_0",
+      "target": "logits",
+      "float32_decimal": "1.8428443670272827",
+      "exact_rational": "15458899/8388608"
+    }
+  ],
+  "programs_frozen": true,
+  "original_gpt2_parameters_frozen": true,
+  "source_model_weights_sha256": "f6af2e9061f583a6d2bc7aa4c823c8058c0e2e9ed740cbba32a1347fad7ac815",
+  "programs_sha256": "40afc75464e92c82d2a1f3c1c8ae44583f7892633539a3c09fe3fe4f3e6579f1"
+}

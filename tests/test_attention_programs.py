@@ -1,4 +1,5 @@
 from fractions import Fraction
+import copy
 import json
 import sys
 
@@ -14,6 +15,7 @@ from scripts.programs import (
     ProgrammedAttention,
     Rule,
     SynthesisHarness,
+    hard_prune_attention_heads,
     install_program_heads,
 )
 from scripts.smt.program_head import encode_program_attention_head
@@ -311,6 +313,55 @@ def test_install_program_heads_extends_an_existing_programmed_layer():
         logits = model(torch.tensor([[1, 2, 3, 4]])).logits
     assert logits.shape == (1, 4, 17)
     assert torch.isfinite(logits).all()
+
+
+def test_hard_pruned_program_head_is_zero_in_native_and_controlled_forwards():
+    from scripts.circuits import CircuitGraph, controlled_forward
+
+    torch.manual_seed(29)
+    config = GPT2Config(
+        vocab_size=17,
+        n_positions=6,
+        n_embd=8,
+        n_layer=1,
+        n_head=2,
+        n_inner=16,
+        resid_pdrop=0.0,
+        embd_pdrop=0.0,
+        attn_pdrop=0.0,
+        use_cache=False,
+    )
+    model = GPT2LMHeadModel(config).eval()
+    programs = {
+        (0, 0): fixed_position_program(1),
+        (0, 1): fixed_position_program(2),
+    }
+    install_program_heads(model, programs)
+    weight_zero_reference = copy.deepcopy(model)
+    with torch.no_grad():
+        weight_zero_reference.transformer.h[0].attn.c_proj.weight[4:8].zero_()
+
+    hard_prune_attention_heads(model, {(0, 1)})
+    attention = model.transformer.h[0].attn
+    assert attention.hard_pruned_heads == {1}
+    assert 1 in attention.programs
+    assert 1 not in attention.neural_heads
+
+    input_ids = torch.tensor([[1, 2, 3, 4]])
+    mask = torch.ones_like(input_ids)
+    graph = CircuitGraph(n_layers=1, n_heads=2, per_head=True)
+    with torch.no_grad():
+        expected = weight_zero_reference(input_ids, attention_mask=mask).logits
+        native = model(input_ids, attention_mask=mask).logits
+        controlled = controlled_forward(
+            model,
+            input_ids,
+            graph.all_edges,
+            graph,
+            attention_mask=mask,
+        )
+    torch.testing.assert_close(native, expected, atol=1e-6, rtol=1e-6)
+    torch.testing.assert_close(controlled, native, atol=1e-6, rtol=1e-6)
 
 
 def test_smt_program_head_matches_pytorch():

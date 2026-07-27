@@ -1,0 +1,141 @@
+{
+  "model_path": "/workspace/verifiable-transformers/artifacts/gpt2-norm-free",
+  "circuit_root": "/workspace/verifiable-transformers/artifacts/gpt2-circuits-bounded-quote/base-selected",
+  "num_examples": {
+    "quote_close": 1280
+  },
+  "domain_manifest": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+  "domain": {
+    "quote_close": {
+      "protocol_id": "gpt2_behavior_domain_bounded_v1",
+      "split": "bounded",
+      "manifest_path": "/workspace/verifiable-transformers/artifacts/gpt2-behavior-domain-bounded-v1/domain.json",
+      "manifest_sha256": "4b017206e3182ddf52356808ad073c2b1ffbaf225f577c802b93141c739a91ff",
+      "rows": 1280,
+      "unique_prompts": 1280,
+      "prompt_set_sha256": "3d590ce66edc1e83e054735523674c1d7c77af4297fd230b2a17d3209917bd48",
+      "strata": {
+        "double": 640,
+        "single": 640
+      },
+      "opener_token_positions": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "reference_target": "explicit_reference_program_P(x)",
+  "base_accuracy_against_reference": {
+    "quote_close": 1.0
+  },
+  "acceptance_metric": "minimum_full_and_circuit_accuracy_against_P",
+  "healable_agreement": 0.98,
+  "circuit_referee": true,
+  "preferred_scoped_scan_heads": [
+    "7.11"
+  ],
+  "projected_candidates": 512,
+  "max_token_values": 64,
+  "max_conjunction_values": 16,
+  "lm_proposer": null,
+  "lm_proposer_rounds": 2,
+  "programs": {
+    "7.11": {
+      "dsl_version": 1,
+      "name": "scan_manifest_quote_opener",
+      "default_weight": "0",
+      "rules": [
+        {
+          "weight": "1",
+          "conditions": [
+            {
+              "feature": "key_token",
+              "operator": "in",
+              "value": [
+                366,
+                705,
+                7203,
+                10786
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "9.0": {
+      "dsl_version": 1,
+      "name": "uniform_causal",
+      "default_weight": "1",
+      "rules": []
+    }
+  },
+  "replacement_fraction": 0.013888888888888888,
+  "success": true,
+  "resistant_heads": [],
+  "conflicting_heads": [],
+  "tasks": {
+    "quote_close": {
+      "7.11": {
+        "accepted": true,
+        "acceptance_reason": "exact projected agreement",
+        "candidates_evaluated": 402,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.6032214760780334,
+        "mean_absolute_error": 0.11636295169591904,
+        "exact_attention_agreement": false,
+        "projected_agreement": 1.0,
+        "program": {
+          "dsl_version": 1,
+          "name": "scan_manifest_quote_opener",
+          "default_weight": "0",
+          "rules": [
+            {
+              "weight": "1",
+              "conditions": [
+                {
+                  "feature": "key_token",
+                  "operator": "in",
+                  "value": [
+                    366,
+                    705,
+                    7203,
+                    10786
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "target_zero_fraction": 0.7547095417976379
+      },
+      "9.0": {
+        "accepted": true,
+        "acceptance_reason": "within predeclared healing threshold",
+        "candidates_evaluated": 402,
+        "projected_candidates_evaluated": 1,
+        "support_iou": 0.7979906797409058,
+        "mean_absolute_error": 0.08398810029029846,
+        "exact_attention_agreement": false,
+        "projected_agreement": 0.999218761920929,
+        "program": {
+          "dsl_version": 1,
+          "name": "uniform_causal",
+          "default_weight": "1",
+          "rules": []
+        },
+        "target_zero_fraction": 0.7171646952629089
+      }
+    }
+  }
+}
