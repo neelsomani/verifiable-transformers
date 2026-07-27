@@ -26,14 +26,19 @@ from scripts.gpt2.audit_preheal_necessity import (
 from scripts.gpt2.behavior_domains import reference_program_targets
 from scripts.gpt2.extract import (
     build_circuit_graph,
+    cleanup_graph,
+    compute_projected_agreement,
+    find_circuit,
     controlled_forward,
     get_candidate_token_ids,
     load_behavior_examples,
     load_model_with_variants,
+    projected_trim_circuit,
     select_last_real_logits,
 )
 from scripts.gpt2.readside_calibration import (
     canonical_hash,
+    compare_paired_rows,
     configure_determinism,
     tensor_parameter_hashes,
 )
@@ -48,6 +53,7 @@ PROGRAM_711 = (7, 11)
 PROGRAM_90 = (9, 0)
 PROGRAM_NODES = ("attn_7_h_11", "attn_9_h_0")
 OWT_BUDGET = 28.617593822841776
+EXTRACTION_THRESHOLDS = (0.005, 0.01, 0.02, 0.05, 0.1, 0.2)
 
 
 def _load_programmed_source(root: Path, registration: dict, device: str):
@@ -349,11 +355,391 @@ def run_lean_selection(args) -> None:
     print(json.dumps(report, indent=2))
 
 
+def _projected_summary(logits, reference, values):
+    last = select_last_real_logits(logits, values["attention_mask"])[
+        :, values["candidate_token_ids"]
+    ].float()
+    targets = values["targets"].to(last.device)
+    decisions = last.argmax(-1)
+    indices = torch.arange(len(decisions), device=last.device)
+    margins = last[indices, targets] - last[indices, 1 - targets]
+    return {
+        "rows": len(decisions),
+        "correct": int((decisions == targets).sum()),
+        "projected_agreement": compute_projected_agreement(
+            reference,
+            logits,
+            values["attention_mask"],
+            values["candidate_token_ids"],
+        ),
+        "minimum_signed_correct_margin": float(margins.min()),
+        "mean_signed_correct_margin": float(margins.mean()),
+        "decisions_sha256": canonical_hash(decisions.cpu().tolist()),
+        "margins_sha256": canonical_hash(margins.cpu().tolist()),
+    }
+
+
+def run_reextract(args) -> None:
+    root = Path(__file__).resolve().parents[2]
+    registration = json.loads(Path(args.registration).read_text())
+    configure_determinism(registration["execution_policy"]["seed"])
+    frozen = registration["frozen_inputs"]
+    tokenizer = GPT2Tokenizer.from_pretrained(root / frozen["source_model"])
+    tokenizer.pad_token = tokenizer.eos_token
+    values = _domain_values(root, registration, tokenizer, args.device)
+    model, programs, _rung3, _copied = load_rung3_candidate(
+        root, registration, args.device, lean=False
+    )
+    graph = build_circuit_graph(model.config.n_layer, model.config.n_head)
+    prompts = [example.prompt for example in values["examples"]]
+    encoded = tokenizer(prompts, return_tensors="pt", padding=True)
+    input_ids = encoded["input_ids"].to(args.device)
+    attention_mask = encoded["attention_mask"].to(args.device)
+    with torch.no_grad():
+        reference = controlled_forward(
+            model, input_ids, attention_mask, set(graph.all_edges), graph
+        )
+
+    output_dir = Path(args.output_dir) / "reextraction"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    attempts = []
+    for threshold in EXTRACTION_THRESHOLDS:
+        print(f"REEXTRACTION threshold={threshold}", flush=True)
+        edges, edge_log = find_circuit(
+            model=model,
+            tokenizer=tokenizer,
+            examples=values["examples"],
+            graph=graph,
+            threshold=threshold,
+            metric="candidate_kl",
+            task="quote_close",
+            min_agreement=1.0,
+            ablation_mode="zero",
+            ablation_cache=None,
+            device=args.device,
+            initial_edges=set(graph.all_edges),
+            verbose=False,
+        )
+        edges = cleanup_graph(edges, graph)
+        edges, trim_log = projected_trim_circuit(
+            model,
+            graph,
+            edges,
+            input_ids,
+            attention_mask,
+            reference,
+            values["candidate_token_ids"],
+            1.0,
+        )
+        edge_log.extend(trim_log)
+        with torch.no_grad():
+            logits = controlled_forward(
+                model, input_ids, attention_mask, edges, graph
+            )
+        summary = _projected_summary(logits, reference, values)
+        retained_program_heads = sorted(
+            node
+            for node in PROGRAM_NODES
+            if any(node == parent for parent, _child in edges)
+        )
+        compact = {
+            "threshold": threshold,
+            "metric": "candidate_kl",
+            "min_agreement": 1.0,
+            "ablation": "zero",
+            "num_edges": len(edges),
+            "edges": sorted(map(list, edges)),
+            "retained_program_heads": retained_program_heads,
+            "summary": summary,
+            "edge_log_sha256": canonical_hash(edge_log),
+            "edge_log_entries": len(edge_log),
+        }
+        attempt_path = output_dir / f"threshold_{threshold:g}.json"
+        attempt_path.write_text(json.dumps(compact, indent=2) + "\n")
+        attempts.append(compact)
+        print(
+            json.dumps(
+                {
+                    "threshold": threshold,
+                    "edges": len(edges),
+                    "correct": summary["correct"],
+                    "agreement": summary["projected_agreement"],
+                    "retained_program_heads": retained_program_heads,
+                }
+            ),
+            flush=True,
+        )
+
+    eligible = [
+        attempt
+        for attempt in attempts
+        if attempt["summary"]["correct"] == 1280
+        and attempt["summary"]["projected_agreement"] == 1.0
+    ]
+    if not eligible:
+        raise RuntimeError("No re-extraction candidate achieved exact agreement")
+    selected = min(
+        eligible, key=lambda value: (value["num_edges"], value["threshold"])
+    )
+    report = {
+        "schema_version": 1,
+        "fixed_flagship": "two_program_rung3",
+        "domain": values["provenance"],
+        "thresholds": list(EXTRACTION_THRESHOLDS),
+        "selection_rule": (
+            "exact 1280/1280 and projected agreement 1.0; minimum edge count; "
+            "lower-threshold tie-break"
+        ),
+        "attempts": [
+            {
+                key: value
+                for key, value in attempt.items()
+                if key not in {"edges"}
+            }
+            for attempt in attempts
+        ],
+        "selected": selected,
+        "programs_installed": [
+            f"{layer}.{head}" for layer, head in sorted(programs)
+        ],
+        "forbidden_heads": [],
+        "training_or_tuning_steps": 0,
+    }
+    (output_dir / "selection.json").write_text(
+        json.dumps(report, indent=2) + "\n"
+    )
+    print(json.dumps({"selected": selected}, indent=2))
+
+
+def run_causal_replay(args) -> None:
+    root = Path(__file__).resolve().parents[2]
+    registration = json.loads(Path(args.registration).read_text())
+    configure_determinism(registration["execution_policy"]["seed"])
+    frozen = registration["frozen_inputs"]
+    tokenizer = GPT2Tokenizer.from_pretrained(root / frozen["source_model"])
+    tokenizer.pad_token = tokenizer.eos_token
+    values = _domain_values(root, registration, tokenizer, args.device)
+    model, programs, _rung3, copied = load_rung3_candidate(
+        root, registration, args.device, lean=False
+    )
+    graph = build_circuit_graph(model.config.n_layer, model.config.n_head)
+    full = set(graph.all_edges)
+    selected_payload = json.loads(
+        (
+            Path(args.output_dir) / "reextraction/selection.json"
+        ).read_text()
+    )["selected"]
+    selected = {tuple(edge) for edge in selected_payload["edges"]}
+    internal = internal_circuit_nodes(selected)
+    registered_selected = load_selected_edges(root / frozen["circuit"])
+    registered_internal = internal_circuit_nodes(registered_selected)
+    edge_sets = {
+        "controlled_full": full,
+        "circuit_only": selected,
+        "full_zero_attn_7_h_11": {
+            edge for edge in full if edge[0] != "attn_7_h_11"
+        },
+        "core_zero_attn_7_h_11": {
+            edge for edge in selected if edge[0] != "attn_7_h_11"
+        },
+        "full_zero_attn_9_h_0": {
+            edge for edge in full if edge[0] != "attn_9_h_0"
+        },
+        "core_zero_attn_9_h_0": {
+            edge for edge in selected if edge[0] != "attn_9_h_0"
+        },
+        "zero_both_program_heads": {
+            edge for edge in full if edge[0] not in PROGRAM_NODES
+        },
+        "core_zero_joint": {
+            edge for edge in selected if edge[0] not in PROGRAM_NODES
+        },
+        "whole_selected_circuit_node_zero": {
+            edge for edge in full if edge[0] not in internal
+        },
+        "registered_whole_selected_circuit_node_zero": {
+            edge for edge in full if edge[0] not in registered_internal
+        },
+        "whole_selected_circuit_edge_zero": full - selected,
+    }
+    batch_size = registration["execution_policy"]["batch_size_for_identity"]
+    raw = {
+        "native_full_forward": None,
+        **{name: None for name in edge_sets},
+    }
+    summaries = {}
+    native_rows = []
+    # Keep raw rows only long enough to perform registered bitwise comparisons.
+    def rows_for(edges=None):
+        rows = []
+        with torch.no_grad():
+            for start in range(0, len(values["examples"]), batch_size):
+                stop = start + batch_size
+                ids = values["input_ids"][start:stop]
+                mask = values["attention_mask"][start:stop]
+                logits = (
+                    model(input_ids=ids, attention_mask=mask, use_cache=False).logits
+                    if edges is None
+                    else controlled_forward(model, ids, mask, edges, graph)
+                )
+                projected = select_last_real_logits(logits, mask)[
+                    :, values["candidate_token_ids"]
+                ].float()
+                targets = values["targets"][start:stop].to(projected.device)
+                decisions = projected.argmax(-1)
+                index = torch.arange(len(decisions), device=projected.device)
+                margins = projected[index, targets] - projected[index, 1 - targets]
+                for offset in range(len(decisions)):
+                    rows.append(
+                        {
+                            "example_id": values["examples"][
+                                start + offset
+                            ].example_id,
+                            "target": int(targets[offset]),
+                            "decision": int(decisions[offset]),
+                            "candidate_logits": [
+                                float(value) for value in projected[offset].cpu()
+                            ],
+                            "candidate_margin": float(margins[offset]),
+                        }
+                    )
+        return rows
+
+    native_rows = rows_for()
+    raw["native_full_forward"] = native_rows
+    for name, edges in edge_sets.items():
+        raw[name] = rows_for(edges)
+    for name, rows in raw.items():
+        correct = sum(row["decision"] == row["target"] for row in rows)
+        mismatches = [
+            row["example_id"] for row in rows if row["decision"] != row["target"]
+        ]
+        summaries[name] = {
+            "rows": len(rows),
+            "correct": correct,
+            "mismatch_ids": mismatches,
+            "decisions_sha256": canonical_hash(
+                [row["decision"] for row in rows]
+            ),
+            "candidate_logits_sha256": canonical_hash(
+                [row["candidate_logits"] for row in rows]
+            ),
+            "candidate_margins_sha256": canonical_hash(
+                [row["candidate_margin"] for row in rows]
+            ),
+            "minimum_margin": min(row["candidate_margin"] for row in rows),
+            "mean_margin": (
+                sum(row["candidate_margin"] for row in rows) / len(rows)
+            ),
+        }
+
+    paired = json.loads(
+        (
+            Path(args.output_dir) / "paired_baseline.json"
+        ).read_text()
+    )["numerical_identity_reference"]
+    epsilon = registration["execution_policy"]["identity_epsilon_max_abs"]
+    identity = {
+        "zero_both_program_heads": compare_paired_rows(
+            raw["zero_both_program_heads"],
+            paired["zero_both_program_heads"],
+            epsilon,
+        ),
+        "whole_selected_circuit_node_zero": compare_paired_rows(
+            raw["registered_whole_selected_circuit_node_zero"],
+            paired["whole_selected_circuit_node_zero"],
+            epsilon,
+        ),
+    }
+    baseline_hashes = json.loads(
+        (Path(args.output_dir) / "paired_baseline.json").read_text()
+    )["parameter_hashes"]
+    hashes = tensor_parameter_hashes(model)
+    changed = sorted(
+        name
+        for name, digest in hashes.items()
+        if baseline_hashes.get(name) != digest
+    )
+    permitted = sorted(set(copied))
+    integrity = {
+        "changed_tensor_names": changed,
+        "permitted_tensor_names": permitted,
+        "unexpected_changed_tensor_names": sorted(set(changed) - set(permitted)),
+        "pass": set(changed) <= set(permitted),
+        "state_dict_hashes_sha256": canonical_hash(hashes),
+    }
+    owt_registered = json.loads(
+        (Path(args.output_dir) / "rung3_program_local.json").read_text()
+    )["history"][-1]["owt"]
+    gates = {
+        "full_exact": summaries["native_full_forward"]["correct"] == 1280,
+        "controlled_full_exact": summaries["controlled_full"]["correct"] == 1280,
+        "circuit_only_exact": summaries["circuit_only"]["correct"] == 1280,
+        "joint_program_set_necessary": (
+            summaries["zero_both_program_heads"]["correct"] < 1280
+        ),
+        "whole_selected_circuit_necessary": (
+            summaries["whole_selected_circuit_node_zero"]["correct"] < 1280
+        ),
+        "registered_whole_circuit_necessary": (
+            summaries["registered_whole_selected_circuit_node_zero"]["correct"]
+            < 1280
+        ),
+        "leakage_identity": all(value["pass"] for value in identity.values()),
+        "parameter_integrity": integrity["pass"],
+        "owt_within_budget": (
+            owt_registered["eval_perplexity"] <= OWT_BUDGET
+        ),
+    }
+    report = {
+        "schema_version": 1,
+        "criterion": "constrained_calibration_set_level",
+        "fixed_flagship": "two_program_rung3",
+        "domain": values["provenance"],
+        "selected_circuit": {
+            "num_edges": len(selected),
+            "edges": sorted(map(list, selected)),
+            "internal_nodes": internal,
+            "retained_program_heads": selected_payload[
+                "retained_program_heads"
+            ],
+        },
+        "paths": summaries,
+        "identity_against_paired_baseline": identity,
+        "parameter_integrity": integrity,
+        "owt": {
+            **owt_registered,
+            "reuse_basis": (
+                "The chosen fixed checkpoint is byte-identical to the rung-3 "
+                "checkpoint evaluated before this amendment; extraction and "
+                "lesions do not mutate parameters."
+            ),
+        },
+        "owt_budget": OWT_BUDGET,
+        "mechanism_interpretation": {
+            "attn_7_h_11": "circuit-internally load-bearing",
+            "attn_9_h_0": "auxiliary/redundant and absent from selected core",
+        },
+        "gates": gates,
+        "pass_before_smt_edge_necessity": all(gates.values()),
+        "pending_gate": "SMT circuit-internal edge necessity",
+        "training_or_tuning_steps": 0,
+        "programs_installed": [
+            f"{layer}.{head}" for layer, head in sorted(programs)
+        ],
+    }
+    output = Path(args.output_dir) / "amended_causal_replay.json"
+    output.write_text(json.dumps(report, indent=2) + "\n")
+    print(json.dumps(report, indent=2))
+    if not report["pass_before_smt_edge_necessity"]:
+        raise SystemExit(2)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=("lean-selection",),
+        choices=("lean-selection", "reextract", "causal-replay"),
     )
     parser.add_argument("--registration", required=True)
     parser.add_argument("--output_dir", required=True)
@@ -369,3 +755,7 @@ if __name__ == "__main__":
     parsed = parse_args()
     if parsed.command == "lean-selection":
         run_lean_selection(parsed)
+    elif parsed.command == "reextract":
+        run_reextract(parsed)
+    elif parsed.command == "causal-replay":
+        run_causal_replay(parsed)
