@@ -473,6 +473,7 @@ def controlled_forward(
     ablation_mode: str = "zero",
     return_node_outputs: bool = False,
     return_final_resid: bool = False,
+    readside_calibration=None,
 ):
     if ablation_mode != "zero":
         raise ValueError("Per-head extraction currently supports zero ablation only")
@@ -486,6 +487,7 @@ def controlled_forward(
         graph=graph,
         return_node_outputs=return_node_outputs,
         return_final_resid=return_final_resid,
+        readside_calibration=readside_calibration,
     )
 
 
