@@ -252,11 +252,13 @@ def owt_objective_batch(model, row, calibration, device):
             model, ids, mask
         )
     delta = calibration - 1.0
-    if delta.ndim != 1:
-        raise ValueError("Scalar OWT objective requires two scalar gains")
-    residual_delta = (
-        contributions.detach() * delta.reshape(1, 2, 1, 1)
-    ).sum(dim=1)
+    if delta.ndim == 1:
+        scaled = contributions.detach() * delta.reshape(1, 2, 1, 1)
+    elif delta.ndim == 2:
+        scaled = contributions.detach() * delta.reshape(1, 2, 1, -1)
+    else:
+        raise ValueError("Read-side calibration must be scalar or diagonal")
+    residual_delta = scaled.sum(dim=1)
     logits = base_logits.detach() + F.linear(
         residual_delta, model.lm_head.weight
     )
@@ -279,10 +281,12 @@ def evaluate_owt_scalar(model, dataset, calibration, device, batch_size=8):
             base_logits, contributions = native_forward_with_contributions(
                 model, ids, mask
             )
-            residual_delta = (
-                contributions
-                * (calibration - 1.0).reshape(1, 2, 1, 1)
-            ).sum(dim=1)
+            delta = calibration - 1.0
+            if delta.ndim == 1:
+                scaled = contributions * delta.reshape(1, 2, 1, 1)
+            else:
+                scaled = contributions * delta.reshape(1, 2, 1, -1)
+            residual_delta = scaled.sum(dim=1)
             logits = base_logits + F.linear(residual_delta, model.lm_head.weight)
             shifted_labels = labels[:, 1:]
             loss = F.cross_entropy(
@@ -387,6 +391,108 @@ def run_scalar_rung(
         json.dumps(report, indent=2) + "\n"
     )
     return report, passing_candidate, cache
+
+
+def run_diagonal_rung(
+    model,
+    values,
+    graph,
+    selected_edges,
+    registration,
+    output_dir,
+    processed_dataset_dir,
+    device,
+    scalar_gains,
+):
+    rung = registration["ladder"][1]
+    cache = cache_task_features(
+        model,
+        values,
+        graph,
+        selected_edges,
+        registration["execution_policy"]["batch_size_for_identity"],
+    )
+    targets = values["targets"].to(device)
+    owt_train = load_from_disk(processed_dataset_dir)["validation"]
+    diagonal = torch.nn.Parameter(
+        scalar_gains.to(device).reshape(2, 1).expand(2, model.config.n_embd).clone()
+    )
+    optimizer = torch.optim.AdamW(
+        [diagonal],
+        lr=rung["learning_rate"],
+        weight_decay=rung["weight_decay"],
+    )
+    history = []
+    passing_candidate = None
+    batch_size = rung["batch_size"]
+    for step in range(1, rung["max_steps"] + 1):
+        optimizer.zero_grad(set_to_none=True)
+        start = ((step - 1) * batch_size) % len(targets)
+        indices = torch.arange(start, start + batch_size, device=device) % len(targets)
+        delta = diagonal - 1.0
+        losses = []
+        for cached in cache.values():
+            base = cached["base"].to(device)[indices]
+            features = cached["features"].to(device)[indices]
+            logits = base + (features * delta[None, :, :, None]).sum(dim=(1, 2))
+            losses.append(F.cross_entropy(logits, targets[indices]))
+        task_loss = sum(losses)
+        owt_loss = owt_objective_batch(
+            model, owt_train[(step - 1) % len(owt_train)], diagonal, device
+        )
+        loss = task_loss + registration["objective"]["owt_preservation_weight"] * owt_loss
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_([diagonal], rung["gradient_clip_norm"])
+        optimizer.step()
+        if step % rung["gate_interval_steps"] != 0:
+            continue
+        counts, _ = exact_task_gate(cache, diagonal, values["targets"])
+        record = {
+            "step": step,
+            "objective": float(loss.detach().cpu()),
+            "task_loss": float(task_loss.detach().cpu()),
+            "owt_preservation_loss": float(owt_loss.detach().cpu()),
+            "native_full_correct": counts["native_full"],
+            "circuit_only_correct": counts["circuit_only"],
+            "task_pass": all(value == len(targets) for value in counts.values()),
+            "identity_pass": True,
+            "diagonal_sha256": hashlib.sha256(
+                diagonal.detach().cpu().contiguous().numpy().tobytes()
+            ).hexdigest(),
+        }
+        history.append(record)
+        print(json.dumps({"diagonal_gate": record}), flush=True)
+        if record["task_pass"]:
+            owt = evaluate_owt_scalar(model, owt_train, diagonal.detach(), device)
+            record["owt"] = owt
+            record["owt_pass"] = (
+                owt["eval_perplexity"]
+                <= registration["locked_gates"]["owt_perplexity_max"]
+            )
+            if record["owt_pass"]:
+                passing_candidate = diagonal.detach().cpu()
+                break
+    torch.save(
+        {"diagonal": diagonal.detach().cpu()},
+        output_dir / "rung2_diagonal_state.pt",
+    )
+    report = {
+        "schema_version": 1,
+        "rung": 2,
+        "name": rung["name"],
+        "steps_run": step,
+        "objective_evaluations": step,
+        "history": history,
+        "terminal_diagonal_sha256": hashlib.sha256(
+            diagonal.detach().cpu().contiguous().numpy().tobytes()
+        ).hexdigest(),
+        "pass": passing_candidate is not None,
+        "checkpoint_state_not_for_git": "rung2_diagonal_state.pt",
+    }
+    (output_dir / "rung2_diagonal.json").write_text(
+        json.dumps(report, indent=2) + "\n"
+    )
+    return report, passing_candidate
 
 
 def compare_semantics_to_audit(rows, audit_rows):
@@ -576,7 +682,33 @@ def main():
         raise SystemExit("STOP: paired deterministic FP32 baseline failed")
     if args.preflight_only:
         return
-    scalar_report, scalar_candidate, _ = run_scalar_rung(
+    scalar_path = output_dir / "rung1_scalar.json"
+    if scalar_path.exists():
+        scalar_report = json.loads(scalar_path.read_text())
+        scalar_candidate = torch.tensor(
+            scalar_report["terminal_gains"], dtype=torch.float32
+        )
+    else:
+        scalar_report, scalar_candidate, _ = run_scalar_rung(
+            model,
+            values,
+            graph,
+            selected_edges,
+            registration,
+            output_dir,
+            str(root / args.processed_dataset_dir),
+            args.device,
+        )
+    scalar_migration_path = output_dir / "rung1_migration_sweep.json"
+    scalar_migration_pass = (
+        scalar_migration_path.exists()
+        and json.loads(scalar_migration_path.read_text()).get("migration_pass")
+        is True
+    )
+    if scalar_candidate is not None and scalar_migration_pass:
+        print(json.dumps({"rung1": "pass", "gains": scalar_candidate.tolist()}))
+        return
+    diagonal_report, diagonal_candidate = run_diagonal_rung(
         model,
         values,
         graph,
@@ -585,13 +717,21 @@ def main():
         output_dir,
         str(root / args.processed_dataset_dir),
         args.device,
+        scalar_candidate,
     )
-    if scalar_candidate is not None:
-        print(json.dumps({"rung1": "pass", "gains": scalar_candidate.tolist()}))
+    if diagonal_candidate is not None:
+        print(
+            json.dumps(
+                {
+                    "rung2": "task_identity_owt_pass",
+                    "diagonal_sha256": diagonal_report[
+                        "terminal_diagonal_sha256"
+                    ],
+                }
+            )
+        )
         return
-    raise NotImplementedError(
-        "Rung 1 failed; diagonal and program-local registered fallbacks are pending"
-    )
+    raise NotImplementedError("Rung 2 failed; program-local fallback is pending")
 
 
 if __name__ == "__main__":

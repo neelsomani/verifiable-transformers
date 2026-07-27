@@ -61,13 +61,19 @@ def _residual_for(
     for layer, selected in selected_by_layer.items():
         W_o = model_weights[f"attn_{layer}_W_o"]
         b_o = model_weights[f"attn_{layer}_b_o"]
+        calibrations = model_weights.get("readside_calibration", {})
         for position in range(seq_len):
             concatenated: List[ArithRef] = []
             for head in range(n_heads):
+                if head not in selected:
+                    concatenated.extend([RealVal(0)] * head_dim)
+                    continue
+                gain = calibrations.get(
+                    f"attn_{layer}_h_{head}->{child}", 1.0
+                )
                 concatenated.extend(
-                    selected[head][position]
-                    if head in selected
-                    else [RealVal(0)] * head_dim
+                    z3_real(gain) * value
+                    for value in selected[head][position]
                 )
             for output_coord in range(d_model):
                 residual[position][output_coord] += Sum(
